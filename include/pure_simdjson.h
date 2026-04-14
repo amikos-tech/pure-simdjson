@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#define PURE_SIMDJSON_ABI_VERSION 0x00010000
 
 /**
  * Public error codes for the stable Phase 1 ABI.
@@ -97,8 +98,9 @@ typedef struct pure_simdjson_value_view_t {
 /**
  * Stateful array iterator tied to a live document handle.
  *
- * `state0`, `state1`, and `tag` are implementation-owned. `reserved` stays pinned for future
- * contract growth and callers must leave it untouched.
+ * `state0`, `state1`, and `tag` are implementation-owned. `index` stays `u32` because the
+ * Phase 1 contract only admits documents below the 4 GiB simdjson ceiling. `reserved` stays
+ * pinned for future contract growth and callers must leave it untouched.
  */
 typedef struct pure_simdjson_array_iter_t {
   pure_simdjson_doc_t doc;
@@ -112,8 +114,9 @@ typedef struct pure_simdjson_array_iter_t {
 /**
  * Stateful object iterator tied to a live document handle.
  *
- * `state0`, `state1`, and `tag` are implementation-owned. `reserved` stays pinned for future
- * contract growth and callers must leave it untouched.
+ * `state0`, `state1`, and `tag` are implementation-owned. `index` stays `u32` because the
+ * Phase 1 contract only admits documents below the 4 GiB simdjson ceiling. `reserved` stays
+ * pinned for future contract growth and callers must leave it untouched.
  */
 typedef struct pure_simdjson_object_iter_t {
   pure_simdjson_doc_t doc;
@@ -142,7 +145,7 @@ extern "C" {
  * # Safety
  * `out_version` must be a valid writable pointer to a `u32`.
  */
-int32_t pure_simdjson_get_abi_version(uint32_t *out_version);
+pure_simdjson_error_code_t pure_simdjson_get_abi_version(uint32_t *out_version);
 
 /**
  * Report the byte length of the active implementation name.
@@ -150,7 +153,7 @@ int32_t pure_simdjson_get_abi_version(uint32_t *out_version);
  * # Safety
  * `out_len` must be a valid writable pointer to a `usize`.
  */
-int32_t pure_simdjson_get_implementation_name_len(size_t *out_len);
+pure_simdjson_error_code_t pure_simdjson_get_implementation_name_len(size_t *out_len);
 
 /**
  * Copy the active implementation name into caller-owned storage.
@@ -163,7 +166,9 @@ int32_t pure_simdjson_get_implementation_name_len(size_t *out_len);
  * to copy the implementation name, `dst` must point to writable storage for at least `dst_cap`
  * bytes.
  */
-int32_t pure_simdjson_copy_implementation_name(uint8_t *dst, size_t dst_cap, size_t *out_written);
+pure_simdjson_error_code_t pure_simdjson_copy_implementation_name(uint8_t *dst,
+                                                                  size_t dst_cap,
+                                                                  size_t *out_written);
 
 /**
  * Allocate a parser handle.
@@ -174,7 +179,7 @@ int32_t pure_simdjson_copy_implementation_name(uint8_t *dst, size_t dst_cap, siz
  * # Safety
  * `out_parser` must be a valid writable pointer to a `pure_simdjson_parser_t`.
  */
-int32_t pure_simdjson_parser_new(pure_simdjson_parser_t *out_parser);
+pure_simdjson_error_code_t pure_simdjson_parser_new(pure_simdjson_parser_t *out_parser);
 
 /**
  * Release a parser handle after all associated documents have been freed.
@@ -186,7 +191,7 @@ int32_t pure_simdjson_parser_new(pure_simdjson_parser_t *out_parser);
  * `parser` must be a parser handle previously returned by this library. The sentinel `0` and
  * forged values are invalid.
  */
-int32_t pure_simdjson_parser_free(pure_simdjson_parser_t parser);
+pure_simdjson_error_code_t pure_simdjson_parser_free(pure_simdjson_parser_t parser);
 
 /**
  * Parse one JSON buffer into a new document handle.
@@ -207,10 +212,10 @@ int32_t pure_simdjson_parser_free(pure_simdjson_parser_t parser);
  * `input_ptr` must be readable for `input_len` bytes. `out_doc` must be a valid writable pointer
  * to a `pure_simdjson_doc_t`.
  */
-int32_t pure_simdjson_parser_parse(pure_simdjson_parser_t parser,
-                                   const uint8_t *input_ptr,
-                                   size_t input_len,
-                                   pure_simdjson_doc_t *out_doc);
+pure_simdjson_error_code_t pure_simdjson_parser_parse(pure_simdjson_parser_t parser,
+                                                      const uint8_t *input_ptr,
+                                                      size_t input_len,
+                                                      pure_simdjson_doc_t *out_doc);
 
 /**
  * Report the byte length of the parser's last diagnostic message.
@@ -222,7 +227,8 @@ int32_t pure_simdjson_parser_parse(pure_simdjson_parser_t parser,
  * `parser` must be a live parser handle from this library. `out_len` must be a valid writable
  * pointer to a `usize`.
  */
-int32_t pure_simdjson_parser_get_last_error_len(pure_simdjson_parser_t parser, size_t *out_len);
+pure_simdjson_error_code_t pure_simdjson_parser_get_last_error_len(pure_simdjson_parser_t parser,
+                                                                   size_t *out_len);
 
 /**
  * Copy the parser's last diagnostic message into caller-owned storage.
@@ -235,10 +241,10 @@ int32_t pure_simdjson_parser_get_last_error_len(pure_simdjson_parser_t parser, s
  * writable pointer to a `usize`. When `dst_cap` is large enough to copy the active diagnostic,
  * `dst` must point to writable storage for at least `dst_cap` bytes.
  */
-int32_t pure_simdjson_parser_copy_last_error(pure_simdjson_parser_t parser,
-                                             uint8_t *dst,
-                                             size_t dst_cap,
-                                             size_t *out_written);
+pure_simdjson_error_code_t pure_simdjson_parser_copy_last_error(pure_simdjson_parser_t parser,
+                                                                uint8_t *dst,
+                                                                size_t dst_cap,
+                                                                size_t *out_written);
 
 /**
  * Report the byte offset associated with the parser's last failure.
@@ -250,8 +256,8 @@ int32_t pure_simdjson_parser_copy_last_error(pure_simdjson_parser_t parser,
  * `parser` must be a live parser handle from this library. `out_offset` must be a valid writable
  * pointer to a `u64`.
  */
-int32_t pure_simdjson_parser_get_last_error_offset(pure_simdjson_parser_t parser,
-                                                   uint64_t *out_offset);
+pure_simdjson_error_code_t pure_simdjson_parser_get_last_error_offset(pure_simdjson_parser_t parser,
+                                                                      uint64_t *out_offset);
 
 /**
  * Release a live document handle.
@@ -269,7 +275,7 @@ int32_t pure_simdjson_parser_get_last_error_offset(pure_simdjson_parser_t parser
  * `doc` must be a document handle previously returned by this library. The sentinel `0` and
  * forged values are invalid.
  */
-int32_t pure_simdjson_doc_free(pure_simdjson_doc_t doc);
+pure_simdjson_error_code_t pure_simdjson_doc_free(pure_simdjson_doc_t doc);
 
 /**
  * Resolve the root value view for a live document handle.
@@ -281,8 +287,8 @@ int32_t pure_simdjson_doc_free(pure_simdjson_doc_t doc);
  * `doc` must be a live document handle from this library. `out_root` must be a valid writable
  * pointer to a `pure_simdjson_value_view_t`.
  */
-int32_t pure_simdjson_doc_root(pure_simdjson_doc_t doc,
-                               struct pure_simdjson_value_view_t *out_root);
+pure_simdjson_error_code_t pure_simdjson_doc_root(pure_simdjson_doc_t doc,
+                                                  struct pure_simdjson_value_view_t *out_root);
 
 /**
  * Report the value kind for a document-tied view.
@@ -294,8 +300,8 @@ int32_t pure_simdjson_doc_root(pure_simdjson_doc_t doc,
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
  * `out_type` must point to writable `u32` storage.
  */
-int32_t pure_simdjson_element_type(const struct pure_simdjson_value_view_t *view,
-                                   uint32_t *out_type);
+pure_simdjson_error_code_t pure_simdjson_element_type(const struct pure_simdjson_value_view_t *view,
+                                                      uint32_t *out_type);
 
 /**
  * Decode the referenced value as `int64_t`.
@@ -307,8 +313,8 @@ int32_t pure_simdjson_element_type(const struct pure_simdjson_value_view_t *view
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
  * `out_value` must point to writable `i64` storage.
  */
-int32_t pure_simdjson_element_get_int64(const struct pure_simdjson_value_view_t *view,
-                                        int64_t *out_value);
+pure_simdjson_error_code_t pure_simdjson_element_get_int64(const struct pure_simdjson_value_view_t *view,
+                                                           int64_t *out_value);
 
 /**
  * Decode the referenced value as `uint64_t`.
@@ -320,8 +326,8 @@ int32_t pure_simdjson_element_get_int64(const struct pure_simdjson_value_view_t 
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
  * `out_value` must point to writable `u64` storage.
  */
-int32_t pure_simdjson_element_get_uint64(const struct pure_simdjson_value_view_t *view,
-                                         uint64_t *out_value);
+pure_simdjson_error_code_t pure_simdjson_element_get_uint64(const struct pure_simdjson_value_view_t *view,
+                                                            uint64_t *out_value);
 
 /**
  * Decode the referenced value as `double`.
@@ -333,8 +339,8 @@ int32_t pure_simdjson_element_get_uint64(const struct pure_simdjson_value_view_t
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
  * `out_value` must point to writable `f64` storage.
  */
-int32_t pure_simdjson_element_get_float64(const struct pure_simdjson_value_view_t *view,
-                                          double *out_value);
+pure_simdjson_error_code_t pure_simdjson_element_get_float64(const struct pure_simdjson_value_view_t *view,
+                                                             double *out_value);
 
 /**
  * Copy the referenced string value into a newly allocated byte buffer.
@@ -349,9 +355,9 @@ int32_t pure_simdjson_element_get_float64(const struct pure_simdjson_value_view_
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
  * `out_ptr` and `out_len` must point to writable storage owned by the caller.
  */
-int32_t pure_simdjson_element_get_string(const struct pure_simdjson_value_view_t *view,
-                                         uint8_t **out_ptr,
-                                         size_t *out_len);
+pure_simdjson_error_code_t pure_simdjson_element_get_string(const struct pure_simdjson_value_view_t *view,
+                                                            uint8_t **out_ptr,
+                                                            size_t *out_len);
 
 /**
  * Release memory previously returned by `pure_simdjson_element_get_string`.
@@ -363,7 +369,7 @@ int32_t pure_simdjson_element_get_string(const struct pure_simdjson_value_view_t
  * `ptr` and `len` must describe an allocation previously returned by
  * `pure_simdjson_element_get_string`.
  */
-int32_t pure_simdjson_bytes_free(uint8_t *ptr, size_t len);
+pure_simdjson_error_code_t pure_simdjson_bytes_free(uint8_t *ptr, size_t len);
 
 /**
  * Decode the referenced value as a C `uint8_t` boolean.
@@ -375,8 +381,8 @@ int32_t pure_simdjson_bytes_free(uint8_t *ptr, size_t len);
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
  * `out_value` must point to writable `u8` storage.
  */
-int32_t pure_simdjson_element_get_bool(const struct pure_simdjson_value_view_t *view,
-                                       uint8_t *out_value);
+pure_simdjson_error_code_t pure_simdjson_element_get_bool(const struct pure_simdjson_value_view_t *view,
+                                                          uint8_t *out_value);
 
 /**
  * Report whether the referenced value is JSON `null`.
@@ -388,8 +394,8 @@ int32_t pure_simdjson_element_get_bool(const struct pure_simdjson_value_view_t *
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
  * `out_is_null` must point to writable `u8` storage.
  */
-int32_t pure_simdjson_element_is_null(const struct pure_simdjson_value_view_t *view,
-                                      uint8_t *out_is_null);
+pure_simdjson_error_code_t pure_simdjson_element_is_null(const struct pure_simdjson_value_view_t *view,
+                                                         uint8_t *out_is_null);
 
 /**
  * Initialize array iterator state from an array-valued view.
@@ -401,8 +407,8 @@ int32_t pure_simdjson_element_is_null(const struct pure_simdjson_value_view_t *v
  * `array_view` must point to a readable array-valued `pure_simdjson_value_view_t` derived from a
  * live document. `out_iter` must point to writable iterator storage.
  */
-int32_t pure_simdjson_array_iter_new(const struct pure_simdjson_value_view_t *array_view,
-                                     struct pure_simdjson_array_iter_t *out_iter);
+pure_simdjson_error_code_t pure_simdjson_array_iter_new(const struct pure_simdjson_value_view_t *array_view,
+                                                        struct pure_simdjson_array_iter_t *out_iter);
 
 /**
  * Advance an array iterator and return the next value view plus a done flag.
@@ -414,9 +420,9 @@ int32_t pure_simdjson_array_iter_new(const struct pure_simdjson_value_view_t *ar
  * `iter` must point to readable and writable iterator state created by this library. `out_value`
  * and `out_done` must point to writable storage.
  */
-int32_t pure_simdjson_array_iter_next(struct pure_simdjson_array_iter_t *iter,
-                                      struct pure_simdjson_value_view_t *out_value,
-                                      uint8_t *out_done);
+pure_simdjson_error_code_t pure_simdjson_array_iter_next(struct pure_simdjson_array_iter_t *iter,
+                                                         struct pure_simdjson_value_view_t *out_value,
+                                                         uint8_t *out_done);
 
 /**
  * Initialize object iterator state from an object-valued view.
@@ -428,8 +434,8 @@ int32_t pure_simdjson_array_iter_next(struct pure_simdjson_array_iter_t *iter,
  * `object_view` must point to a readable object-valued `pure_simdjson_value_view_t` derived from
  * a live document. `out_iter` must point to writable iterator storage.
  */
-int32_t pure_simdjson_object_iter_new(const struct pure_simdjson_value_view_t *object_view,
-                                      struct pure_simdjson_object_iter_t *out_iter);
+pure_simdjson_error_code_t pure_simdjson_object_iter_new(const struct pure_simdjson_value_view_t *object_view,
+                                                         struct pure_simdjson_object_iter_t *out_iter);
 
 /**
  * Advance an object iterator and return the next key/value pair plus a done flag.
@@ -441,10 +447,10 @@ int32_t pure_simdjson_object_iter_new(const struct pure_simdjson_value_view_t *o
  * `iter` must point to readable and writable iterator state created by this library. `out_key`,
  * `out_value`, and `out_done` must point to writable storage.
  */
-int32_t pure_simdjson_object_iter_next(struct pure_simdjson_object_iter_t *iter,
-                                       struct pure_simdjson_value_view_t *out_key,
-                                       struct pure_simdjson_value_view_t *out_value,
-                                       uint8_t *out_done);
+pure_simdjson_error_code_t pure_simdjson_object_iter_next(struct pure_simdjson_object_iter_t *iter,
+                                                          struct pure_simdjson_value_view_t *out_key,
+                                                          struct pure_simdjson_value_view_t *out_value,
+                                                          uint8_t *out_done);
 
 /**
  * Look up one object field by key and return its value view through `out_value`.
@@ -457,10 +463,10 @@ int32_t pure_simdjson_object_iter_next(struct pure_simdjson_object_iter_t *iter,
  * a live document. When `key_len` is non-zero, `key_ptr` must be readable for `key_len` bytes.
  * `out_value` must point to writable storage.
  */
-int32_t pure_simdjson_object_get_field(const struct pure_simdjson_value_view_t *object_view,
-                                       const uint8_t *key_ptr,
-                                       size_t key_len,
-                                       struct pure_simdjson_value_view_t *out_value);
+pure_simdjson_error_code_t pure_simdjson_object_get_field(const struct pure_simdjson_value_view_t *object_view,
+                                                          const uint8_t *key_ptr,
+                                                          size_t key_len,
+                                                          struct pure_simdjson_value_view_t *out_value);
 
 #ifdef __cplusplus
 }  // extern "C"

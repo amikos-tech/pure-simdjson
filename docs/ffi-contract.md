@@ -182,7 +182,7 @@ Rules:
 
 - `ffi_fn!` is mandatory for every public export.
 - `catch_unwind` is required when unwinding is enabled so Rust panics do not cross the C ABI boundary.
-- Release `panic = "abort"` is a policy choice in `Cargo.toml`; it means release panics still terminate the process and must not be described as returned status codes.
+- Phase 1 pins `panic = "abort"` in the dev and release Cargo profiles. Cargo ignores that setting for the `test` profile, so unwind-enabled test builds still require the `ffi_fn!`/`catch_unwind` boundary above to convert internal panics into `PURE_SIMDJSON_ERR_PANIC`.
 - The Rust/C++ seam must use non-throwing simdjson access patterns such as `.get(err)`.
 - C++ exceptions must be trapped before re-entering Rust and converted into `PURE_SIMDJSON_ERR_CPP_EXCEPTION`.
 - No foreign exception or Rust unwind may cross into Go or C callers.

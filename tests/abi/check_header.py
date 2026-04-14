@@ -14,6 +14,9 @@ PROTO_RE = re.compile(
     r"(pure_simdjson_[A-Za-z0-9_]+)\s*"
     r"\((.*?)\);"
 )
+ABI_VERSION_DEFINE_RE = re.compile(
+    r"(?m)^#define\s+PURE_SIMDJSON_ABI_VERSION\s+0x00010000\s*$"
+)
 
 STRUCT_TYPES = (
     "struct pure_simdjson_value_view_t",
@@ -81,10 +84,17 @@ def require_symbol(
     return prototypes[symbol]
 
 
-def rule_int32_outparams(prototypes: dict[str, tuple[str, list[str]]], _: str) -> None:
+def rule_error_code_outparams(
+    prototypes: dict[str, tuple[str, list[str]]], _: str
+) -> None:
     for name, (return_type, params) in prototypes.items():
-        if return_type != "int32_t":
-            fail(f"{name}: expected int32_t return, found {return_type}")
+        if return_type not in (
+            "pure_simdjson_error_code_t",
+            "enum pure_simdjson_error_code_t",
+        ):
+            fail(
+                f"{name}: expected pure_simdjson_error_code_t return, found {return_type}"
+            )
         for param in params:
             if any(struct_type in param for struct_type in STRUCT_TYPES) and "*" not in param:
                 fail(f"{name}: struct transport must use pointer out-params, found by-value parameter {param}")
@@ -133,7 +143,12 @@ def rule_string_copy_ownership(prototypes: dict[str, tuple[str, list[str]]], _: 
         )
 
 
-def rule_diag_surface(prototypes: dict[str, tuple[str, list[str]]], _: str) -> None:
+def rule_diag_surface(
+    prototypes: dict[str, tuple[str, list[str]]], header_text: str
+) -> None:
+    if not ABI_VERSION_DEFINE_RE.search(header_text):
+        fail("missing ABI version macro: #define PURE_SIMDJSON_ABI_VERSION 0x00010000")
+
     expected_signatures = {
         "pure_simdjson_get_abi_version": ["uint32_t *out_version"],
         "pure_simdjson_get_implementation_name_len": ["size_t *out_len"],
@@ -180,7 +195,8 @@ def rule_diag_surface(prototypes: dict[str, tuple[str, list[str]]], _: str) -> N
 
 
 RULES: dict[str, Callable[[dict[str, tuple[str, list[str]]], str], None]] = {
-    "int32-outparams": rule_int32_outparams,
+    "error-code-outparams": rule_error_code_outparams,
+    "int32-outparams": rule_error_code_outparams,
     "no-mixed-float-int": rule_no_mixed_float_int,
     "required-symbols": rule_required_symbols,
     "string-copy-ownership": rule_string_copy_ownership,

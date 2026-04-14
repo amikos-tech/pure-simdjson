@@ -6,7 +6,7 @@ This directory provides the static gates for the Phase 1 FFI contract. `make ver
 | --- | --- | --- | --- |
 | Header regeneration diff | `make verify-contract` temp-header diff against `include/pure_simdjson.h` | `FFI-01` | Proves the committed public header still round-trips from the Rust ABI source. |
 | Metadata ABI unit tests | `cargo test` (run by `make verify-contract`) | `FFI-01`, `FFI-07` | Pins the Rust ABI version constant and live metadata helper semantics that cannot be expressed as C compile-time assertions. |
-| `int32-outparams` | `python3 tests/abi/check_header.py --rule int32-outparams include/pure_simdjson.h` | `FFI-02` | Fails if any exported symbol stops returning `int32_t` or starts transporting ABI structs by value. |
+| `error-code-outparams` | `python3 tests/abi/check_header.py --rule error-code-outparams include/pure_simdjson.h` | `FFI-02` | Fails if any exported symbol stops returning `pure_simdjson_error_code_t` or starts transporting ABI structs by value. |
 | `no-mixed-float-int` | `python3 tests/abi/check_header.py --rule no-mixed-float-int include/pure_simdjson.h` | `FFI-03` | Enforces the no scalar float/int mixing rule that keeps the ABI portable for purego. |
 | Layout assertions | `cc -Iinclude tests/abi/handle_layout.c -c` | `FFI-04` | Locks the packed handle split and the fixed 32-byte value/iterator layouts. |
 | Contract-doc panic policy grep | `make verify-docs` (`ffi_fn!`, `catch_unwind`, `panic = "abort"`) | `FFI-05` | Ensures the normative contract states the unwind boundary precisely. |
@@ -18,6 +18,7 @@ This directory provides the static gates for the Phase 1 FFI contract. `make ver
 ## Rule Summary
 
 - `required-symbols`: ensures the committed Phase 1 symbol set is exact, with no missing or unexpected `pure_simdjson_*` exports.
+- `error-code-outparams`: ensures exported functions keep the typed `pure_simdjson_error_code_t` status return and continue to transport ABI structs by pointer.
 - `string-copy-ownership`: ensures string access stays `uint8_t **out_ptr` + `size_t *out_len` with `pure_simdjson_bytes_free`.
 - `diag-surface`: ensures ABI version, implementation name, parser/doc handle role names, and bounded parser diagnostics remain part of the public surface.
 

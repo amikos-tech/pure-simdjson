@@ -35,6 +35,8 @@ static_assert(PURE_SIMDJSON_ERR_CPP_EXCEPTION == 97,
               "PURE_SIMDJSON_ERR_CPP_EXCEPTION must stay pinned");
 static_assert(PURE_SIMDJSON_ERR_INTERNAL == 127,
               "PURE_SIMDJSON_ERR_INTERNAL must stay pinned");
+static_assert(PURE_SIMDJSON_ABI_VERSION == 0x00010000u,
+              "PURE_SIMDJSON_ABI_VERSION must stay pinned");
 
 static_assert(PURE_SIMDJSON_VALUE_KIND_INVALID == 0,
               "PURE_SIMDJSON_VALUE_KIND_INVALID must stay pinned");
