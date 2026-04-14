@@ -723,9 +723,11 @@ mod tests {
 
     fn assert_subprocess_ran_exactly_one_test(output: &Output) {
         let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(
             stdout.contains("running 1 test"),
-            "subprocess filter should execute exactly one test: {stdout}",
+            "subprocess filter should execute exactly one test: status={:?}, stdout={stdout}, stderr={stderr}",
+            output.status,
         );
     }
 
@@ -798,6 +800,31 @@ mod tests {
     }
 
     #[test]
+    fn assert_subprocess_ran_exactly_one_test_includes_status_and_stderr_on_failure() {
+        let output = Command::new(env::current_exe().expect("test binary path"))
+            .arg("--pure-simdjson-invalid-libtest-flag")
+            .output()
+            .expect("spawn invalid libtest subprocess");
+
+        let panic = std::panic::catch_unwind(|| assert_subprocess_ran_exactly_one_test(&output))
+            .expect_err("helper should reject subprocesses that do not run exactly one test");
+        let message = panic_payload_message(panic.as_ref());
+
+        assert!(
+            message.contains("status="),
+            "failure context should include the subprocess exit status: {message}",
+        );
+        assert!(
+            message.contains("stderr="),
+            "failure context should include subprocess stderr: {message}",
+        );
+        assert!(
+            message.contains("pure-simdjson-invalid-libtest-flag"),
+            "failure context should preserve stderr details from libtest: {message}",
+        );
+    }
+
+    #[test]
     fn ffi_wrap_converts_panics_to_err_panic() {
         let rc = ffi_wrap("ffi_wrap_converts_panics_to_err_panic", || {
             panic!("ffi panic sentinel")
@@ -812,9 +839,9 @@ mod tests {
         let expected_type_id = format!("{:?}", TypeId::of::<u32>());
         let message = panic_payload_message(payload.as_ref());
 
-        assert!(
-            message.contains(&expected_type_id),
-            "non-string panic payload diagnostics should include the concrete TypeId: {message}",
+        assert_eq!(
+            message,
+            format!("non-string panic payload ({expected_type_id})")
         );
     }
 
