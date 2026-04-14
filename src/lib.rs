@@ -156,7 +156,7 @@ fn panic_payload_message(payload: &(dyn Any + Send)) -> String {
     } else if let Some(message) = payload.downcast_ref::<String>() {
         message.clone()
     } else {
-        "non-string panic payload".to_owned()
+        format!("non-string panic payload ({:?})", payload.type_id())
     }
 }
 
@@ -715,7 +715,19 @@ pub unsafe extern "C" fn pure_simdjson_object_get_field(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{env, process::Command};
+    use std::{
+        any::TypeId,
+        env,
+        process::{Command, Output},
+    };
+
+    fn assert_subprocess_ran_exactly_one_test(output: &Output) {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("running 1 test"),
+            "subprocess filter should execute exactly one test: {stdout}",
+        );
+    }
 
     #[test]
     fn abi_version_getter_returns_the_pinned_constant() {
@@ -761,7 +773,8 @@ mod tests {
             pure_simdjson_get_abi_version;
         let get_implementation_name_len: unsafe extern "C" fn(
             *mut usize,
-        ) -> pure_simdjson_error_code_t = pure_simdjson_get_implementation_name_len;
+        )
+            -> pure_simdjson_error_code_t = pure_simdjson_get_implementation_name_len;
         let copy_implementation_name: unsafe extern "C" fn(
             *mut u8,
             usize,
@@ -778,12 +791,8 @@ mod tests {
     #[test]
     fn raw_pointer_helpers_stay_unsafe_and_return_error_codes() {
         let write_u32: unsafe fn(*mut u32, u32) -> pure_simdjson_error_code_t = write_out::<u32>;
-        let copy_bytes: unsafe fn(
-            &[u8],
-            *mut u8,
-            usize,
-            *mut usize,
-        ) -> pure_simdjson_error_code_t = copy_out_bytes;
+        let copy_bytes: unsafe fn(&[u8], *mut u8, usize, *mut usize) -> pure_simdjson_error_code_t =
+            copy_out_bytes;
 
         let _ = (write_u32, copy_bytes);
     }
@@ -795,6 +804,18 @@ mod tests {
         });
 
         assert_eq!(rc, pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PANIC);
+    }
+
+    #[test]
+    fn panic_payload_message_reports_type_id_for_non_string_payloads() {
+        let payload: Box<dyn Any + Send> = Box::new(7_u32);
+        let expected_type_id = format!("{:?}", TypeId::of::<u32>());
+        let message = panic_payload_message(payload.as_ref());
+
+        assert!(
+            message.contains(&expected_type_id),
+            "non-string panic payload diagnostics should include the concrete TypeId: {message}",
+        );
     }
 
     #[test]
@@ -816,6 +837,7 @@ mod tests {
             .output()
             .expect("spawn ffi panic subprocess");
 
+        assert_subprocess_ran_exactly_one_test(&output);
         assert!(
             output.status.success(),
             "ffi panic conversion subprocess should stay alive"
@@ -851,6 +873,7 @@ mod tests {
             .output()
             .expect("spawn stub tripwire subprocess");
 
+        assert_subprocess_ran_exactly_one_test(&output);
         assert!(
             !output.status.success(),
             "phase-1 stubs should fail fast in debug builds"
@@ -866,8 +889,10 @@ mod tests {
     #[cfg(not(debug_assertions))]
     #[test]
     fn phase1_stub_returns_err_internal_in_release_builds() {
+        let mut parser = 0_u64;
+
         assert_eq!(
-            phase1_contract_stub("pure_simdjson_parser_new"),
+            unsafe { pure_simdjson_parser_new(&mut parser) },
             pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INTERNAL
         );
     }
