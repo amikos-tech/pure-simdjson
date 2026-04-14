@@ -52,7 +52,12 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 3. Handle format, error-code space, and ABI version handshake are fully specified with byte-level layouts
 4. The 7 P0 pitfalls (1, 2, 7, 8, 9, 10, 12) each map to a documented contract rule that prevents recurrence
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] `01-01-PLAN.md` — Bootstrap the ABI-source crate and reproducible `cbindgen` header pipeline
+- [ ] `01-02-PLAN.md` — Define the stable C ABI surface in `src/lib.rs` and regenerate `include/pure_simdjson.h`
+- [ ] `01-03-PLAN.md` — Write the normative contract and static verification checks for header drift and ABI rules
 
 **Research flag:** YES — spawn `/gsd-research-phase` during planning. No prior `pure-*` library has compiled C++ inside a Rust build, and the contract is expensive to walk back after code lands. Research should validate signature shapes against purego v0.10.0 across all five targets.
 
