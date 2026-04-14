@@ -2,7 +2,10 @@
 #![deny(clippy::missing_safety_doc)]
 
 use core::ptr;
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::{
+    any::Any,
+    panic::{catch_unwind, AssertUnwindSafe},
+};
 
 /// Stable packed ABI version for the Phase 1 contract.
 ///
@@ -147,13 +150,31 @@ const fn err_panic() -> pure_simdjson_error_code_t {
 }
 
 #[inline]
-fn ffi_wrap<F>(body: F) -> pure_simdjson_error_code_t
+fn panic_payload_message(payload: &(dyn Any + Send)) -> String {
+    if let Some(message) = payload.downcast_ref::<&str>() {
+        (*message).to_owned()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "non-string panic payload".to_owned()
+    }
+}
+
+#[inline]
+fn ffi_wrap<F>(function_name: &'static str, body: F) -> pure_simdjson_error_code_t
 where
     F: FnOnce() -> pure_simdjson_error_code_t,
 {
     match catch_unwind(AssertUnwindSafe(body)) {
         Ok(rc) => rc,
-        Err(_) => err_panic(),
+        Err(payload) => {
+            eprintln!(
+                "pure_simdjson panic in {}: {}",
+                function_name,
+                panic_payload_message(payload.as_ref())
+            );
+            err_panic()
+        }
     }
 }
 
@@ -223,7 +244,9 @@ fn phase1_contract_stub(function_name: &'static str) -> pure_simdjson_error_code
 pub unsafe extern "C" fn pure_simdjson_get_abi_version(
     out_version: *mut u32,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| unsafe { write_out(out_version, PURE_SIMDJSON_ABI_VERSION) })
+    ffi_wrap("pure_simdjson_get_abi_version", || unsafe {
+        write_out(out_version, PURE_SIMDJSON_ABI_VERSION)
+    })
 }
 
 /// Report the byte length of the active implementation name.
@@ -234,7 +257,9 @@ pub unsafe extern "C" fn pure_simdjson_get_abi_version(
 pub unsafe extern "C" fn pure_simdjson_get_implementation_name_len(
     out_len: *mut usize,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| unsafe { write_out(out_len, contract_only_implementation_name().len()) })
+    ffi_wrap("pure_simdjson_get_implementation_name_len", || unsafe {
+        write_out(out_len, contract_only_implementation_name().len())
+    })
 }
 
 /// Copy the active implementation name into caller-owned storage.
@@ -252,7 +277,7 @@ pub unsafe extern "C" fn pure_simdjson_copy_implementation_name(
     dst_cap: usize,
     out_written: *mut usize,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| unsafe {
+    ffi_wrap("pure_simdjson_copy_implementation_name", || unsafe {
         copy_out_bytes(
             contract_only_implementation_name(),
             dst,
@@ -273,7 +298,7 @@ pub unsafe extern "C" fn pure_simdjson_copy_implementation_name(
 pub unsafe extern "C" fn pure_simdjson_parser_new(
     out_parser: *mut pure_simdjson_parser_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_parser_new", || {
         let _ = out_parser;
         phase1_contract_stub("pure_simdjson_parser_new")
     })
@@ -291,7 +316,7 @@ pub unsafe extern "C" fn pure_simdjson_parser_new(
 pub unsafe extern "C" fn pure_simdjson_parser_free(
     parser: pure_simdjson_parser_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_parser_free", || {
         let _ = parser;
         phase1_contract_stub("pure_simdjson_parser_free")
     })
@@ -321,7 +346,7 @@ pub unsafe extern "C" fn pure_simdjson_parser_parse(
     input_len: usize,
     out_doc: *mut pure_simdjson_doc_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_parser_parse", || {
         let _ = (parser, input_ptr, input_len, out_doc);
         phase1_contract_stub("pure_simdjson_parser_parse")
     })
@@ -340,7 +365,7 @@ pub unsafe extern "C" fn pure_simdjson_parser_get_last_error_len(
     parser: pure_simdjson_parser_t,
     out_len: *mut usize,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_parser_get_last_error_len", || {
         let _ = (parser, out_len);
         phase1_contract_stub("pure_simdjson_parser_get_last_error_len")
     })
@@ -362,7 +387,7 @@ pub unsafe extern "C" fn pure_simdjson_parser_copy_last_error(
     dst_cap: usize,
     out_written: *mut usize,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_parser_copy_last_error", || {
         let _ = (parser, dst, dst_cap, out_written);
         phase1_contract_stub("pure_simdjson_parser_copy_last_error")
     })
@@ -381,7 +406,7 @@ pub unsafe extern "C" fn pure_simdjson_parser_get_last_error_offset(
     parser: pure_simdjson_parser_t,
     out_offset: *mut u64,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_parser_get_last_error_offset", || {
         let _ = (parser, out_offset);
         phase1_contract_stub("pure_simdjson_parser_get_last_error_offset")
     })
@@ -405,7 +430,7 @@ pub unsafe extern "C" fn pure_simdjson_parser_get_last_error_offset(
 pub unsafe extern "C" fn pure_simdjson_doc_free(
     doc: pure_simdjson_doc_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_doc_free", || {
         let _ = doc;
         phase1_contract_stub("pure_simdjson_doc_free")
     })
@@ -424,7 +449,7 @@ pub unsafe extern "C" fn pure_simdjson_doc_root(
     doc: pure_simdjson_doc_t,
     out_root: *mut pure_simdjson_value_view_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_doc_root", || {
         let _ = (doc, out_root);
         phase1_contract_stub("pure_simdjson_doc_root")
     })
@@ -443,7 +468,7 @@ pub unsafe extern "C" fn pure_simdjson_element_type(
     view: *const pure_simdjson_value_view_t,
     out_type: *mut u32,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_element_type", || {
         let _ = (view, out_type);
         phase1_contract_stub("pure_simdjson_element_type")
     })
@@ -462,7 +487,7 @@ pub unsafe extern "C" fn pure_simdjson_element_get_int64(
     view: *const pure_simdjson_value_view_t,
     out_value: *mut i64,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_element_get_int64", || {
         let _ = (view, out_value);
         phase1_contract_stub("pure_simdjson_element_get_int64")
     })
@@ -481,7 +506,7 @@ pub unsafe extern "C" fn pure_simdjson_element_get_uint64(
     view: *const pure_simdjson_value_view_t,
     out_value: *mut u64,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_element_get_uint64", || {
         let _ = (view, out_value);
         phase1_contract_stub("pure_simdjson_element_get_uint64")
     })
@@ -500,7 +525,7 @@ pub unsafe extern "C" fn pure_simdjson_element_get_float64(
     view: *const pure_simdjson_value_view_t,
     out_value: *mut f64,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_element_get_float64", || {
         let _ = (view, out_value);
         phase1_contract_stub("pure_simdjson_element_get_float64")
     })
@@ -523,7 +548,7 @@ pub unsafe extern "C" fn pure_simdjson_element_get_string(
     out_ptr: *mut *mut u8,
     out_len: *mut usize,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_element_get_string", || {
         let _ = (view, out_ptr, out_len);
         phase1_contract_stub("pure_simdjson_element_get_string")
     })
@@ -542,7 +567,7 @@ pub unsafe extern "C" fn pure_simdjson_bytes_free(
     ptr: *mut u8,
     len: usize,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_bytes_free", || {
         let _ = (ptr, len);
         phase1_contract_stub("pure_simdjson_bytes_free")
     })
@@ -561,7 +586,7 @@ pub unsafe extern "C" fn pure_simdjson_element_get_bool(
     view: *const pure_simdjson_value_view_t,
     out_value: *mut u8,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_element_get_bool", || {
         let _ = (view, out_value);
         phase1_contract_stub("pure_simdjson_element_get_bool")
     })
@@ -580,7 +605,7 @@ pub unsafe extern "C" fn pure_simdjson_element_is_null(
     view: *const pure_simdjson_value_view_t,
     out_is_null: *mut u8,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_element_is_null", || {
         let _ = (view, out_is_null);
         phase1_contract_stub("pure_simdjson_element_is_null")
     })
@@ -599,7 +624,7 @@ pub unsafe extern "C" fn pure_simdjson_array_iter_new(
     array_view: *const pure_simdjson_value_view_t,
     out_iter: *mut pure_simdjson_array_iter_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_array_iter_new", || {
         let _ = (array_view, out_iter);
         phase1_contract_stub("pure_simdjson_array_iter_new")
     })
@@ -619,7 +644,7 @@ pub unsafe extern "C" fn pure_simdjson_array_iter_next(
     out_value: *mut pure_simdjson_value_view_t,
     out_done: *mut u8,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_array_iter_next", || {
         let _ = (iter, out_value, out_done);
         phase1_contract_stub("pure_simdjson_array_iter_next")
     })
@@ -638,7 +663,7 @@ pub unsafe extern "C" fn pure_simdjson_object_iter_new(
     object_view: *const pure_simdjson_value_view_t,
     out_iter: *mut pure_simdjson_object_iter_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_object_iter_new", || {
         let _ = (object_view, out_iter);
         phase1_contract_stub("pure_simdjson_object_iter_new")
     })
@@ -659,7 +684,7 @@ pub unsafe extern "C" fn pure_simdjson_object_iter_next(
     out_value: *mut pure_simdjson_value_view_t,
     out_done: *mut u8,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_object_iter_next", || {
         let _ = (iter, out_key, out_value, out_done);
         phase1_contract_stub("pure_simdjson_object_iter_next")
     })
@@ -681,7 +706,7 @@ pub unsafe extern "C" fn pure_simdjson_object_get_field(
     key_len: usize,
     out_value: *mut pure_simdjson_value_view_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap(|| {
+    ffi_wrap("pure_simdjson_object_get_field", || {
         let _ = (object_view, key_ptr, key_len, out_value);
         phase1_contract_stub("pure_simdjson_object_get_field")
     })
@@ -765,9 +790,46 @@ mod tests {
 
     #[test]
     fn ffi_wrap_converts_panics_to_err_panic() {
-        let rc = ffi_wrap(|| panic!("ffi panic sentinel"));
+        let rc = ffi_wrap("ffi_wrap_converts_panics_to_err_panic", || {
+            panic!("ffi panic sentinel")
+        });
 
         assert_eq!(rc, pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PANIC);
+    }
+
+    #[test]
+    fn ffi_wrap_reports_panic_payload_to_stderr() {
+        if env::var_os("PURE_SIMDJSON_TRIGGER_FFI_PANIC").is_some() {
+            let rc = ffi_wrap("ffi_wrap_reports_panic_payload_to_stderr", || {
+                panic!("ffi panic sentinel")
+            });
+
+            assert_eq!(rc, pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PANIC);
+            return;
+        }
+
+        let output = Command::new(env::current_exe().expect("test binary path"))
+            .env("PURE_SIMDJSON_TRIGGER_FFI_PANIC", "1")
+            .arg("--exact")
+            .arg("tests::ffi_wrap_reports_panic_payload_to_stderr")
+            .arg("--nocapture")
+            .output()
+            .expect("spawn ffi panic subprocess");
+
+        assert!(
+            output.status.success(),
+            "ffi panic conversion subprocess should stay alive"
+        );
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("pure_simdjson panic in ffi_wrap_reports_panic_payload_to_stderr"),
+            "ffi panic diagnostics should name the failing entry point: {stderr}",
+        );
+        assert!(
+            stderr.contains("ffi panic sentinel"),
+            "ffi panic diagnostics should preserve the panic payload: {stderr}",
+        );
     }
 
     #[test]
@@ -781,17 +843,32 @@ mod tests {
             return;
         }
 
-        let status = Command::new(env::current_exe().expect("test binary path"))
+        let output = Command::new(env::current_exe().expect("test binary path"))
             .env("PURE_SIMDJSON_TRIGGER_STUB", "1")
             .arg("--exact")
             .arg("tests::phase1_stub_hits_debug_tripwire")
             .arg("--nocapture")
-            .status()
+            .output()
             .expect("spawn stub tripwire subprocess");
 
         assert!(
-            !status.success(),
+            !output.status.success(),
             "phase-1 stubs should fail fast in debug builds"
+        );
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("phase-1 stub reached: pure_simdjson_parser_new"),
+            "debug stub tripwire should emit the stub marker before aborting: {stderr}",
+        );
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn phase1_stub_returns_err_internal_in_release_builds() {
+        assert_eq!(
+            phase1_contract_stub("pure_simdjson_parser_new"),
+            pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INTERNAL
         );
     }
 }
