@@ -4,5 +4,15 @@ pragma_once = true
 cpp_compat = true
 usize_is_size_t = true
 documentation = true
-style = "tag"
-sys_includes = ["stddef.h", "stdint.h", "stdbool.h"]
+style = "both"
+
+[export]
+include = [
+  "pure_simdjson_error_code_t",
+  "pure_simdjson_value_kind_t",
+  "pure_simdjson_handle_parts_t",
+  "pure_simdjson_value_view_t",
+  "pure_simdjson_array_iter_t",
+  "pure_simdjson_object_iter_t",
+]
+item_types = ["functions", "globals", "typedefs", "opaque", "structs", "enums"]
