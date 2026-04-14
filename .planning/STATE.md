@@ -4,17 +4,17 @@ milestone: v0.1
 milestone_name: Release
 current_phase: 1
 current_phase_name: FFI Contract Design
-current_plan: 2
+current_plan: 3
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-04-14T11:58:06.540Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-04-14T12:08:24.522Z"
 last_activity: 2026-04-14
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -29,19 +29,19 @@ See: `.planning/PROJECT.md` (updated 2026-04-14)
 ## Current Position
 
 Phase: 1 (FFI Contract Design) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-14
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███████░░░] 67%
 
 Current Phase: 1
 Current Phase Name: FFI Contract Design
 Total Phases: 7
-Current Plan: 2
+Current Plan: 3
 Total Plans in Phase: 3
 Last Activity: 2026-04-14
-Last Activity Description: Phase 1 execution started
+Last Activity Description: Completed 01-02-PLAN.md
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Last Activity Description: Phase 1 execution started
 - Trend: Stable
 
 | Phase 01-ffi-contract-design P01 | 11m | 2 tasks | 4 files |
+| Phase 01 P02 | 9m | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,9 @@ Last Activity Description: Phase 1 execution started
 
 - [Phase 01]: Use src/lib.rs as the ABI source that drives cbindgen header generation.
 - [Phase 01]: Keep the bootstrap export surface limited to ABI version negotiation, with a null-pointer guard on the out-param.
+- [Phase 01]: Kept the public ABI on int32_t returns plus pointer out-params only for purego portability.
+- [Phase 01]: Locked Parser and Doc as packed u64 handles while values and iterators remain doc-tied view structs.
+- [Phase 01]: Configured cbindgen to export standalone ABI enums and structs so the committed header fully captures the contract surface.
 
 ### Pending Todos
 
@@ -85,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T11:58:06.347Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-04-14T12:08:24.514Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
