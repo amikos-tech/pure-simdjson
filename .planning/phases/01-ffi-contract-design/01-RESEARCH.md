@@ -171,8 +171,9 @@ typedef uint64_t pure_simdjson_handle_t; /* slot:u32 | gen:u32 */
 
 typedef struct pure_simdjson_object_iter {
   pure_simdjson_handle_t doc;
-  uint64_t cursor0;
-  uint64_t cursor1;
+  uint64_t state0;
+  uint64_t state1;
+  uint64_t index;
 } pure_simdjson_object_iter_t;
 
 int32_t pure_simdjson_object_iter_new(
@@ -182,31 +183,38 @@ int32_t pure_simdjson_object_iter_new(
 
 ### Pattern 3: Explicit Busy-State Parser Lifecycle
 
-**What:** Treat parser reuse as a state machine: one parser owns at most one live document; `parser_parse` returns `ERR_PARSER_BUSY` until `doc_close` succeeds; generation checks still reject stale handles after close. This is stricter than raw simdjson reuse and prevents silent document replacement across the FFI boundary. [CITED: https://simdjson.org/api/0.9.0/classsimdjson_1_1dom_1_1parser.html] [VERIFIED: .planning/phases/01-ffi-contract-design/01-CONTEXT.md]
+**What:** Treat parser reuse as a state machine: one parser owns at most one live document; `parser_parse` returns `ERR_PARSER_BUSY` until `doc_free` succeeds; generation checks still reject stale handles after close. This is stricter than raw simdjson reuse and prevents silent document replacement across the FFI boundary. [CITED: https://simdjson.org/api/0.9.0/classsimdjson_1_1dom_1_1parser.html] [VERIFIED: .planning/phases/01-ffi-contract-design/01-CONTEXT.md]
 
-**When to use:** `parser_parse`, `doc_close`, and every API that accepts a `Doc` or view. [VERIFIED: .planning/phases/01-ffi-contract-design/01-CONTEXT.md]
+**When to use:** `parser_parse`, `doc_free`, and every API that accepts a `Doc` or view. [VERIFIED: .planning/phases/01-ffi-contract-design/01-CONTEXT.md]
 
 **Example:**
 ```text
-parser_new -> parser_parse -> doc_root -> ... -> doc_close -> parser_parse
+parser_new -> parser_parse -> doc_root -> ... -> doc_free -> parser_parse
 parser_new -> parser_parse -> parser_parse == ERR_PARSER_BUSY
 ```
 
 ### Pattern 4: Copy-In, Copy-Out Data Crossing
 
-**What:** Keep borrowed memory out of the public `v0.1` ABI. Parse copies into Rust-owned padded memory; string and diagnostic helpers should use caller-owned copy-out buffers so Go never relies on borrowed native pointers with hidden lifetime rules. The copy-in half is locked; the copy-out helper form is still a design recommendation. [VERIFIED: .planning/phases/01-ffi-contract-design/01-CONTEXT.md] [CITED: https://simdjson.org/api/0.9.0/classsimdjson_1_1dom_1_1parser.html] [ASSUMED]
+**What:** Keep borrowed memory out of the public `v0.1` ABI. Parse copies into Rust-owned padded memory; string getters return allocated `ptr + len` pairs with a matching `pure_simdjson_bytes_free`, while diagnostics stay on explicit caller-owned copy-out buffers. This split is now resolved for Phase 1 and keeps string lifetime management explicit without making diagnostics depend on hidden TLS state. [VERIFIED: .planning/phases/01-ffi-contract-design/01-CONTEXT.md] [CITED: https://simdjson.org/api/0.9.0/classsimdjson_1_1dom_1_1parser.html] [VERIFIED: .planning/phases/01-ffi-contract-design/01-02-PLAN.md]
 
-**When to use:** `parser_parse`, `element_get_string`, `get_last_error_text`, and any future diagnostic helpers. [VERIFIED: .planning/phases/01-ffi-contract-design/01-CONTEXT.md] [ASSUMED]
+**When to use:** `parser_parse`, `element_get_string`, `pure_simdjson_bytes_free`, `parser_get_last_error_len`, `parser_copy_last_error`, and future advisory diagnostics helpers. [VERIFIED: .planning/phases/01-ffi-contract-design/01-CONTEXT.md] [VERIFIED: .planning/phases/01-ffi-contract-design/01-02-PLAN.md]
 
 **Example:**
 ```c
-// Sources: simdjson parser padding rules; copy-out buffer shape is recommended.
-int32_t pure_simdjson_element_get_string_size(
+// Sources: simdjson parser padding rules; finalized Phase 1 string/diagnostic split.
+int32_t pure_simdjson_element_get_string(
     const pure_simdjson_value_view_t *view,
+    uint8_t **out_ptr,
     size_t *out_len);
 
-int32_t pure_simdjson_element_copy_string(
-    const pure_simdjson_value_view_t *view,
+int32_t pure_simdjson_bytes_free(uint8_t *ptr, size_t len);
+
+int32_t pure_simdjson_parser_get_last_error_len(
+    pure_simdjson_handle_t parser,
+    size_t *out_len);
+
+int32_t pure_simdjson_parser_copy_last_error(
+    pure_simdjson_handle_t parser,
     uint8_t *dst,
     size_t dst_cap,
     size_t *out_written);
@@ -289,7 +297,7 @@ int32_t pure_simdjson_doc_root(
     pure_simdjson_handle_t doc,
     pure_simdjson_value_view_t *out_root);
 
-int32_t pure_simdjson_doc_close(pure_simdjson_handle_t doc);
+int32_t pure_simdjson_doc_free(pure_simdjson_handle_t doc);
 ```
 
 ### Bounded Diagnostics Helper
@@ -325,7 +333,7 @@ int32_t pure_simdjson_object_iter_new(
 
 int32_t pure_simdjson_object_iter_next(
     pure_simdjson_object_iter_t *iter,
-    pure_simdjson_string_view_t *out_key,
+    pure_simdjson_value_view_t *out_key,
     pure_simdjson_value_view_t *out_value,
     uint8_t *out_done);
 ```
@@ -348,25 +356,19 @@ int32_t pure_simdjson_object_iter_next(
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
 | A1 | Phase 1 may add a minimal ABI-only Rust crate without violating the “no implementation yet” intent. [ASSUMED] | Summary / Recommended Project Structure | Low. The phase would need a scope wording tweak, not an architectural rewrite. |
-| A2 | Caller-owned copy-out buffers are preferable to thread-local scratch buffers for diagnostics in this project. [ASSUMED] | Pattern 4 / Don’t Hand-Roll | Medium. The ABI helper surface could change shape later. |
-| A3 | A small shared `value_view` out-param struct is better than a family of per-type view structs. [ASSUMED] | Pattern 1 / Pattern 2 | Medium. Header layout and helper naming could churn if this is rejected. |
+| A2 | Diagnostics should use caller-owned copy-out buffers while string getters use allocated `ptr + len` + `bytes_free`. [RESOLVED] | Pattern 4 / Don’t Hand-Roll | Low. This is now fixed by the Phase 1 plans. |
+| A3 | A shared `value_view` plus dedicated iterator structs is the stable Phase 1 layout. [RESOLVED] | Pattern 1 / Pattern 2 | Low. This is now fixed by the Phase 1 plans. |
 
-## Open Questions
+## Open Questions (RESOLVED 2026-04-14 during Phase 1 plan revision)
 
-1. **How should the public numeric error-code space be allocated?**
-   What we know: the ABI must expose stable `int32` error codes, while simdjson already defines parser/accessor errors such as `UNSUPPORTED_ARCHITECTURE`, `NUMBER_OUT_OF_RANGE`, `NO_SUCH_FIELD`, `PARSER_IN_USE`, and `INSUFFICIENT_PADDING`. [CITED: https://simdjson.org/api/3.0.0/namespacesimdjson.html]
-   What's unclear: whether public ABI numbers should mirror upstream simdjson numeric values or reserve project-owned ranges and translate upstream internally. [ASSUMED]
-   Recommendation: reserve project-owned public ranges and document the mapping table in `docs/ffi-contract.md`; do not let upstream numeric values become the stable public ABI by accident. [ASSUMED]
+1. **Public numeric error-code allocation**
+   Resolved: Phase 1 uses project-owned public numeric ranges and translates upstream simdjson errors internally instead of mirroring upstream values. The resolved table is `0` for `OK`, `1..6` for contract/usage failures, `32..34` for parse/value failures (`INVALID_JSON`, `NUMBER_OUT_OF_RANGE`, `PRECISION_LOSS`), `64..65` for environment/ABI failures, `96..97` for panic/exception boundaries, and `127` for internal failure. [CITED: https://simdjson.org/api/3.0.0/namespacesimdjson.html] [VERIFIED: .planning/phases/01-ffi-contract-design/01-02-PLAN.md]
 
-2. **Should diagnostics use explicit copy-out buffers or thread-local scratch storage?**
-   What we know: the diagnostics surface is locked as advisory-only, and the discretion area explicitly leaves this implementation choice open. [VERIFIED: .planning/phases/01-ffi-contract-design/01-CONTEXT.md]
-   What's unclear: whether TLS scratch simplifies call sites enough to justify hidden lifetime rules and potential concurrency/debugging complications. [ASSUMED]
-   Recommendation: lock explicit copy-out buffers now unless there is a measured ergonomics problem. [ASSUMED]
+2. **Diagnostics shape**
+   Resolved: diagnostics stay advisory-only and use explicit caller-owned copy-out buffers (`get_implementation_name_len` / `copy_implementation_name`, `parser_get_last_error_len` / `parser_copy_last_error`, `parser_get_last_error_offset`). String values are separate: `element_get_string` returns an allocated `ptr + len` pair that must be released with `pure_simdjson_bytes_free`. No TLS scratch storage is part of the public contract. [VERIFIED: .planning/phases/01-ffi-contract-design/01-CONTEXT.md] [VERIFIED: .planning/phases/01-ffi-contract-design/01-02-PLAN.md]
 
-3. **What is the smallest stable view-state layout that still supports root, lookup, and iteration helpers?**
-   What we know: `Element`/`Array`/`Object` must be lightweight views, not independently freeable handles. [VERIFIED: .planning/phases/01-ffi-contract-design/01-CONTEXT.md]
-   What's unclear: whether one shared `value_view` struct is enough, or whether iterators and object/array views need distinct repr(C) structs for clarity and future-proofing. [ASSUMED]
-   Recommendation: decide this before writing `cbindgen.toml`, because this choice affects header readability, linter complexity, and Go mirror types. [ASSUMED]
+3. **Stable view-state layout**
+   Resolved: Phase 1 uses one shared `pure_simdjson_value_view_t` for root, lookup, key, and value results, with layout `{ doc, state0, state1, kind_hint, reserved }`. Iteration uses dedicated `pure_simdjson_array_iter_t` and `pure_simdjson_object_iter_t` structs with `{ doc, state0, state1, index }`. This keeps value transport uniform while giving iterators explicit state carriers and fixed compile-time sizes for validation. [VERIFIED: .planning/phases/01-ffi-contract-design/01-CONTEXT.md] [VERIFIED: .planning/phases/01-ffi-contract-design/01-02-PLAN.md]
 
 ## Environment Availability
 
