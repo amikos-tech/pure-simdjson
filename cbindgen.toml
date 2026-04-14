@@ -10,6 +10,9 @@ style = "both"
 include = [
   "pure_simdjson_error_code_t",
   "pure_simdjson_value_kind_t",
+  "pure_simdjson_handle_t",
+  "pure_simdjson_parser_t",
+  "pure_simdjson_doc_t",
   "pure_simdjson_handle_parts_t",
   "pure_simdjson_value_view_t",
   "pure_simdjson_array_iter_t",

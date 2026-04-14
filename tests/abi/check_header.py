@@ -102,6 +102,13 @@ def rule_required_symbols(prototypes: dict[str, tuple[str, list[str]]], _: str) 
     missing = [symbol for symbol in REQUIRED_SYMBOLS if symbol not in prototypes]
     if missing:
         fail("missing required symbols: " + ", ".join(missing))
+    unexpected = sorted(
+        name
+        for name in prototypes
+        if name.startswith("pure_simdjson_") and name not in REQUIRED_SYMBOLS
+    )
+    if unexpected:
+        fail("unexpected exported symbols: " + ", ".join(unexpected))
 
 
 def rule_string_copy_ownership(prototypes: dict[str, tuple[str, list[str]]], _: str) -> None:
@@ -135,19 +142,32 @@ def rule_diag_surface(prototypes: dict[str, tuple[str, list[str]]], _: str) -> N
             "size_t dst_cap",
             "size_t *out_written",
         ],
+        "pure_simdjson_parser_new": ["pure_simdjson_parser_t *out_parser"],
+        "pure_simdjson_parser_free": ["pure_simdjson_parser_t parser"],
+        "pure_simdjson_parser_parse": [
+            "pure_simdjson_parser_t parser",
+            "const uint8_t *input_ptr",
+            "size_t input_len",
+            "pure_simdjson_doc_t *out_doc",
+        ],
         "pure_simdjson_parser_get_last_error_len": [
-            "pure_simdjson_handle_t parser",
+            "pure_simdjson_parser_t parser",
             "size_t *out_len",
         ],
         "pure_simdjson_parser_copy_last_error": [
-            "pure_simdjson_handle_t parser",
+            "pure_simdjson_parser_t parser",
             "uint8_t *dst",
             "size_t dst_cap",
             "size_t *out_written",
         ],
         "pure_simdjson_parser_get_last_error_offset": [
-            "pure_simdjson_handle_t parser",
+            "pure_simdjson_parser_t parser",
             "uint64_t *out_offset",
+        ],
+        "pure_simdjson_doc_free": ["pure_simdjson_doc_t doc"],
+        "pure_simdjson_doc_root": [
+            "pure_simdjson_doc_t doc",
+            "struct pure_simdjson_value_view_t *out_root",
         ],
     }
 

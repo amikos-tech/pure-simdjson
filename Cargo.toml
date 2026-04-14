@@ -6,8 +6,5 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "staticlib"]
 
-[dependencies]
-libc = "0.2"
-
 [profile.release]
 panic = "abort"

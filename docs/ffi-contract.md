@@ -6,14 +6,23 @@ This document is the normative FFI contract for `pure-simdjson` ABI `v0.1`. It d
 
 The generated header is authoritative for exact symbol names, field names, and C types. This document is authoritative for lifecycle, ownership, diagnostics, panic/exception policy, and compatibility rules. Go-side consumers must enforce ABI compatibility against `^0.1.x`.
 
+Phase 1 currently ships the metadata helpers `pure_simdjson_get_abi_version`, `pure_simdjson_get_implementation_name_len`, and `pure_simdjson_copy_implementation_name`. Every other exported symbol is a contract-only stub in this phase and currently returns `PURE_SIMDJSON_ERR_INTERNAL` while later phases fill in the runtime behavior specified below.
+
 # ABI invariants
 
 - Every exported `pure_simdjson_*` function returns `int32_t`.
 - Success is `PURE_SIMDJSON_OK == 0`. All other return values are stable numeric error codes.
 - Multi-value results always flow through pointer out-params. The ABI does not return structs by value.
 - Public signatures must not mix floating-point and integer scalar parameters in the same argument list. Numeric results are returned through out-params such as `int64_t *`, `uint64_t *`, or `double *`.
-- `pure_simdjson_handle_t` is the only opaque-handle transport type. `pure_simdjson_value_view_t`, `pure_simdjson_array_iter_t`, and `pure_simdjson_object_iter_t` are lightweight document-tied view/iterator structs.
+- `pure_simdjson_handle_t` is the generic packed transport type. Public signatures use the source-level aliases `pure_simdjson_parser_t` and `pure_simdjson_doc_t` to distinguish parser/document roles without changing the underlying wire representation.
+- `pure_simdjson_value_view_t`, `pure_simdjson_array_iter_t`, and `pure_simdjson_object_iter_t` are lightweight document-tied view/iterator structs.
 - Control flow is driven by numeric status codes, not by diagnostic strings.
+
+# Out-param semantics
+
+- Unless documented otherwise, output pointers are written only on `PURE_SIMDJSON_OK`.
+- Size-reporting outputs named `out_len` or `out_written` may also be written on `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL` so callers can learn the required capacity.
+- For bounded copy helpers such as `pure_simdjson_copy_implementation_name`, `dst = NULL` with `dst_cap = 0` is a valid size probe. A null destination with sufficient capacity to perform the copy remains `PURE_SIMDJSON_ERR_INVALID_ARGUMENT`.
 
 # Error code space
 
@@ -43,6 +52,8 @@ These values are part of the public ABI. Downstream wrappers may map them to ric
 
 - `slot` identifies a registry entry.
 - `generation` increments when the slot is freed and reused.
+- `pure_simdjson_parser_t` and `pure_simdjson_doc_t` are source-level aliases over the same packed `uint64_t`.
+- The numeric value `0` is reserved as the invalid sentinel and must never be returned by successful constructors.
 - `pure_simdjson_handle_parts_t` is the explicit split view:
 
 ```c
@@ -52,7 +63,13 @@ typedef struct pure_simdjson_handle_parts_t {
 } pure_simdjson_handle_parts_t;
 ```
 
-`Parser` and `Doc` are represented only by `pure_simdjson_handle_t`. Handles are never raw pointers in the public ABI. Any stale, double-freed, or mismatched generation must fail with `PURE_SIMDJSON_ERR_INVALID_HANDLE` rather than producing undefined behavior.
+Handles are never raw pointers in the public ABI. Any stale, double-freed, or mismatched generation must fail with `PURE_SIMDJSON_ERR_INVALID_HANDLE` rather than producing undefined behavior.
+
+# Thread safety
+
+- Parsers, documents, value views, and iterators are thread-compatible, not thread-safe.
+- One live parser/document graph must be confined to one thread at a time.
+- Distinct parsers may be used concurrently as independent graphs.
 
 # Value and iterator model
 
@@ -60,7 +77,7 @@ typedef struct pure_simdjson_handle_parts_t {
 
 ```c
 typedef struct pure_simdjson_value_view_t {
-  pure_simdjson_handle_t doc;
+  pure_simdjson_doc_t doc;
   uint64_t state0;
   uint64_t state1;
   uint32_t kind_hint;
@@ -74,6 +91,7 @@ Rules:
 - `state0` and `state1` are opaque ABI fields owned by the native implementation.
 - `kind_hint` uses `pure_simdjson_value_kind_t` and is advisory; callers still check return codes on accessors.
 - `pure_simdjson_array_iter_t` and `pure_simdjson_object_iter_t` are stateful, document-tied iterators driven from Go/C by repeated `*_next` calls.
+- Iterator `tag` is implementation-owned state reserved for runtime kind validation. Iterator `reserved` is pinned for future growth and callers must leave it untouched.
 - `pure_simdjson_doc_root`, `pure_simdjson_object_get_field`, `pure_simdjson_array_iter_next`, and `pure_simdjson_object_iter_next` return new view state through out-params rather than allocating child handles.
 
 Split numeric access is mandatory:
@@ -176,8 +194,8 @@ This section is normative even though the full shim implementation lands in late
 ## String copy and free
 
 ```c
-pure_simdjson_handle_t parser = 0;
-pure_simdjson_handle_t doc = 0;
+pure_simdjson_parser_t parser = 0;
+pure_simdjson_doc_t doc = 0;
 pure_simdjson_value_view_t root = {0};
 uint8_t *bytes = NULL;
 size_t len = 0;
@@ -195,9 +213,9 @@ pure_simdjson_parser_free(parser);
 ## Parser busy failure
 
 ```c
-pure_simdjson_handle_t parser = 0;
-pure_simdjson_handle_t doc_a = 0;
-pure_simdjson_handle_t doc_b = 0;
+pure_simdjson_parser_t parser = 0;
+pure_simdjson_doc_t doc_a = 0;
+pure_simdjson_doc_t doc_b = 0;
 
 pure_simdjson_parser_new(&parser);
 pure_simdjson_parser_parse(parser, json_a_ptr, json_a_len, &doc_a);   /* returns 0 */
