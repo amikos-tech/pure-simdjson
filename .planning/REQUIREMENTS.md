@@ -148,20 +148,76 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FFI-01 … FFI-08 | Phase 1 | Pending |
-| SHIM-01 … SHIM-07 | Phase 2 | Pending |
-| API-01 … API-03, API-09 … API-12 | Phase 3 | Pending |
-| API-04 … API-08 | Phase 4 | Pending |
-| DIST-01 … DIST-10 | Phase 5 | Pending |
-| PLAT-01 … PLAT-06, CI-01 … CI-07 | Phase 6 | Pending |
-| BENCH-01 … BENCH-07 | Phase 7 | Pending |
-| DOC-01 … DOC-07 | Distributed across phases (phase-owned docs) | Pending |
+| FFI-01 | Phase 1 | Pending |
+| FFI-02 | Phase 1 | Pending |
+| FFI-03 | Phase 1 | Pending |
+| FFI-04 | Phase 1 | Pending |
+| FFI-05 | Phase 1 | Pending |
+| FFI-06 | Phase 1 | Pending |
+| FFI-07 | Phase 1 | Pending |
+| FFI-08 | Phase 1 | Pending |
+| SHIM-01 | Phase 2 | Pending |
+| SHIM-02 | Phase 2 | Pending |
+| SHIM-03 | Phase 2 | Pending |
+| SHIM-04 | Phase 2 | Pending |
+| SHIM-05 | Phase 2 | Pending |
+| SHIM-06 | Phase 2 | Pending |
+| SHIM-07 | Phase 2 | Pending |
+| API-01 | Phase 3 | Pending |
+| API-02 | Phase 3 | Pending |
+| API-03 | Phase 3 | Pending |
+| API-04 | Phase 4 | Pending |
+| API-05 | Phase 4 | Pending |
+| API-06 | Phase 4 | Pending |
+| API-07 | Phase 4 | Pending |
+| API-08 | Phase 4 | Pending |
+| API-09 | Phase 3 | Pending |
+| API-10 | Phase 3 | Pending |
+| API-11 | Phase 3 | Pending |
+| API-12 | Phase 3 | Pending |
+| PLAT-01 | Phase 6 | Pending |
+| PLAT-02 | Phase 6 | Pending |
+| PLAT-03 | Phase 6 | Pending |
+| PLAT-04 | Phase 6 | Pending |
+| PLAT-05 | Phase 6 | Pending |
+| PLAT-06 | Phase 6 | Pending |
+| DIST-01 | Phase 5 | Pending |
+| DIST-02 | Phase 5 | Pending |
+| DIST-03 | Phase 5 | Pending |
+| DIST-04 | Phase 5 | Pending |
+| DIST-05 | Phase 5 | Pending |
+| DIST-06 | Phase 5 | Pending |
+| DIST-07 | Phase 5 | Pending |
+| DIST-08 | Phase 5 | Pending |
+| DIST-09 | Phase 5 | Pending |
+| DIST-10 | Phase 5 | Pending |
+| CI-01 | Phase 6 | Pending |
+| CI-02 | Phase 6 | Pending |
+| CI-03 | Phase 6 | Pending |
+| CI-04 | Phase 6 | Pending |
+| CI-05 | Phase 6 | Pending |
+| CI-06 | Phase 6 | Pending |
+| CI-07 | Phase 6 | Pending |
+| BENCH-01 | Phase 7 | Pending |
+| BENCH-02 | Phase 7 | Pending |
+| BENCH-03 | Phase 7 | Pending |
+| BENCH-04 | Phase 7 | Pending |
+| BENCH-05 | Phase 7 | Pending |
+| BENCH-06 | Phase 7 | Pending |
+| BENCH-07 | Phase 7 | Pending |
+| DOC-01 | Phase 7 | Pending |
+| DOC-02 | Phase 1 | Pending |
+| DOC-03 | Phase 3 (partial) + Phase 4 (complete) | Pending |
+| DOC-04 | Phase 3 | Pending |
+| DOC-05 | Phase 5 | Pending |
+| DOC-06 | Phase 7 | Pending |
+| DOC-07 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: ~60 total (to be finalized by roadmapper)
-- Mapped to phases: pending roadmap
-- Unmapped: 0 ⚠️ (target)
+- v1 requirements: 64 total (8 FFI + 7 SHIM + 12 API + 6 PLAT + 10 DIST + 7 CI + 7 BENCH + 7 DOC)
+- Mapped to phases: 64
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-14*
-*Last updated: 2026-04-14 after initial definition*
+*Last updated: 2026-04-14 — roadmap traceability finalized by gsd-roadmapper*
