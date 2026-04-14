@@ -5,9 +5,9 @@ milestone_name: Release
 current_phase: 2
 current_phase_name: rust shim + minimal parse path
 current_plan: Not started
-status: planning
+status: "Phase 01 shipped — PR #1"
 stopped_at: Phase 01 complete; ready to plan Phase 02
-last_updated: "2026-04-14T12:31:23.691Z"
+last_updated: "2026-04-14T19:35:06.015Z"
 last_activity: 2026-04-14
 progress:
   total_phases: 7
@@ -30,8 +30,8 @@ See: `.planning/PROJECT.md` (updated 2026-04-14)
 
 Phase: 2 of 7 (Rust Shim + Minimal Parse Path)
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-04-14 — Phase 01 complete; transitioned to Phase 2
+Status: Phase 01 shipped — PR #1
+Last activity: 2026-04-14 — Phase 01 shipped (PR #1); Phase 2 ready to plan
 
 Progress: [█░░░░░░░░░] 14%
 
@@ -41,7 +41,7 @@ Total Phases: 7
 Current Plan: Not started
 Total Plans in Phase: 3
 Last Activity: 2026-04-14
-Last Activity Description: Phase 01 complete, transitioned to Phase 2
+Last Activity Description: Phase 01 shipped (PR #1); Phase 2 ready to plan
 
 ## Performance Metrics
 
