@@ -12,7 +12,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 
 ## Phases
 
-- [ ] **Phase 1: FFI Contract Design** — Lock the C ABI, error-code space, handle format, and ownership rules in a committed contract document before any code is written
+- [x] **Phase 1: FFI Contract Design** — Lock the C ABI, error-code space, handle format, and ownership rules in a committed contract document before any code is written
 - [ ] **Phase 2: Rust Shim + Minimal Parse Path** — Build the Rust cdylib with vendored simdjson and the smallest end-to-end parse path (parser_new -> parse -> doc_root -> get_int64)
 - [ ] **Phase 3: Go Public API + purego Happy Path** — Wire Go's `purejson` package to the shim with handle lifecycle, ParserPool, typed errors, and one accessor as smoke test
 - [ ] **Phase 4: Full Typed Accessor Surface** — Complete the DOM accessor surface (uint64/float64/string/bool/null) and cursor-pull iteration over arrays and objects
@@ -55,9 +55,9 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 **Plans:** 3 plans
 
 Plans:
-- [ ] `01-01-PLAN.md` — Bootstrap the ABI-source crate and reproducible `cbindgen` header pipeline
-- [ ] `01-02-PLAN.md` — Define the stable C ABI surface in `src/lib.rs` and regenerate `include/pure_simdjson.h`
-- [ ] `01-03-PLAN.md` — Write the normative contract and static verification checks for header drift and ABI rules
+- [x] `01-01-PLAN.md` — Bootstrap the ABI-source crate and reproducible `cbindgen` header pipeline
+- [x] `01-02-PLAN.md` — Define the stable C ABI surface in `src/lib.rs` and regenerate `include/pure_simdjson.h`
+- [x] `01-03-PLAN.md` — Write the normative contract and static verification checks for header drift and ABI rules
 
 **Research flag:** YES — spawn `/gsd-research-phase` during planning. No prior `pure-*` library has compiled C++ inside a Rust build, and the contract is expensive to walk back after code lands. Research should validate signature shapes against purego v0.10.0 across all five targets.
 
@@ -337,7 +337,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. FFI Contract Design | 0/? | Not started | — |
+| 1. FFI Contract Design | 3/3 | Complete | 2026-04-14 |
 | 2. Rust Shim + Minimal Parse | 0/? | Not started | — |
 | 3. Go API + purego Happy Path | 0/? | Not started | — |
 | 4. Full Typed Accessor Surface | 0/? | Not started | — |
