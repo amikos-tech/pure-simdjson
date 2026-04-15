@@ -69,8 +69,9 @@ pure_simdjson_error_code_t map_error(simdjson::error_code error) noexcept {
     case simdjson::MEMALLOC:
     case simdjson::UNEXPECTED_ERROR:
     case simdjson::PARSER_IN_USE:
-    case simdjson::UNSUPPORTED_ARCHITECTURE:
       return PURE_SIMDJSON_ERR_INTERNAL;
+    case simdjson::UNSUPPORTED_ARCHITECTURE:
+      return PURE_SIMDJSON_ERR_CPU_UNSUPPORTED;
     default:
       return PURE_SIMDJSON_ERR_INVALID_JSON;
   }
