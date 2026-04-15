@@ -1,0 +1,22 @@
+language = "C"
+include_guard = "PURE_SIMDJSON_H"
+pragma_once = true
+cpp_compat = true
+usize_is_size_t = true
+documentation = true
+style = "both"
+after_includes = "#define PURE_SIMDJSON_ABI_VERSION 0x00010000"
+
+[export]
+include = [
+  "pure_simdjson_error_code_t",
+  "pure_simdjson_value_kind_t",
+  "pure_simdjson_handle_t",
+  "pure_simdjson_parser_t",
+  "pure_simdjson_doc_t",
+  "pure_simdjson_handle_parts_t",
+  "pure_simdjson_value_view_t",
+  "pure_simdjson_array_iter_t",
+  "pure_simdjson_object_iter_t",
+]
+item_types = ["functions", "globals", "typedefs", "opaque", "structs", "enums"]
