@@ -19,4 +19,23 @@ include = [
   "pure_simdjson_array_iter_t",
   "pure_simdjson_object_iter_t",
 ]
+exclude = [
+  "psimdjson_parser",
+  "psimdjson_doc",
+  "psimdjson_element",
+  "psimdjson_get_implementation_name_len",
+  "psimdjson_copy_implementation_name",
+  "psimdjson_padding_bytes",
+  "psimdjson_parser_new",
+  "psimdjson_parser_free",
+  "psimdjson_parser_parse",
+  "psimdjson_parser_get_last_error_len",
+  "psimdjson_parser_copy_last_error",
+  "psimdjson_parser_get_last_error_offset",
+  "psimdjson_doc_free",
+  "psimdjson_doc_root",
+  "psimdjson_element_type",
+  "psimdjson_element_get_int64",
+  "psimdjson_test_force_cpp_exception",
+]
 item_types = ["functions", "globals", "typedefs", "opaque", "structs", "enums"]
