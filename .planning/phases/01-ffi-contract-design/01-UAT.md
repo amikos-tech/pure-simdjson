@@ -29,7 +29,7 @@ expected: Run `make verify-contract`. It should exit successfully: `cargo check`
 result: pass
 
 ### 4. Run verify-docs
-expected: Run `make verify-docs`. It should exit successfully after matching the required contract clauses for `ffi_fn!`, `catch_unwind`, `panic = "abort"`, `.get(err)`, parser-busy semantics, split-number accessors, `SIMDJSON_PADDING`, and `^0.1.x` compatibility.
+expected: Run `make verify-docs`. It should exit successfully after matching the required contract clauses for `ffi_wrap`, `catch_unwind`, `panic = "abort"`, `.get(err)`, parser-busy semantics, split-number accessors, `SIMDJSON_PADDING`, and `^0.1.x` compatibility.
 result: pass
 
 ## Summary

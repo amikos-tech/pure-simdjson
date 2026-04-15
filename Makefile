@@ -6,7 +6,7 @@ generate-header:
 verify-contract:
 	cargo check
 	cargo test
-	tmp="$$(mktemp)"; trap 'rm -f "$$tmp"' EXIT; \
+	tmp="$$(mktemp "$${TMPDIR:-/tmp}/pure_simdjson_verify_contract.XXXXXX")"; trap 'rm -f "$$tmp"' EXIT; \
 	cbindgen --config cbindgen.toml --crate pure_simdjson --output "$$tmp"; \
 	diff -u include/pure_simdjson.h "$$tmp"
 	python3 tests/abi/test_check_header.py

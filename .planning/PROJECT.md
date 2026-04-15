@@ -30,7 +30,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster
 - [ ] Explicit handle lifecycle: `Close()`/`Free()`, generation-stamped handles; finalizer as leak-warning only
 - [ ] Five-platform support: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
 - [ ] musl/Alpine smoke-test job + `PURE_SIMDJSON_LIB_PATH` escape hatch (implementation strategy TBD in Phase 6)
-- [ ] Rust FFI shim with C ABI, `ffi_fn!`-macro-enforced `catch_unwind` + error-code convention (mirrors pure-tokenizers)
+- [ ] Rust FFI shim with C ABI, `ffi_wrap`-helper-enforced `catch_unwind` + error-code convention (mirrors pure-tokenizers)
 - [ ] Binary bootstrap: download pre-built shared library from CloudFlare R2 (primary) + GitHub Releases (fallback); SHA-256 table in Go source
 - [ ] CI release matrix with cosign keyless signing + ad-hoc macOS codesign
 - [ ] Benchmarks vs `encoding/json`, `minio/simdjson-go`, `bytedance/sonic` on twitter.json, canada.json, citm_catalog.json
@@ -81,7 +81,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster
 - **Platforms**: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64 — five first-class targets. musl/Alpine smoke-tested with documented escape hatch.
 - **Distribution**: CloudFlare R2 + Workers (primary) + GitHub Releases (fallback); SHA-256 table embedded in Go source; cosign keyless signing
 - **Failure mode**: explicit CPU-feature failures over silent SIMD-disabled fallback
-- **FFI safety**: `ffi_fn!` macro enforces `catch_unwind` on every `extern "C"` boundary; error-code return only (no struct-by-value)
+- **FFI safety**: `ffi_wrap` helper enforces `catch_unwind` on every `extern "C"` boundary; error-code return only (no struct-by-value)
 
 ## Current State
 

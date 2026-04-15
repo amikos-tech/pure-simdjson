@@ -158,8 +158,10 @@ pure_simdjson_error_code_t pure_simdjson_get_implementation_name_len(size_t *out
 /**
  * Copy the active implementation name into caller-owned storage.
  *
- * `*out_written` receives the required byte count on both success and
- * `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL`.
+ * `*out_written` is written with the required byte count whenever `out_written` itself is
+ * non-null, regardless of the return code. Callers can read the size report on success, on
+ * `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL`, and also on `PURE_SIMDJSON_ERR_INVALID_ARGUMENT`
+ * caused by a null `dst` with sufficient `dst_cap`.
  *
  * # Safety
  * `out_written` must be a valid writable pointer to a `usize`. When `dst_cap` is large enough

@@ -35,7 +35,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 - Error-code numeric space defined; every export returns `int32` with out-params for results (pitfall 8)
 - Generation-stamped opaque handles `{slot: u32, gen: u32}` packed into `u64` (pitfall 1, 10)
 - Ownership rule: input buffer copied into Rust-owned padded arena on every parse (pitfall 2, 3)
-- `ffi_fn!` macro contract: `catch_unwind` + error-code return on every export; `panic = "abort"` (pitfall 4)
+- `ffi_wrap` helper contract: `catch_unwind` + error-code return on every export; `panic = "abort"` (pitfall 4)
 - C++ `.get(err)` form mandated; grep-CI rule documented (pitfall 5)
 - ABI version function `get_abi_version()` and Go-side `^0.1.x` constraint
 - No-float/int-mixing rule documented for Windows/arm64 calling convention (pitfall 9)
@@ -75,7 +75,7 @@ Plans:
 - Crate `pure_simdjson` with `crate-type = ["cdylib", "staticlib"]`
 - `build.rs` driving `cc` crate over simdjson v4.6.1 single-file amalgamation; `-static-libstdc++ -static-libgcc`; C++17
 - simdjson vendored as a git submodule at `third_party/simdjson` with pinned commit
-- `ffi_fn!` macro implemented and applied to every export (catch_unwind + error code)
+- `ffi_wrap` helper (shipped in Phase 1) applied to every export (catch_unwind + error code)
 - All 17 exports from SHIM-06 implemented with stub-or-real semantics so the header compiles
 - Runtime kernel dispatch left to simdjson auto-detection (no `-march=native`)
 - `get_implementation_name()` exposes selected kernel; `parser_new` returns `ERR_CPU_UNSUPPORTED` when `fallback` is selected (with documented bypass for testing)

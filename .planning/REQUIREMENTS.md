@@ -13,7 +13,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **FFI-02**: Every `extern "C"` function returns an `int32` error code (no struct-by-value returns); out-params via pointer
 - [x] **FFI-03**: No function mixes float and integer arguments (Windows/linux-arm calling-convention hazard)
 - [x] **FFI-04**: Opaque handles are generation-stamped `{slot: u32, gen: u32}` packed into `u64`; stale handles return `ERR_INVALID_HANDLE`
-- [x] **FFI-05**: `ffi_fn!` macro wraps every export in `catch_unwind` and error-code return; `panic = "abort"` in release `Cargo.toml`
+- [x] **FFI-05**: `ffi_wrap` helper wraps every export in `catch_unwind` and error-code return; `panic = "abort"` in release `Cargo.toml`
 - [x] **FFI-06**: C++ simdjson exceptions caught at the Rust seam; only `.get(err)` form used (grep-based CI check)
 - [x] **FFI-07**: ABI version exported by `get_abi_version()`; Go-side compile-time constraint `^0.1.x`; mismatch → `ErrABIVersionMismatch`
 - [x] **FFI-08**: Input buffer copied into Rust-owned padded arena (≥ SIMDJSON_PADDING bytes) on every `parser_parse` call

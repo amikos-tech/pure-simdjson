@@ -33,7 +33,7 @@ created: 2026-04-14
 | T-02-01 | T | public function signatures | mitigate | `tests/abi/check_header.py` enforces `int32-outparams` and `no-mixed-float-int` against `include/pure_simdjson.h` during `verify-contract` | closed |
 | T-02-02 | T | handle and value model | mitigate | `src/lib.rs` and `include/pure_simdjson.h` define packed handles plus doc-tied view/iterator structs, and `tests/abi/handle_layout.c` locks their sizes and offsets at compile time | closed |
 | T-02-03 | D | parser lifecycle surface | mitigate | `src/lib.rs`, `include/pure_simdjson.h`, and `docs/ffi-contract.md` explicitly fix parser-busy and `doc_free` lifecycle semantics; `make verify-docs` confirms the policy text remains present | closed |
-| T-03-01 | R | panic/exception policy docs | mitigate | `docs/ffi-contract.md` explicitly requires `ffi_fn!`, `catch_unwind`, `.get(err)`, and separately states that release `panic = "abort"` remains fatal | closed |
+| T-03-01 | R | panic/exception policy docs | mitigate | `docs/ffi-contract.md` explicitly requires `ffi_wrap`, `catch_unwind`, `.get(err)`, and separately states that release `panic = "abort"` remains fatal | closed |
 | T-03-02 | T | header/doc drift | mitigate | `make verify-contract` and `make verify-docs` jointly gate regenerated-header parity, ABI linting, layout assertions, and required contract clauses | closed |
 | T-03-03 | D | missing verification coverage | mitigate | `tests/abi/README.md` maps the static checks to `FFI-01` through `FFI-08` and `DOC-02`, and the mapped commands passed in this audit | closed |
 

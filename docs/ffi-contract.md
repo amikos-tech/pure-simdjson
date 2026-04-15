@@ -169,7 +169,7 @@ Diagnostics helpers are part of the ABI surface:
 
 Diagnostics are advisory only:
 
-- Callers must branch on the `int32_t` status code first.
+- Callers must branch on the `pure_simdjson_error_code_t` status code first.
 - Diagnostic text and offsets help logging and debugging but do not redefine success/failure.
 - `pure_simdjson_parser_copy_last_error` and `pure_simdjson_copy_implementation_name` use bounded caller-provided buffers and may return `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL`.
 
