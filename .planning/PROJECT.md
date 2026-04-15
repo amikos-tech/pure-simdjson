@@ -14,7 +14,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster
 
 <!-- Shipped and confirmed valuable. -->
 
-(None yet — ship to validate)
+- [x] Validated in Phase 2: the repository builds vendored simdjson `v4.6.1` through `build.rs`, exposes a panic-safe C ABI with generation-stamped parser/doc handles, and proves the minimal `parser_new -> parser_parse -> doc_root -> element_get_int64` path through local and CI smoke checks
 
 ### Active
 
@@ -85,9 +85,9 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster
 
 ## Current State
 
-Phase 1 is complete. The repository now has a generated public ABI header, a normative FFI contract, and static verification gates that lock the handle format, error-code space, parser lifecycle, ownership model, and ABI compatibility rules before shim implementation begins.
+Phase 2 is complete. The repository now builds vendored simdjson `v4.6.1` through `build.rs`, exposes the minimal public parse path with panic-safe exports and generation-checked handles, and has external smoke proof on Linux plus observed Windows/MSVC and Darwin CI verification.
 
-Next up: Phase 2 builds the real Rust shim and the first end-to-end parse path against this fixed contract.
+Next up: Phase 999.1 adds local pre-commit and pre-push verification hooks before the broader Go API work continues.
 
 ## Key Decisions
 
@@ -128,4 +128,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-14 after Phase 1 completion*
+*Last updated: 2026-04-15 after Phase 2 completion*
