@@ -943,7 +943,7 @@ mod tests {
 
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(
-            stderr.contains("phase-1 stub reached: pure_simdjson_element_get_uint64"),
+            stderr.contains("unimplemented shim export reached: pure_simdjson_element_get_uint64"),
             "debug stub tripwire should emit the stub marker before aborting: {stderr}",
         );
     }
