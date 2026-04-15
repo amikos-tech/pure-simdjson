@@ -173,6 +173,8 @@ impl Registry {
         Ok(pack_handle(self.parsers.len() as u32, generation))
     }
 
+    // Linear scan acceptable at Phase 02 scope (few docs, short lifetimes).
+    // Switch to a free-list of vacant indices if doc churn grows.
     fn alloc_doc(
         &mut self,
         native_ptr: usize,

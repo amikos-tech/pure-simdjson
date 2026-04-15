@@ -1,6 +1,3 @@
-#ifndef PURE_SIMDJSON_H
-#define PURE_SIMDJSON_H
-
 #pragma once
 
 #include <stdarg.h>
@@ -452,5 +449,3 @@ pure_simdjson_error_code_t pure_simdjson_object_get_field(const struct pure_simd
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus
-
-#endif  /* PURE_SIMDJSON_H */

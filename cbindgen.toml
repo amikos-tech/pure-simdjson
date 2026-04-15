@@ -1,5 +1,4 @@
 language = "C"
-include_guard = "PURE_SIMDJSON_H"
 pragma_once = true
 cpp_compat = true
 usize_is_size_t = true
