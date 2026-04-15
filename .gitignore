@@ -1,0 +1,4 @@
+/target/
+/Cargo.lock
+/.playwright-mcp/
+/tests/abi/__pycache__/

@@ -234,10 +234,10 @@ pub(crate) fn parser_parse(
         .len()
         .checked_add(padding)
         .ok_or_else(err_invalid_argument)?;
-    let mut owned_input = vec![0_u8; total_len];
+    let mut owned_input = vec![0u8; total_len]; // padding bytes stay zero-initialized
     owned_input[..input.len()].copy_from_slice(input);
 
-    let parsed = super::native_parser_parse(native_ptr, &owned_input)?;
+    let parsed = super::native_parser_parse(native_ptr, &owned_input[..input.len()])?;
     let doc_handle = registry.alloc_doc(
         parsed.doc_ptr,
         parsed.root_ptr,

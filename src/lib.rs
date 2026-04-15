@@ -132,6 +132,7 @@ const fn err_invalid_argument() -> pure_simdjson_error_code_t {
 }
 
 #[inline]
+#[cfg_attr(not(test), allow(dead_code))]
 const fn err_buffer_too_small() -> pure_simdjson_error_code_t {
     pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL
 }
@@ -193,6 +194,7 @@ unsafe fn write_out<T>(out: *mut T, value: T) -> pure_simdjson_error_code_t {
     err_ok()
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 unsafe fn copy_out_bytes(
     src: &[u8],
     dst: *mut u8,
