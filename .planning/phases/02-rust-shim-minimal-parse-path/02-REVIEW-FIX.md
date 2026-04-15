@@ -1,43 +1,39 @@
 ---
 phase: 02-rust-shim-minimal-parse-path
-fixed_at: 2026-04-15T17:19:11+03:00
+fixed_at: 2026-04-15T14:23:35Z
 review_path: .planning/phases/02-rust-shim-minimal-parse-path/02-REVIEW.md
-iteration: 1
+iteration: 2
 findings_in_scope: 2
-fixed: 1
-skipped: 1
-status: partial
+fixed: 2
+skipped: 0
+status: all_fixed
 ---
 
 # Phase 02: Code Review Fix Report
 
-**Fixed at:** 2026-04-15T17:19:11+03:00
+**Fixed at:** 2026-04-15T14:23:35Z
 **Source review:** .planning/phases/02-rust-shim-minimal-parse-path/02-REVIEW.md
-**Iteration:** 1
+**Iteration:** 2
 
 **Summary:**
 - Findings in scope: 2
-- Fixed: 1
-- Skipped: 1
+- Fixed: 2
+- Skipped: 0
 
 ## Fixed Issues
 
-### IN-01: C smoke harness uses `va_start` without including `<stdarg.h>`
+### WR-01: `Makefile` verifies contract but leaves first temporary file uncollected
 
-**Files modified:** [tests/smoke/minimal_parse.c](/Users/tazarov/experiments/amikos/pure-simdjson/tests/smoke/minimal_parse.c)
-**Commit:** 314e15f
-**Applied fix:** Added `#include <stdarg.h>` to provide `va_list`/`va_start`/`va_end` declarations before use.
+**Files modified:** `Makefile`
+**Commit:** `bdf7000`
+**Applied fix:** Combine the two cleanup traps in `verify-contract` into a single `EXIT` trap that removes both `tmp` and `out` temporary files.
 
-## Skipped Issues
+### IN-01: `tests/rust_shim_fallback_gate.rs` does not guarantee env restore on failure
 
-### WR-01: Unsupported CPU architecture errors are reported as internal failures
+**Files modified:** `tests/rust_shim_fallback_gate.rs`
+**Commit:** `008c9ba`
+**Applied fix:** Add an RAII `EnvGuard` that clears fallback-related environment variables on creation and `Drop`, then remove manual cleanup calls from each test.
 
-**File:** [src/native/simdjson_bridge.cpp:72](/Users/tazarov/experiments/amikos/pure-simdjson/src/native/simdjson_bridge.cpp:72)
-**Reason:** Skipped: code context differs from review. The source currently already returns `PURE_SIMDJSON_ERR_CPU_UNSUPPORTED` for `simdjson::UNSUPPORTED_ARCHITECTURE`, matching the review’s intended fix.
-**Original issue:** `simdjson::UNSUPPORTED_ARCHITECTURE` is mapped to `PURE_SIMDJSON_ERR_INTERNAL`, which hides the actual capability failure and prevents callers from distinguishing unsupported-CPU conditions from genuine internal parser faults. This bypasses the library’s dedicated `PURE_SIMDJSON_ERR_CPU_UNSUPPORTED` code path.
-
----
-
-_Fixed: 2026-04-15T17:19:11+03:00_
-_Fixer: Claude (gsd-code-review-fix)_
-_Iteration: 1_
+_Fixed: 2026-04-15T14:23:35Z_
+_Fixer: Claude (gsd-code-fixer)_
+_Iteration: 2_
