@@ -1,6 +1,3 @@
-#ifndef PURE_SIMDJSON_H
-#define PURE_SIMDJSON_H
-
 #pragma once
 
 #include <stdarg.h>
@@ -175,9 +172,6 @@ pure_simdjson_error_code_t pure_simdjson_copy_implementation_name(uint8_t *dst,
 /**
  * Allocate a parser handle.
  *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
- *
  * # Safety
  * `out_parser` must be a valid writable pointer to a `pure_simdjson_parser_t`.
  */
@@ -186,8 +180,7 @@ pure_simdjson_error_code_t pure_simdjson_parser_new(pure_simdjson_parser_t *out_
 /**
  * Release a parser handle after all associated documents have been freed.
  *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
+ * Returns `PURE_SIMDJSON_ERR_PARSER_BUSY` while a live document still belongs to `parser`.
  *
  * # Safety
  * `parser` must be a parser handle previously returned by this library. The sentinel `0` and
@@ -206,9 +199,6 @@ pure_simdjson_error_code_t pure_simdjson_parser_free(pure_simdjson_parser_t pars
  * - Re-parse never implicitly invalidates an existing document. The busy state remains until
  *   `pure_simdjson_doc_free` succeeds for that document.
  *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
- *
  * # Safety
  * `parser` must be a live parser handle from this library. When `input_len` is non-zero,
  * `input_ptr` must be readable for `input_len` bytes. `out_doc` must be a valid writable pointer
@@ -222,9 +212,6 @@ pure_simdjson_error_code_t pure_simdjson_parser_parse(pure_simdjson_parser_t par
 /**
  * Report the byte length of the parser's last diagnostic message.
  *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
- *
  * # Safety
  * `parser` must be a live parser handle from this library. `out_len` must be a valid writable
  * pointer to a `usize`.
@@ -234,9 +221,6 @@ pure_simdjson_error_code_t pure_simdjson_parser_get_last_error_len(pure_simdjson
 
 /**
  * Copy the parser's last diagnostic message into caller-owned storage.
- *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
  *
  * # Safety
  * `parser` must be a live parser handle from this library. `out_written` must be a valid
@@ -250,9 +234,6 @@ pure_simdjson_error_code_t pure_simdjson_parser_copy_last_error(pure_simdjson_pa
 
 /**
  * Report the byte offset associated with the parser's last failure.
- *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
  *
  * # Safety
  * `parser` must be a live parser handle from this library. `out_offset` must be a valid writable
@@ -270,9 +251,6 @@ pure_simdjson_error_code_t pure_simdjson_parser_get_last_error_offset(pure_simdj
  * - Generation checks remain the mechanism that turns stale parser/doc/view use into
  *   deterministic `PURE_SIMDJSON_ERR_INVALID_HANDLE` failures instead of undefined behavior.
  *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
- *
  * # Safety
  * `doc` must be a document handle previously returned by this library. The sentinel `0` and
  * forged values are invalid.
@@ -282,8 +260,9 @@ pure_simdjson_error_code_t pure_simdjson_doc_free(pure_simdjson_doc_t doc);
 /**
  * Resolve the root value view for a live document handle.
  *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
+ * The returned view's `kind_hint` is `PURE_SIMDJSON_VALUE_KIND_INVALID` for roots whose value
+ * kind cannot be classified (for example, BIGINT). The canonical precision-loss error surfaces
+ * at `pure_simdjson_element_type`, not here.
  *
  * # Safety
  * `doc` must be a live document handle from this library. `out_root` must be a valid writable
@@ -295,8 +274,8 @@ pure_simdjson_error_code_t pure_simdjson_doc_root(pure_simdjson_doc_t doc,
 /**
  * Report the value kind for a document-tied view.
  *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
+ * Returns `PURE_SIMDJSON_ERR_PRECISION_LOSS` for BIGINT values and
+ * `PURE_SIMDJSON_ERR_INVALID_HANDLE` when reserved bits are non-zero or the root tag is invalid.
  *
  * # Safety
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -307,9 +286,6 @@ pure_simdjson_error_code_t pure_simdjson_element_type(const struct pure_simdjson
 
 /**
  * Decode the referenced value as `int64_t`.
- *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
  *
  * # Safety
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -473,5 +449,3 @@ pure_simdjson_error_code_t pure_simdjson_object_get_field(const struct pure_simd
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus
-
-#endif  /* PURE_SIMDJSON_H */

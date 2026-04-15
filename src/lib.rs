@@ -1,10 +1,13 @@
 #![allow(non_camel_case_types)]
 #![deny(clippy::missing_safety_doc)]
 
+mod runtime;
+
 use core::ptr;
 use std::{
     any::Any,
     panic::{catch_unwind, AssertUnwindSafe},
+    slice,
 };
 
 /// Stable packed ABI version for the Phase 1 contract.
@@ -119,11 +122,6 @@ pub struct pure_simdjson_object_iter_t {
 }
 
 #[inline]
-fn contract_only_implementation_name() -> &'static [u8] {
-    b"contract-only"
-}
-
-#[inline]
 const fn err_ok() -> pure_simdjson_error_code_t {
     pure_simdjson_error_code_t::PURE_SIMDJSON_OK
 }
@@ -134,8 +132,14 @@ const fn err_invalid_argument() -> pure_simdjson_error_code_t {
 }
 
 #[inline]
+#[cfg_attr(not(test), allow(dead_code))]
 const fn err_buffer_too_small() -> pure_simdjson_error_code_t {
     pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL
+}
+
+#[inline]
+const fn err_cpu_unsupported() -> pure_simdjson_error_code_t {
+    pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_CPU_UNSUPPORTED
 }
 
 #[inline]
@@ -190,6 +194,7 @@ unsafe fn write_out<T>(out: *mut T, value: T) -> pure_simdjson_error_code_t {
     err_ok()
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 unsafe fn copy_out_bytes(
     src: &[u8],
     dst: *mut u8,
@@ -222,10 +227,10 @@ unsafe fn copy_out_bytes(
 }
 
 #[inline]
-fn phase1_contract_stub(function_name: &'static str) -> pure_simdjson_error_code_t {
+fn unimplemented_stub(function_name: &'static str) -> pure_simdjson_error_code_t {
     #[cfg(debug_assertions)]
     {
-        eprintln!("phase-1 stub reached: {}", function_name);
+        eprintln!("unimplemented shim export reached: {}", function_name);
         std::process::abort();
     }
 
@@ -234,6 +239,31 @@ fn phase1_contract_stub(function_name: &'static str) -> pure_simdjson_error_code
         let _ = function_name;
         err_internal()
     }
+}
+
+#[inline]
+fn reject_fallback_implementation() -> Result<(), pure_simdjson_error_code_t> {
+    let implementation_name = runtime::selected_implementation_name_for_parser_new()?;
+    if implementation_name.as_slice() == b"fallback" && !runtime::fallback_allowed_for_tests() {
+        return Err(err_cpu_unsupported());
+    }
+
+    Ok(())
+}
+
+#[doc(hidden)]
+pub fn pure_simdjson_test_force_cpp_exception_for_tests() -> pure_simdjson_error_code_t {
+    runtime::test_force_cpp_exception_for_tests()
+}
+
+#[doc(hidden)]
+pub fn pure_simdjson_test_set_forced_implementation_for_tests(value: Option<&[u8]>) {
+    runtime::test_set_forced_implementation_override(value);
+}
+
+#[doc(hidden)]
+pub fn pure_simdjson_test_set_allow_fallback_for_tests(value: Option<bool>) {
+    runtime::test_set_fallback_allowed_override(value);
 }
 
 /// Write the packed ABI version expected by Go-side compatibility checks.
@@ -258,7 +288,10 @@ pub unsafe extern "C" fn pure_simdjson_get_implementation_name_len(
     out_len: *mut usize,
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_get_implementation_name_len", || unsafe {
-        write_out(out_len, contract_only_implementation_name().len())
+        match runtime::implementation_name_len() {
+            Ok(len) => write_out(out_len, len),
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -279,20 +312,12 @@ pub unsafe extern "C" fn pure_simdjson_copy_implementation_name(
     dst_cap: usize,
     out_written: *mut usize,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_copy_implementation_name", || unsafe {
-        copy_out_bytes(
-            contract_only_implementation_name(),
-            dst,
-            dst_cap,
-            out_written,
-        )
+    ffi_wrap("pure_simdjson_copy_implementation_name", || {
+        runtime::copy_implementation_name(dst, dst_cap, out_written)
     })
 }
 
 /// Allocate a parser handle.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
 ///
 /// # Safety
 /// `out_parser` must be a valid writable pointer to a `pure_simdjson_parser_t`.
@@ -300,16 +325,25 @@ pub unsafe extern "C" fn pure_simdjson_copy_implementation_name(
 pub unsafe extern "C" fn pure_simdjson_parser_new(
     out_parser: *mut pure_simdjson_parser_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_parser_new", || {
-        let _ = out_parser;
-        phase1_contract_stub("pure_simdjson_parser_new")
+    ffi_wrap("pure_simdjson_parser_new", || unsafe {
+        if out_parser.is_null() {
+            return err_invalid_argument();
+        }
+
+        if let Err(rc) = reject_fallback_implementation() {
+            return rc;
+        }
+
+        match runtime::registry::parser_new() {
+            Ok(parser) => write_out(out_parser, parser),
+            Err(rc) => rc,
+        }
     })
 }
 
 /// Release a parser handle after all associated documents have been freed.
 ///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
+/// Returns `PURE_SIMDJSON_ERR_PARSER_BUSY` while a live document still belongs to `parser`.
 ///
 /// # Safety
 /// `parser` must be a parser handle previously returned by this library. The sentinel `0` and
@@ -318,10 +352,7 @@ pub unsafe extern "C" fn pure_simdjson_parser_new(
 pub unsafe extern "C" fn pure_simdjson_parser_free(
     parser: pure_simdjson_parser_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_parser_free", || {
-        let _ = parser;
-        phase1_contract_stub("pure_simdjson_parser_free")
-    })
+    ffi_wrap("pure_simdjson_parser_free", || runtime::registry::parser_free(parser))
 }
 
 /// Parse one JSON buffer into a new document handle.
@@ -334,9 +365,6 @@ pub unsafe extern "C" fn pure_simdjson_parser_free(
 /// - Re-parse never implicitly invalidates an existing document. The busy state remains until
 ///   `pure_simdjson_doc_free` succeeds for that document.
 ///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
-///
 /// # Safety
 /// `parser` must be a live parser handle from this library. When `input_len` is non-zero,
 /// `input_ptr` must be readable for `input_len` bytes. `out_doc` must be a valid writable pointer
@@ -348,16 +376,28 @@ pub unsafe extern "C" fn pure_simdjson_parser_parse(
     input_len: usize,
     out_doc: *mut pure_simdjson_doc_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_parser_parse", || {
-        let _ = (parser, input_ptr, input_len, out_doc);
-        phase1_contract_stub("pure_simdjson_parser_parse")
+    ffi_wrap("pure_simdjson_parser_parse", || unsafe {
+        if out_doc.is_null() {
+            return err_invalid_argument();
+        }
+        if input_len != 0 && input_ptr.is_null() {
+            return err_invalid_argument();
+        }
+
+        let input = if input_len == 0 {
+            &[][..]
+        } else {
+            slice::from_raw_parts(input_ptr, input_len)
+        };
+
+        match runtime::registry::parser_parse(parser, input) {
+            Ok(doc) => write_out(out_doc, doc),
+            Err(rc) => rc,
+        }
     })
 }
 
 /// Report the byte length of the parser's last diagnostic message.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
 ///
 /// # Safety
 /// `parser` must be a live parser handle from this library. `out_len` must be a valid writable
@@ -367,16 +407,15 @@ pub unsafe extern "C" fn pure_simdjson_parser_get_last_error_len(
     parser: pure_simdjson_parser_t,
     out_len: *mut usize,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_parser_get_last_error_len", || {
-        let _ = (parser, out_len);
-        phase1_contract_stub("pure_simdjson_parser_get_last_error_len")
+    ffi_wrap("pure_simdjson_parser_get_last_error_len", || unsafe {
+        match runtime::registry::parser_last_error_len(parser) {
+            Ok(len) => write_out(out_len, len),
+            Err(rc) => rc,
+        }
     })
 }
 
 /// Copy the parser's last diagnostic message into caller-owned storage.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
 ///
 /// # Safety
 /// `parser` must be a live parser handle from this library. `out_written` must be a valid
@@ -390,15 +429,11 @@ pub unsafe extern "C" fn pure_simdjson_parser_copy_last_error(
     out_written: *mut usize,
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_parser_copy_last_error", || {
-        let _ = (parser, dst, dst_cap, out_written);
-        phase1_contract_stub("pure_simdjson_parser_copy_last_error")
+        runtime::registry::parser_copy_last_error(parser, dst, dst_cap, out_written)
     })
 }
 
 /// Report the byte offset associated with the parser's last failure.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
 ///
 /// # Safety
 /// `parser` must be a live parser handle from this library. `out_offset` must be a valid writable
@@ -408,9 +443,11 @@ pub unsafe extern "C" fn pure_simdjson_parser_get_last_error_offset(
     parser: pure_simdjson_parser_t,
     out_offset: *mut u64,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_parser_get_last_error_offset", || {
-        let _ = (parser, out_offset);
-        phase1_contract_stub("pure_simdjson_parser_get_last_error_offset")
+    ffi_wrap("pure_simdjson_parser_get_last_error_offset", || unsafe {
+        match runtime::registry::parser_last_error_offset(parser) {
+            Ok(offset) => write_out(out_offset, offset),
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -422,9 +459,6 @@ pub unsafe extern "C" fn pure_simdjson_parser_get_last_error_offset(
 /// - Generation checks remain the mechanism that turns stale parser/doc/view use into
 ///   deterministic `PURE_SIMDJSON_ERR_INVALID_HANDLE` failures instead of undefined behavior.
 ///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
-///
 /// # Safety
 /// `doc` must be a document handle previously returned by this library. The sentinel `0` and
 /// forged values are invalid.
@@ -432,16 +466,14 @@ pub unsafe extern "C" fn pure_simdjson_parser_get_last_error_offset(
 pub unsafe extern "C" fn pure_simdjson_doc_free(
     doc: pure_simdjson_doc_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_doc_free", || {
-        let _ = doc;
-        phase1_contract_stub("pure_simdjson_doc_free")
-    })
+    ffi_wrap("pure_simdjson_doc_free", || runtime::registry::doc_free(doc))
 }
 
 /// Resolve the root value view for a live document handle.
 ///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
+/// The returned view's `kind_hint` is `PURE_SIMDJSON_VALUE_KIND_INVALID` for roots whose value
+/// kind cannot be classified (for example, BIGINT). The canonical precision-loss error surfaces
+/// at `pure_simdjson_element_type`, not here.
 ///
 /// # Safety
 /// `doc` must be a live document handle from this library. `out_root` must be a valid writable
@@ -451,16 +483,18 @@ pub unsafe extern "C" fn pure_simdjson_doc_root(
     doc: pure_simdjson_doc_t,
     out_root: *mut pure_simdjson_value_view_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_doc_root", || {
-        let _ = (doc, out_root);
-        phase1_contract_stub("pure_simdjson_doc_root")
+    ffi_wrap("pure_simdjson_doc_root", || unsafe {
+        match runtime::registry::doc_root(doc) {
+            Ok(root) => write_out(out_root, root),
+            Err(rc) => rc,
+        }
     })
 }
 
 /// Report the value kind for a document-tied view.
 ///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
+/// Returns `PURE_SIMDJSON_ERR_PRECISION_LOSS` for BIGINT values and
+/// `PURE_SIMDJSON_ERR_INVALID_HANDLE` when reserved bits are non-zero or the root tag is invalid.
 ///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -470,16 +504,15 @@ pub unsafe extern "C" fn pure_simdjson_element_type(
     view: *const pure_simdjson_value_view_t,
     out_type: *mut u32,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_element_type", || {
-        let _ = (view, out_type);
-        phase1_contract_stub("pure_simdjson_element_type")
+    ffi_wrap("pure_simdjson_element_type", || unsafe {
+        match runtime::registry::element_type(view) {
+            Ok(value_kind) => write_out(out_type, value_kind),
+            Err(rc) => rc,
+        }
     })
 }
 
 /// Decode the referenced value as `int64_t`.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
 ///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -489,9 +522,11 @@ pub unsafe extern "C" fn pure_simdjson_element_get_int64(
     view: *const pure_simdjson_value_view_t,
     out_value: *mut i64,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_element_get_int64", || {
-        let _ = (view, out_value);
-        phase1_contract_stub("pure_simdjson_element_get_int64")
+    ffi_wrap("pure_simdjson_element_get_int64", || unsafe {
+        match runtime::registry::element_get_int64(view) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -510,7 +545,7 @@ pub unsafe extern "C" fn pure_simdjson_element_get_uint64(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_element_get_uint64", || {
         let _ = (view, out_value);
-        phase1_contract_stub("pure_simdjson_element_get_uint64")
+        unimplemented_stub("pure_simdjson_element_get_uint64")
     })
 }
 
@@ -529,7 +564,7 @@ pub unsafe extern "C" fn pure_simdjson_element_get_float64(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_element_get_float64", || {
         let _ = (view, out_value);
-        phase1_contract_stub("pure_simdjson_element_get_float64")
+        unimplemented_stub("pure_simdjson_element_get_float64")
     })
 }
 
@@ -552,7 +587,7 @@ pub unsafe extern "C" fn pure_simdjson_element_get_string(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_element_get_string", || {
         let _ = (view, out_ptr, out_len);
-        phase1_contract_stub("pure_simdjson_element_get_string")
+        unimplemented_stub("pure_simdjson_element_get_string")
     })
 }
 
@@ -571,7 +606,7 @@ pub unsafe extern "C" fn pure_simdjson_bytes_free(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_bytes_free", || {
         let _ = (ptr, len);
-        phase1_contract_stub("pure_simdjson_bytes_free")
+        unimplemented_stub("pure_simdjson_bytes_free")
     })
 }
 
@@ -590,7 +625,7 @@ pub unsafe extern "C" fn pure_simdjson_element_get_bool(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_element_get_bool", || {
         let _ = (view, out_value);
-        phase1_contract_stub("pure_simdjson_element_get_bool")
+        unimplemented_stub("pure_simdjson_element_get_bool")
     })
 }
 
@@ -609,7 +644,7 @@ pub unsafe extern "C" fn pure_simdjson_element_is_null(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_element_is_null", || {
         let _ = (view, out_is_null);
-        phase1_contract_stub("pure_simdjson_element_is_null")
+        unimplemented_stub("pure_simdjson_element_is_null")
     })
 }
 
@@ -628,7 +663,7 @@ pub unsafe extern "C" fn pure_simdjson_array_iter_new(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_array_iter_new", || {
         let _ = (array_view, out_iter);
-        phase1_contract_stub("pure_simdjson_array_iter_new")
+        unimplemented_stub("pure_simdjson_array_iter_new")
     })
 }
 
@@ -648,7 +683,7 @@ pub unsafe extern "C" fn pure_simdjson_array_iter_next(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_array_iter_next", || {
         let _ = (iter, out_value, out_done);
-        phase1_contract_stub("pure_simdjson_array_iter_next")
+        unimplemented_stub("pure_simdjson_array_iter_next")
     })
 }
 
@@ -667,7 +702,7 @@ pub unsafe extern "C" fn pure_simdjson_object_iter_new(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_object_iter_new", || {
         let _ = (object_view, out_iter);
-        phase1_contract_stub("pure_simdjson_object_iter_new")
+        unimplemented_stub("pure_simdjson_object_iter_new")
     })
 }
 
@@ -688,7 +723,7 @@ pub unsafe extern "C" fn pure_simdjson_object_iter_next(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_object_iter_next", || {
         let _ = (iter, out_key, out_value, out_done);
-        phase1_contract_stub("pure_simdjson_object_iter_next")
+        unimplemented_stub("pure_simdjson_object_iter_next")
     })
 }
 
@@ -710,7 +745,7 @@ pub unsafe extern "C" fn pure_simdjson_object_get_field(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_object_get_field", || {
         let _ = (object_view, key_ptr, key_len, out_value);
-        phase1_contract_stub("pure_simdjson_object_get_field")
+        unimplemented_stub("pure_simdjson_object_get_field")
     })
 }
 
@@ -746,29 +781,31 @@ mod tests {
 
     #[test]
     fn implementation_name_probe_reports_required_length() {
+        let expected_len = runtime::implementation_name()
+            .expect("bridge implementation name should be available")
+            .len();
         let mut written = 0_usize;
 
         let rc =
             unsafe { pure_simdjson_copy_implementation_name(ptr::null_mut(), 0, &mut written) };
 
         assert_eq!(rc, err_buffer_too_small());
-        assert_eq!(written, contract_only_implementation_name().len());
+        assert_eq!(written, expected_len);
     }
 
     #[test]
     fn implementation_name_rejects_null_destination_when_capacity_is_sufficient() {
+        let expected_len = runtime::implementation_name()
+            .expect("bridge implementation name should be available")
+            .len();
         let mut written = 0_usize;
 
         let rc = unsafe {
-            pure_simdjson_copy_implementation_name(
-                ptr::null_mut(),
-                contract_only_implementation_name().len(),
-                &mut written,
-            )
+            pure_simdjson_copy_implementation_name(ptr::null_mut(), expected_len, &mut written)
         };
 
         assert_eq!(rc, err_invalid_argument());
-        assert_eq!(written, contract_only_implementation_name().len());
+        assert_eq!(written, expected_len);
     }
 
     #[test]
@@ -884,9 +921,9 @@ mod tests {
     }
 
     #[test]
-    fn phase1_stub_hits_debug_tripwire() {
+    fn retained_stub_hits_debug_tripwire() {
         if env::var_os("PURE_SIMDJSON_TRIGGER_STUB").is_some() {
-            let _ = unsafe { pure_simdjson_parser_new(ptr::null_mut()) };
+            let _ = unsafe { pure_simdjson_element_get_uint64(ptr::null(), ptr::null_mut()) };
             return;
         }
 
@@ -897,7 +934,7 @@ mod tests {
         let output = Command::new(env::current_exe().expect("test binary path"))
             .env("PURE_SIMDJSON_TRIGGER_STUB", "1")
             .arg("--exact")
-            .arg("tests::phase1_stub_hits_debug_tripwire")
+            .arg("tests::retained_stub_hits_debug_tripwire")
             .arg("--nocapture")
             .output()
             .expect("spawn stub tripwire subprocess");
@@ -905,23 +942,21 @@ mod tests {
         assert_subprocess_ran_exactly_one_test(&output);
         assert!(
             !output.status.success(),
-            "phase-1 stubs should fail fast in debug builds"
+            "retained Phase 4 stubs should fail fast in debug builds"
         );
 
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(
-            stderr.contains("phase-1 stub reached: pure_simdjson_parser_new"),
+            stderr.contains("unimplemented shim export reached: pure_simdjson_element_get_uint64"),
             "debug stub tripwire should emit the stub marker before aborting: {stderr}",
         );
     }
 
     #[cfg(not(debug_assertions))]
     #[test]
-    fn phase1_stub_returns_err_internal_in_release_builds() {
-        let mut parser = 0_u64;
-
+    fn retained_stub_returns_err_internal_in_release_builds() {
         assert_eq!(
-            unsafe { pure_simdjson_parser_new(&mut parser) },
+            unsafe { pure_simdjson_element_get_uint64(ptr::null(), ptr::null_mut()) },
             pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INTERNAL
         );
     }

@@ -1,0 +1,125 @@
+name: phase2-rust-shim-smoke
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/phase2-rust-shim-smoke.yml
+      - Cargo.toml
+      - Makefile
+      - build.rs
+      - include/pure_simdjson.h
+      - src/**
+      - tests/smoke/**
+
+permissions:
+  contents: read
+
+jobs:
+  linux-smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux smoke prerequisites
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+          cargo install cbindgen --locked
+
+      - name: Verify contract
+        run: |
+          set -euo pipefail
+          make verify-contract
+
+      - name: Build release library
+        run: |
+          set -euo pipefail
+          cargo build --release
+
+      - name: Run Linux smoke harness
+        run: |
+          set -euo pipefail
+          make phase2-smoke-linux
+
+      - name: Verify Linux exports
+        run: |
+          set -euo pipefail
+          nm -D --defined-only target/release/libpure_simdjson.so | rg 'pure_simdjson_(get_abi_version|parser_new|parser_parse|doc_root|element_type|element_get_int64)'
+
+  windows-smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Configure MSVC developer shell
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build release library
+        shell: pwsh
+        run: cargo build --release
+
+      - name: Run Rust integration tests
+        shell: pwsh
+        run: cargo test --release
+
+      - name: Compile Windows smoke harness
+        shell: pwsh
+        run: |
+          if (-not (Test-Path target/phase2-smoke)) { New-Item -ItemType Directory -Path target/phase2-smoke | Out-Null }
+          cl /nologo /Iinclude tests/smoke/minimal_parse.c /link /LIBPATH:target/release pure_simdjson.dll.lib /OUT:target/phase2-smoke/minimal_parse.exe
+
+      - name: Run Windows smoke harness
+        shell: pwsh
+        run: |
+          $env:PATH = "$pwd/target/release;$env:PATH"
+          & target/phase2-smoke/minimal_parse.exe
+
+      - name: Verify Windows exports
+        shell: pwsh
+        run: dumpbin /EXPORTS target/release/pure_simdjson.dll | findstr pure_simdjson_
+
+  darwin-build-only:
+    runs-on: macos-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release library
+        run: |
+          set -euo pipefail
+          cargo build --release
+
+      - name: Run Rust integration tests
+        run: |
+          set -euo pipefail
+          cargo test --release
+
+      - name: Verify macOS dylib exists
+        run: |
+          set -euo pipefail
+          test -f target/release/libpure_simdjson.dylib
