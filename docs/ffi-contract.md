@@ -1,6 +1,6 @@
 # Scope
 
-This document is the normative FFI contract for `pure-simdjson` ABI `v0.1`. It defines the public C ABI exported in [include/pure_simdjson.h](/Users/tazarov/experiments/amikos/pure-simdjson/include/pure_simdjson.h) and the semantic rules later phases must implement verbatim.
+This document is the normative FFI contract for `pure-simdjson` ABI `v0.1`. It defines the public C ABI exported in [include/pure_simdjson.h](../include/pure_simdjson.h) and the semantic rules later phases must implement verbatim.
 
 `v0.1` is DOM-only. On-Demand APIs, pinned-input parsing, and borrowed string-view APIs remain deferred work and are not part of this contract.
 
@@ -17,6 +17,7 @@ Phase 1 currently ships the metadata helpers `pure_simdjson_get_abi_version`, `p
 - `pure_simdjson_handle_t` is the generic packed transport type. Public signatures use the source-level aliases `pure_simdjson_parser_t` and `pure_simdjson_doc_t` to distinguish parser/document roles without changing the underlying wire representation.
 - `pure_simdjson_value_view_t`, `pure_simdjson_array_iter_t`, and `pure_simdjson_object_iter_t` are lightweight document-tied view/iterator structs.
 - Control flow is driven by numeric status codes, not by diagnostic strings.
+- Boolean out-params typed as `uint8_t *` are written as exactly `0` for false and `1` for true. Callers may rely on strict `0`/`1` rather than accepting any non-zero value.
 
 # Out-param semantics
 
@@ -46,6 +47,8 @@ Phase 1 currently ships the metadata helpers `pure_simdjson_get_abi_version`, `p
 
 These values are part of the public ABI. Downstream wrappers may map them to richer errors, but they must preserve the numeric meaning.
 
+The numeric gaps between assigned values (7–31, 35–63, 66–95, 98–126) are reserved for future minor-version additions within the same error class. Consumers that range-check, bucket, or exhaustively map these codes must tolerate new values appearing in the reserved bands across `0.1.x` releases.
+
 # Handle format
 
 `pure_simdjson_handle_t` is a packed `uint64_t` with `slot:u32 | generation:u32`.
@@ -62,6 +65,12 @@ typedef struct pure_simdjson_handle_parts_t {
   uint32_t generation;
 } pure_simdjson_handle_parts_t;
 ```
+
+Bit layout (pinned by the static assertions in `tests/abi/handle_layout.c`):
+
+- `slot` occupies memory bytes `0..4`; `generation` occupies bytes `4..8`.
+- On supported little-endian targets this means `slot` is the low 32 bits of the packed `uint64_t` and `generation` the high 32 bits.
+- Callers may `memcpy` between an 8-byte handle value and `pure_simdjson_handle_parts_t`, or equivalently extract fields as `(uint32_t)(h)` for `slot` and `(uint32_t)(h >> 32)` for `generation`.
 
 Handles are never raw pointers in the public ABI. Any stale, double-freed, or mismatched generation must fail with `PURE_SIMDJSON_ERR_INVALID_HANDLE` rather than producing undefined behavior.
 
@@ -176,13 +185,13 @@ The ABI version export is `pure_simdjson_get_abi_version`.
 
 # Panic and exception policy
 
-Every exported Rust ABI function must be authored through an `ffi_fn!`-style wrapper that applies `catch_unwind` in unwind-enabled builds and converts trapped panics into `PURE_SIMDJSON_ERR_PANIC`.
+Every exported Rust ABI function must be authored through the `ffi_wrap` helper (`src/lib.rs`), which applies `catch_unwind` in unwind-enabled builds and converts trapped panics into `PURE_SIMDJSON_ERR_PANIC`.
 
 Rules:
 
-- `ffi_fn!` is mandatory for every public export.
+- `ffi_wrap` is mandatory for every public export.
 - `catch_unwind` is required when unwinding is enabled so Rust panics do not cross the C ABI boundary.
-- Phase 1 pins `panic = "abort"` in the dev and release Cargo profiles. Cargo ignores that setting for the `test` profile, so unwind-enabled test builds still require the `ffi_fn!`/`catch_unwind` boundary above to convert internal panics into `PURE_SIMDJSON_ERR_PANIC`.
+- Phase 1 pins `panic = "abort"` in the dev and release Cargo profiles. Cargo ignores that setting for the `test` profile, so unwind-enabled test builds still require the `ffi_wrap`/`catch_unwind` boundary above to convert internal panics into `PURE_SIMDJSON_ERR_PANIC`.
 - The Rust/C++ seam must use non-throwing simdjson access patterns such as `.get(err)`.
 - C++ exceptions must be trapped before re-entering Rust and converted into `PURE_SIMDJSON_ERR_CPP_EXCEPTION`.
 - No foreign exception or Rust unwind may cross into Go or C callers.
