@@ -1,5 +1,9 @@
-use std::ptr;
-use std::thread;
+use std::{
+    collections::HashSet,
+    ptr,
+    sync::{Arc, Barrier, Mutex},
+    thread,
+};
 
 use pure_simdjson::{
     pure_simdjson_copy_implementation_name, pure_simdjson_doc_free, pure_simdjson_doc_root,
@@ -92,6 +96,17 @@ fn parser_last_error(parser: pure_simdjson_handle_t) -> String {
     String::from_utf8(bytes).expect("last error should be valid UTF-8")
 }
 
+fn parser_last_error_offset(parser: pure_simdjson_handle_t) -> u64 {
+    let mut offset = 0_u64;
+    let offset_rc = unsafe { pure_simdjson_parser_get_last_error_offset(parser, &mut offset) };
+    assert_eq!(offset_rc, PURE_SIMDJSON_OK);
+    offset
+}
+
+fn pack_handle(slot: u32, generation: u32) -> pure_simdjson_handle_t {
+    u64::from(slot) | (u64::from(generation) << 32)
+}
+
 #[test]
 fn get_abi_version_returns_phase1_constant() {
     let mut abi_version = 0_u32;
@@ -168,6 +183,42 @@ fn invalid_json_reports_last_error_and_unknown_offset() {
     assert_eq!(offset_rc, PURE_SIMDJSON_OK);
     assert_eq!(offset, u64::MAX);
 
+    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+}
+
+#[test]
+fn zero_length_input_returns_invalid_json() {
+    let parser = parser_new();
+    let mut doc = 0_u64;
+
+    let rc = unsafe { pure_simdjson_parser_parse(parser, ptr::null(), 0, &mut doc) };
+
+    assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_JSON);
+    assert_eq!(doc, 0);
+    assert!(!parser_last_error(parser).is_empty());
+    assert_eq!(parser_last_error_offset(parser), u64::MAX);
+
+    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+}
+
+#[test]
+fn successful_parse_after_invalid_json_clears_prior_error() {
+    let parser = parser_new();
+    let mut bad_doc = 0_u64;
+
+    let bad_rc = unsafe { pure_simdjson_parser_parse(parser, b"{".as_ptr(), 1, &mut bad_doc) };
+    assert_eq!(bad_rc, PURE_SIMDJSON_ERR_INVALID_JSON);
+    assert_eq!(bad_doc, 0);
+    assert!(!parser_last_error(parser).is_empty());
+
+    let doc = parser_parse_literal(parser, b"42");
+    let root = doc_root(doc);
+
+    assert_eq!(element_get_int64_of(&root), 42);
+    assert_eq!(parser_last_error(parser), "");
+    assert_eq!(parser_last_error_offset(parser), u64::MAX);
+
+    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
     assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
 }
 
@@ -308,26 +359,50 @@ fn null_pointer_matrix_returns_invalid_argument() {
 }
 
 #[test]
-fn distinct_parsers_work_from_two_threads() {
-    let worker = thread::spawn(|| {
-        let parser = parser_new();
-        let doc = parser_parse_literal(parser, b"43");
-        let root = doc_root(doc);
+fn distinct_parsers_work_under_contention() {
+    let thread_count = 8;
+    let iterations = 100;
+    let start = Arc::new(Barrier::new(thread_count));
+    let seen_handles = Arc::new(Mutex::new(HashSet::new()));
+    let mut workers = Vec::with_capacity(thread_count);
 
-        assert_eq!(element_get_int64_of(&root), 43);
-        assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
-        assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
-    });
+    for thread_index in 0..thread_count {
+        let start = Arc::clone(&start);
+        let seen_handles = Arc::clone(&seen_handles);
+        workers.push(thread::spawn(move || {
+            start.wait();
+            for iteration in 0..iterations {
+                let expected = (thread_index * 1000 + iteration) as i64;
+                let json = expected.to_string();
+                let parser = parser_new();
+                {
+                    let mut seen_handles = seen_handles.lock().expect("mutex should not poison");
+                    assert!(
+                        seen_handles.insert(parser),
+                        "duplicate parser handle observed: {parser:#x}"
+                    );
+                }
 
-    let parser = parser_new();
-    let doc = parser_parse_literal(parser, b"42");
-    let root = doc_root(doc);
+                let doc = parser_parse_literal(parser, json.as_bytes());
+                {
+                    let mut seen_handles = seen_handles.lock().expect("mutex should not poison");
+                    assert!(
+                        seen_handles.insert(doc),
+                        "duplicate doc handle observed: {doc:#x}"
+                    );
+                }
 
-    assert_eq!(element_get_int64_of(&root), 42);
-    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
-    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+                let root = doc_root(doc);
+                assert_eq!(element_get_int64_of(&root), expected);
+                assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
+                assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+            }
+        }));
+    }
 
-    worker.join().expect("worker thread should complete");
+    for worker in workers {
+        worker.join().expect("worker thread should complete");
+    }
 }
 
 #[test]
@@ -389,4 +464,45 @@ fn element_get_int64_reports_number_out_of_range_for_bigint() {
 
     assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
     assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+}
+
+#[test]
+fn tampered_root_view_tag_and_reserved_bits_return_invalid_handle() {
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, b"42");
+    let root = doc_root(doc);
+
+    let mut kind = 0_u32;
+    let mut wrong_tag = root;
+    wrong_tag.state1 = 0;
+    assert_eq!(
+        unsafe { pure_simdjson_element_type(&wrong_tag, &mut kind) },
+        PURE_SIMDJSON_ERR_INVALID_HANDLE
+    );
+
+    let mut reserved_bits = root;
+    reserved_bits.reserved = 1;
+    assert_eq!(
+        unsafe { pure_simdjson_element_type(&reserved_bits, &mut kind) },
+        PURE_SIMDJSON_ERR_INVALID_HANDLE
+    );
+
+    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
+    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+}
+
+#[test]
+fn forged_out_of_range_parser_slot_returns_invalid_handle() {
+    let forged = pack_handle(u32::MAX, 1);
+
+    assert_eq!(
+        unsafe { pure_simdjson_parser_free(forged) },
+        PURE_SIMDJSON_ERR_INVALID_HANDLE
+    );
+
+    let mut len = 0_usize;
+    assert_eq!(
+        unsafe { pure_simdjson_parser_get_last_error_len(forged, &mut len) },
+        PURE_SIMDJSON_ERR_INVALID_HANDLE
+    );
 }
