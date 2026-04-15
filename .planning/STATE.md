@@ -5,10 +5,10 @@ milestone_name: Release
 current_phase: 999.1
 current_phase_name: local pre commit and pre push verification hooks
 current_plan: Not started
-status: executing
-stopped_at: Phase 2 context gathered
-last_updated: "2026-04-15T13:57:12.811Z"
-last_activity: 2026-04-15
+status: Ready to plan
+stopped_at: Phase 02 complete, ready to plan Phase 999.1
+last_updated: "2026-04-15T13:59:44Z"
+last_activity: 2026-04-15 -- Phase 02 complete, ready to plan Phase 999.1
 progress:
   total_phases: 8
   completed_phases: 2
@@ -21,67 +21,50 @@ progress:
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-04-14)
+See: `.planning/PROJECT.md` (updated 2026-04-15)
 
 **Core value:** Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, precision-preserving parser that does not require cgo at consumer build time.
-**Current focus:** Phase 02 — rust-shim-minimal-parse-path
+**Current focus:** Phase 999.1 — local pre-commit and pre-push verification hooks
 
 ## Current Position
 
-Phase: 02 (rust-shim-minimal-parse-path) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 02
-Last activity: 2026-04-15
+Phase: 999.1 of 8 (Local pre-commit and pre-push verification hooks)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-04-15 — Phase 02 complete, verification passed, and the roadmap advanced to Phase 999.1
 
-Progress: [█░░░░░░░░░] 14%
-
-Current Phase: 999.1
-Current Phase Name: local pre commit and pre push verification hooks
-Total Phases: 7
-Current Plan: Not started
-Total Plans in Phase: 3
-Last Activity: 2026-04-14
-Last Activity Description: Phase 02 complete, transitioned to Phase 999.1
+Progress: [████████████████████] 6/6 plans (100%)
 
 ## Performance Metrics
 
 **Velocity:**
 
 - Total plans completed: 6
-- Average duration: 9.3m
-- Total execution time: 0.5 hours
+- Average duration: 11.2m
+- Total execution time: 1.1 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | Phase 01 | 3 | 28m | 9.3m |
-| 02 | 3 | - | - |
+| Phase 02 | 3 | 39m | 13.0m |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01, 01-02, 01-03
+- Last 5 plans: 01-02, 01-03, 02-01, 02-02, 02-03
 - Trend: Stable
-
-| Phase 01-ffi-contract-design P01 | 11m | 2 tasks | 4 files |
-| Phase 01 P02 | 9m | 2 tasks | 3 files |
-| Phase 01-ffi-contract-design P03 | 8m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
-### Decisions Made
+### Decisions
 
-| Phase | Summary | Rationale |
-|-------|---------|-----------|
-| 1 | DOM `v0.1`, Rust-owned input copy, cursor/pull iteration, split number accessors, explicit parser busy contract | Locks the contract around the happy path and prevents the known FFI/P0 failure modes from resurfacing later |
+Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting current work:
 
-- [Phase 01]: Use src/lib.rs as the ABI source that drives cbindgen header generation.
-- [Phase 01]: Keep the bootstrap export surface limited to ABI version negotiation, with a null-pointer guard on the out-param.
-- [Phase 01]: Kept the public ABI on int32_t returns plus pointer out-params only for purego portability.
-- [Phase 01]: Locked Parser and Doc as packed u64 handles while values and iterators remain doc-tied view structs.
-- [Phase 01]: Configured cbindgen to export standalone ABI enums and structs so the committed header fully captures the contract surface.
-- [Phase 01]: Treat docs/ffi-contract.md as normative for lifecycle, ownership, diagnostics, and panic/exception semantics while the generated header remains normative for symbol names and C types.
-- [Phase 01]: Enforce ABI drift with a temp regenerated-header diff, explicit header lint rules, and compile-time layout assertions instead of prose review alone.
+- [Phase 02] Build the native shim from vendored simdjson `v4.6.1` through `build.rs` and `cc`, without manual kernel-selection flags.
+- [Phase 02] Keep parser/doc handles generation-checked and store padded Rust-owned input alongside live docs.
+- [Phase 02] Treat observed `windows-smoke` success as part of the exit gate, not just workflow YAML presence.
+- [Phase 02] Keep the fallback-kernel override hidden behind test-only environment variables instead of exposing new public ABI controls.
 
 ### Pending Todos
 
@@ -89,10 +72,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- `gsd-tools phase complete` did not update `ROADMAP.md` in this session; Phase 01 roadmap status was patched manually. Re-check roadmap diffs on the next phase close-out.
+- [Phase 02 advisory] Review whether parse-time `simdjson::UNSUPPORTED_ARCHITECTURE` should map to `PURE_SIMDJSON_ERR_CPU_UNSUPPORTED` instead of `PURE_SIMDJSON_ERR_INTERNAL`.
+- [Phase 02 advisory] Clean up stale public comments for now-live exports and decide whether `last_error_offset` should remain sentinel-only or surface real offsets.
 
 ## Session Continuity
 
-Last session: 2026-04-15T09:23:47.269Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-rust-shim-minimal-parse-path/02-CONTEXT.md
+Last session: 2026-04-15T13:59:44Z
+Stopped at: Phase 02 complete, ready to plan Phase 999.1
+Resume file: None
