@@ -2,6 +2,16 @@ name: phase2-rust-shim-smoke
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/phase2-rust-shim-smoke.yml
+      - Cargo.toml
+      - Cargo.lock
+      - Makefile
+      - build.rs
+      - include/pure_simdjson.h
+      - src/**
+      - tests/smoke/**
 
 permissions:
   contents: read
