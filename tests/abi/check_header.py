@@ -6,14 +6,15 @@ import argparse
 import pathlib
 import re
 import sys
-from typing import Callable
+from typing import Callable, NoReturn
 
 
 PROTO_RE = re.compile(
-    r"(?ms)^([A-Za-z_][\w\s\*]*?)\s+"
+    r"(?s)([A-Za-z_][\w\s\*]*?)\s+"
     r"(pure_simdjson_[A-Za-z0-9_]+)\s*"
     r"\((.*?)\);"
 )
+COMMENT_RE = re.compile(r"(?s)/\*.*?\*/|//[^\n]*")
 ABI_VERSION_DEFINE_RE = re.compile(
     r"(?m)^#define\s+PURE_SIMDJSON_ABI_VERSION\s+0x00010000\s*$"
 )
@@ -60,9 +61,45 @@ def normalize_space(value: str) -> str:
     return " ".join(value.split())
 
 
+def strip_comments(header_text: str) -> str:
+    return COMMENT_RE.sub("", header_text)
+
+
+def iter_prototype_statements(header_text: str) -> list[str]:
+    statements = []
+    current: list[str] = []
+
+    for raw_line in strip_comments(header_text).splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        if current:
+            current.append(line)
+            if ";" in line:
+                statements.append(normalize_space(" ".join(current)))
+                current = []
+            continue
+
+        if "pure_simdjson_" not in line or "(" not in line:
+            continue
+
+        current = [line]
+        if ";" in line:
+            statements.append(normalize_space(" ".join(current)))
+            current = []
+
+    return statements
+
+
 def parse_prototypes(header_text: str) -> dict[str, tuple[str, list[str]]]:
     prototypes: dict[str, tuple[str, list[str]]] = {}
-    for match in PROTO_RE.finditer(header_text):
+    for statement in iter_prototype_statements(header_text):
+        match = PROTO_RE.fullmatch(statement)
+        if match is None:
+            symbol_match = re.search(r"\b(pure_simdjson_[A-Za-z0-9_]+)\b", statement)
+            symbol = symbol_match.group(1) if symbol_match else statement
+            fail(f"unparseable pure_simdjson prototype: {symbol}: {statement}")
         return_type = normalize_space(match.group(1))
         name = match.group(2)
         params_blob = normalize_space(match.group(3))
@@ -71,7 +108,7 @@ def parse_prototypes(header_text: str) -> dict[str, tuple[str, list[str]]]:
     return prototypes
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     raise SystemExit(message)
 
 

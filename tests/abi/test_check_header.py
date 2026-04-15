@@ -152,6 +152,20 @@ def make_surface_header(
     return "\n".join(lines)
 
 
+class ParsePrototypesTests(unittest.TestCase):
+    def test_rejects_unparseable_pure_simdjson_prototype(self) -> None:
+        header_text = (
+            "pure_simdjson_error_code_t pure_simdjson_parser_new(void) "
+            "PURE_SIMDJSON_NOEXCEPT;"
+        )
+
+        with self.assertRaises(SystemExit) as excinfo:
+            check_header.parse_prototypes(header_text)
+
+        self.assertIn("unparseable pure_simdjson prototype", str(excinfo.exception))
+        self.assertIn("pure_simdjson_parser_new", str(excinfo.exception))
+
+
 class RequiredSymbolsRuleTests(unittest.TestCase):
     def test_accepts_exact_required_surface(self) -> None:
         header_text = make_required_symbols_header()
@@ -218,6 +232,15 @@ class ErrorCodeOutparamsRuleTests(unittest.TestCase):
             check_header.rule_error_code_outparams(prototypes, header_text)
 
         self.assertIn("struct transport must use pointer out-params", str(excinfo.exception))
+
+
+class RealHeaderRuleTests(unittest.TestCase):
+    def test_real_public_header_matches_contract_rules(self) -> None:
+        header_text = (REPO_ROOT / "include" / "pure_simdjson.h").read_text()
+        prototypes = check_header.parse_prototypes(header_text)
+
+        check_header.rule_required_symbols(prototypes, header_text)
+        check_header.rule_error_code_outparams(prototypes, header_text)
 
 
 class NoMixedFloatIntRuleTests(unittest.TestCase):
