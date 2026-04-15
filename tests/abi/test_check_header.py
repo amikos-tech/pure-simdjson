@@ -220,6 +220,15 @@ class ErrorCodeOutparamsRuleTests(unittest.TestCase):
         self.assertIn("struct transport must use pointer out-params", str(excinfo.exception))
 
 
+class RealHeaderRuleTests(unittest.TestCase):
+    def test_real_public_header_matches_contract_rules(self) -> None:
+        header_text = (REPO_ROOT / "include" / "pure_simdjson.h").read_text()
+        prototypes = check_header.parse_prototypes(header_text)
+
+        check_header.rule_required_symbols(prototypes, header_text)
+        check_header.rule_error_code_outparams(prototypes, header_text)
+
+
 class NoMixedFloatIntRuleTests(unittest.TestCase):
     def test_accepts_pointer_based_float_outparams(self) -> None:
         header_text = make_surface_header()

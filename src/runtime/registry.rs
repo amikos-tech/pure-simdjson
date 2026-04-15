@@ -1,4 +1,7 @@
-use std::sync::{Mutex, OnceLock};
+use std::{
+    ptr,
+    sync::{Mutex, MutexGuard, OnceLock},
+};
 
 use crate::{
     pure_simdjson_doc_t, pure_simdjson_error_code_t, pure_simdjson_parser_t,
@@ -6,6 +9,16 @@ use crate::{
 };
 
 use super::ROOT_VIEW_TAG;
+
+/// Public parser/doc handles share one packed `u64` wire format, so the registry must enforce
+/// these invariants:
+/// - slot `0` is never returned;
+/// - parser/doc generations never collide numerically for the same slot;
+/// - parser busy state is cleared only by the matching document free path;
+/// - root views are tagged with [`ROOT_VIEW_TAG`] and reject non-zero reserved bits.
+const MAX_SLOT_COUNT: usize = u32::MAX as usize - 1;
+const PARSER_GENERATION_START: u32 = 1;
+const DOC_GENERATION_START: u32 = 2;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ParserState {
@@ -27,7 +40,7 @@ struct DocEntry {
     root_ptr: usize,
     owner_slot: u32,
     owner_generation: u32,
-    _input: Vec<u8>,
+    input_storage: Vec<u8>,
 }
 
 #[derive(Clone, Debug)]
@@ -75,13 +88,30 @@ fn registry() -> &'static Mutex<Registry> {
 }
 
 #[inline]
-fn next_generation(current: u32) -> u32 {
-    let next = current.wrapping_add(1);
+fn registry_guard() -> MutexGuard<'static, Registry> {
+    registry()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+#[inline]
+fn next_generation(current: u32, restart: u32) -> u32 {
+    let next = current.wrapping_add(2);
     if next == 0 {
-        1
+        restart
     } else {
         next
     }
+}
+
+#[inline]
+fn next_parser_generation(current: u32) -> u32 {
+    next_generation(current, PARSER_GENERATION_START)
+}
+
+#[inline]
+fn next_doc_generation(current: u32) -> u32 {
+    next_generation(current, DOC_GENERATION_START)
 }
 
 #[inline]
@@ -102,7 +132,10 @@ fn unpack_handle(handle: u64) -> Result<(usize, u32, u32), pure_simdjson_error_c
 }
 
 impl Registry {
-    fn alloc_parser(&mut self, native_ptr: usize) -> pure_simdjson_parser_t {
+    fn alloc_parser(
+        &mut self,
+        native_ptr: usize,
+    ) -> Result<pure_simdjson_parser_t, pure_simdjson_error_code_t> {
         for (index, slot) in self.parsers.iter_mut().enumerate() {
             if let Slot::Vacant { generation } = slot {
                 let generation = *generation;
@@ -112,17 +145,21 @@ impl Registry {
                     native_ptr,
                     state: ParserState::Idle,
                 });
-                return pack_handle(slot_number, generation);
+                return Ok(pack_handle(slot_number, generation));
             }
         }
 
-        let generation = 1_u32;
+        if self.parsers.len() >= MAX_SLOT_COUNT {
+            return Err(err_internal());
+        }
+
+        let generation = PARSER_GENERATION_START;
         self.parsers.push(Slot::Occupied(ParserEntry {
             generation,
             native_ptr,
             state: ParserState::Idle,
         }));
-        pack_handle(self.parsers.len() as u32, generation)
+        Ok(pack_handle(self.parsers.len() as u32, generation))
     }
 
     fn alloc_doc(
@@ -132,7 +169,7 @@ impl Registry {
         owner_slot: u32,
         owner_generation: u32,
         input: Vec<u8>,
-    ) -> pure_simdjson_doc_t {
+    ) -> Result<pure_simdjson_doc_t, pure_simdjson_error_code_t> {
         for (index, slot) in self.docs.iter_mut().enumerate() {
             if let Slot::Vacant { generation } = slot {
                 let generation = *generation;
@@ -143,22 +180,26 @@ impl Registry {
                     root_ptr,
                     owner_slot,
                     owner_generation,
-                    _input: input,
+                    input_storage: input,
                 });
-                return pack_handle(slot_number, generation);
+                return Ok(pack_handle(slot_number, generation));
             }
         }
 
-        let generation = 1_u32;
+        if self.docs.len() >= MAX_SLOT_COUNT {
+            return Err(err_internal());
+        }
+
+        let generation = DOC_GENERATION_START;
         self.docs.push(Slot::Occupied(DocEntry {
             generation,
             native_ptr,
             root_ptr,
             owner_slot,
             owner_generation,
-            _input: input,
+            input_storage: input,
         }));
-        pack_handle(self.docs.len() as u32, generation)
+        Ok(pack_handle(self.docs.len() as u32, generation))
     }
 
     fn parser_entry(&self, handle: pure_simdjson_parser_t) -> Result<&ParserEntry, pure_simdjson_error_code_t> {
@@ -180,12 +221,24 @@ impl Registry {
 
 pub(crate) fn parser_new() -> Result<pure_simdjson_parser_t, pure_simdjson_error_code_t> {
     let native_ptr = super::native_parser_new()?;
-    let mut registry = registry().lock().expect("runtime registry lock poisoned");
-    Ok(registry.alloc_parser(native_ptr))
+    let mut registry = registry_guard();
+    match registry.alloc_parser(native_ptr) {
+        Ok(handle) => Ok(handle),
+        Err(rc) => {
+            let free_rc = super::native_parser_free(native_ptr);
+            if free_rc != err_ok() {
+                eprintln!(
+                    "pure_simdjson cleanup failure in parser_new/alloc_parser: {:?}",
+                    free_rc
+                );
+            }
+            Err(rc)
+        }
+    }
 }
 
 pub(crate) fn parser_free(handle: pure_simdjson_parser_t) -> pure_simdjson_error_code_t {
-    let mut registry = registry().lock().expect("runtime registry lock poisoned");
+    let mut registry = registry_guard();
     let (index, _, generation) = match unpack_handle(handle) {
         Ok(parts) => parts,
         Err(rc) => return rc,
@@ -207,7 +260,7 @@ pub(crate) fn parser_free(handle: pure_simdjson_parser_t) -> pure_simdjson_error
     }
 
     registry.parsers[index] = Slot::Vacant {
-        generation: next_generation(generation),
+        generation: next_parser_generation(generation),
     };
     err_ok()
 }
@@ -216,7 +269,7 @@ pub(crate) fn parser_parse(
     handle: pure_simdjson_parser_t,
     input: &[u8],
 ) -> Result<pure_simdjson_doc_t, pure_simdjson_error_code_t> {
-    let mut registry = registry().lock().expect("runtime registry lock poisoned");
+    let mut registry = registry_guard();
     let (index, slot, generation) = unpack_handle(handle)?;
 
     let native_ptr = match registry.parsers.get(index) {
@@ -237,14 +290,26 @@ pub(crate) fn parser_parse(
     let mut owned_input = vec![0u8; total_len]; // padding bytes stay zero-initialized
     owned_input[..input.len()].copy_from_slice(input);
 
-    let parsed = super::native_parser_parse(native_ptr, &owned_input[..input.len()])?;
-    let doc_handle = registry.alloc_doc(
+    let parsed = super::native_parser_parse(native_ptr, &owned_input[..], input.len())?;
+    let doc_handle = match registry.alloc_doc(
         parsed.doc_ptr,
         parsed.root_ptr,
         slot,
         generation,
         owned_input,
-    );
+    ) {
+        Ok(handle) => handle,
+        Err(rc) => {
+            let free_rc = super::native_doc_free(parsed.doc_ptr);
+            if free_rc != err_ok() {
+                eprintln!(
+                    "pure_simdjson cleanup failure in parser_parse/alloc_doc: {:?}",
+                    free_rc
+                );
+            }
+            return Err(rc);
+        }
+    };
 
     let (_, doc_slot, doc_generation) = unpack_handle(doc_handle)?;
     if let Some(Slot::Occupied(entry)) = registry.parsers.get_mut(index) {
@@ -261,7 +326,7 @@ pub(crate) fn parser_parse(
 pub(crate) fn parser_last_error_len(
     handle: pure_simdjson_parser_t,
 ) -> Result<usize, pure_simdjson_error_code_t> {
-    let registry = registry().lock().expect("runtime registry lock poisoned");
+    let registry = registry_guard();
     let entry = registry.parser_entry(handle)?;
     super::native_parser_get_last_error_len(entry.native_ptr)
 }
@@ -272,7 +337,7 @@ pub(crate) fn parser_copy_last_error(
     dst_cap: usize,
     out_written: *mut usize,
 ) -> pure_simdjson_error_code_t {
-    let registry = registry().lock().expect("runtime registry lock poisoned");
+    let registry = registry_guard();
     let entry = match registry.parser_entry(handle) {
         Ok(entry) => entry,
         Err(rc) => return rc,
@@ -283,13 +348,13 @@ pub(crate) fn parser_copy_last_error(
 pub(crate) fn parser_last_error_offset(
     handle: pure_simdjson_parser_t,
 ) -> Result<u64, pure_simdjson_error_code_t> {
-    let registry = registry().lock().expect("runtime registry lock poisoned");
+    let registry = registry_guard();
     let entry = registry.parser_entry(handle)?;
     super::native_parser_get_last_error_offset(entry.native_ptr)
 }
 
 pub(crate) fn doc_free(handle: pure_simdjson_doc_t) -> pure_simdjson_error_code_t {
-    let mut registry = registry().lock().expect("runtime registry lock poisoned");
+    let mut registry = registry_guard();
     let (doc_index, _, doc_generation) = match unpack_handle(handle) {
         Ok(parts) => parts,
         Err(rc) => return rc,
@@ -332,7 +397,7 @@ pub(crate) fn doc_free(handle: pure_simdjson_doc_t) -> pure_simdjson_error_code_
     }
 
     registry.docs[doc_index] = Slot::Vacant {
-        generation: next_generation(doc_generation),
+        generation: next_doc_generation(doc_generation),
     };
     err_ok()
 }
@@ -340,7 +405,7 @@ pub(crate) fn doc_free(handle: pure_simdjson_doc_t) -> pure_simdjson_error_code_
 pub(crate) fn doc_root(
     handle: pure_simdjson_doc_t,
 ) -> Result<pure_simdjson_value_view_t, pure_simdjson_error_code_t> {
-    let registry = registry().lock().expect("runtime registry lock poisoned");
+    let registry = registry_guard();
     let entry = registry.doc_entry(handle)?;
     let kind_hint = super::native_element_type(entry.root_ptr)?;
     Ok(pure_simdjson_value_view_t {
@@ -363,18 +428,20 @@ where
         return Err(err_invalid_argument());
     }
 
-    let view = unsafe { *view };
-    if view.state1 != ROOT_VIEW_TAG || view.state0 == 0 {
+    let view = unsafe { ptr::read_unaligned(view) };
+    if view.state1 != ROOT_VIEW_TAG || view.state0 == 0 || view.reserved != 0 {
         return Err(err_invalid_handle());
     }
 
-    let registry = registry().lock().expect("runtime registry lock poisoned");
+    let registry = registry_guard();
     let entry = registry.doc_entry(view.doc)?;
     if entry.root_ptr != view.state0 as usize {
         return Err(err_invalid_handle());
     }
 
-    action(entry.root_ptr)
+    let root_ptr = entry.root_ptr;
+    drop(registry);
+    action(root_ptr)
 }
 
 pub(crate) fn element_type(

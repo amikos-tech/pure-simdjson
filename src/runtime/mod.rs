@@ -1,4 +1,7 @@
-use std::ptr;
+use std::{
+    ptr,
+    sync::{Mutex, OnceLock},
+};
 
 use crate::{pure_simdjson_error_code_t, pure_simdjson_value_kind_t};
 
@@ -8,7 +11,12 @@ pub(crate) mod registry;
 pub(crate) use registry::ParserState;
 
 pub(crate) const UNKNOWN_ERROR_OFFSET: u64 = u64::MAX;
+/// Marker stored in `pure_simdjson_value_view_t.state1` for root views returned by this runtime.
 pub(crate) const ROOT_VIEW_TAG: u64 = u64::from_le_bytes(*b"PSDJROOT");
+static FORCED_IMPLEMENTATION_NAME: OnceLock<Option<Vec<u8>>> = OnceLock::new();
+static FALLBACK_ALLOWED: OnceLock<bool> = OnceLock::new();
+static TEST_FORCED_IMPLEMENTATION_OVERRIDE: OnceLock<Mutex<Option<Vec<u8>>>> = OnceLock::new();
+static TEST_FALLBACK_ALLOWED_OVERRIDE: OnceLock<Mutex<Option<bool>>> = OnceLock::new();
 
 #[repr(C)]
 pub(crate) struct psimdjson_parser {
@@ -79,6 +87,13 @@ unsafe extern "C" {
 pub(crate) struct NativeParsedDoc {
     pub(crate) doc_ptr: usize,
     pub(crate) root_ptr: usize,
+}
+
+#[inline]
+fn lock_poison_tolerant<T>(mutex: &'static Mutex<T>) -> std::sync::MutexGuard<'static, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 #[inline]
@@ -153,13 +168,14 @@ pub(crate) fn native_parser_free(parser_ptr: usize) -> pure_simdjson_error_code_
 pub(crate) fn native_parser_parse(
     parser_ptr: usize,
     input: &[u8],
+    input_len: usize,
 ) -> Result<NativeParsedDoc, pure_simdjson_error_code_t> {
     let mut doc = ptr::null_mut();
     let rc = unsafe {
         psimdjson_parser_parse(
             parser_ptr as *mut psimdjson_parser,
             input.as_ptr(),
-            input.len(),
+            input_len,
             &mut doc,
         )
     };
@@ -173,11 +189,23 @@ pub(crate) fn native_parser_parse(
     let mut root = ptr::null();
     let root_rc = unsafe { psimdjson_doc_root(doc, &mut root) };
     if root_rc != err_ok() {
-        let _ = unsafe { psimdjson_doc_free(doc) };
+        let free_rc = unsafe { psimdjson_doc_free(doc) };
+        if free_rc != err_ok() {
+            eprintln!(
+                "pure_simdjson cleanup failure in native_parser_parse/doc_root: {:?}",
+                free_rc
+            );
+        }
         return Err(root_rc);
     }
     if root.is_null() {
-        let _ = unsafe { psimdjson_doc_free(doc) };
+        let free_rc = unsafe { psimdjson_doc_free(doc) };
+        if free_rc != err_ok() {
+            eprintln!(
+                "pure_simdjson cleanup failure in native_parser_parse/null_root: {:?}",
+                free_rc
+            );
+        }
         return Err(err_internal());
     }
 
@@ -274,19 +302,50 @@ pub(crate) fn native_element_get_int64(
 
 pub(crate) fn selected_implementation_name_for_parser_new(
 ) -> Result<Vec<u8>, pure_simdjson_error_code_t> {
-    if let Some(value) = std::env::var_os("PURE_SIMDJSON_TEST_FORCE_IMPLEMENTATION") {
-        if value == "fallback" {
-            return Ok(b"fallback".to_vec());
+    let override_lock = TEST_FORCED_IMPLEMENTATION_OVERRIDE.get_or_init(|| Mutex::new(None));
+    if let Some(value) = lock_poison_tolerant(override_lock).clone() {
+        return Ok(value);
+    }
+
+    if let Some(value) = FORCED_IMPLEMENTATION_NAME
+        .get_or_init(|| {
+            std::env::var("PURE_SIMDJSON_TEST_FORCE_IMPLEMENTATION")
+                .ok()
+                .map(String::into_bytes)
+        })
+        .clone()
+    {
+        if value == b"fallback" {
+            return Ok(value);
         }
     }
     implementation_name()
 }
 
 pub(crate) fn fallback_allowed_for_tests() -> bool {
-    matches!(
-        std::env::var("PURE_SIMDJSON_ALLOW_FALLBACK_FOR_TESTS"),
-        Ok(value) if value == "1"
-    )
+    let override_lock = TEST_FALLBACK_ALLOWED_OVERRIDE.get_or_init(|| Mutex::new(None));
+    if let Some(value) = *lock_poison_tolerant(override_lock) {
+        return value;
+    }
+
+    *FALLBACK_ALLOWED.get_or_init(|| {
+        matches!(
+            std::env::var("PURE_SIMDJSON_ALLOW_FALLBACK_FOR_TESTS"),
+            Ok(value) if value == "1"
+        )
+    })
+}
+
+#[doc(hidden)]
+pub fn test_set_forced_implementation_override(value: Option<&[u8]>) {
+    let override_lock = TEST_FORCED_IMPLEMENTATION_OVERRIDE.get_or_init(|| Mutex::new(None));
+    *lock_poison_tolerant(override_lock) = value.map(|bytes| bytes.to_vec());
+}
+
+#[doc(hidden)]
+pub fn test_set_fallback_allowed_override(value: Option<bool>) {
+    let override_lock = TEST_FALLBACK_ALLOWED_OVERRIDE.get_or_init(|| Mutex::new(None));
+    *lock_poison_tolerant(override_lock) = value;
 }
 
 #[doc(hidden)]

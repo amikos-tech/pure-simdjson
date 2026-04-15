@@ -6,7 +6,7 @@ This document is the normative FFI contract for `pure-simdjson` ABI `v0.1`. It d
 
 The generated header is authoritative for exact symbol names, field names, and C types. This document is authoritative for lifecycle, ownership, diagnostics, panic/exception policy, and compatibility rules. Go-side consumers must enforce ABI compatibility against `^0.1.x`.
 
-Phase 1 currently ships the metadata helpers `pure_simdjson_get_abi_version`, `pure_simdjson_get_implementation_name_len`, and `pure_simdjson_copy_implementation_name`. Every other exported symbol is a contract-only stub in this phase and currently returns `PURE_SIMDJSON_ERR_INTERNAL` while later phases fill in the runtime behavior specified below.
+The current Phase 2 shim fully implements the metadata helpers plus the minimal parse path: `pure_simdjson_get_abi_version`, `pure_simdjson_get_implementation_name_len`, `pure_simdjson_copy_implementation_name`, `pure_simdjson_parser_new`, `pure_simdjson_parser_free`, `pure_simdjson_parser_parse`, `pure_simdjson_parser_get_last_error_len`, `pure_simdjson_parser_copy_last_error`, `pure_simdjson_parser_get_last_error_offset`, `pure_simdjson_doc_free`, `pure_simdjson_doc_root`, `pure_simdjson_element_type`, and `pure_simdjson_element_get_int64`. The remaining exports stay contract-only stubs until later phases implement the rest of the DOM surface.
 
 # ABI invariants
 
@@ -99,6 +99,7 @@ Rules:
 - A value view is only valid while its owning `Doc` remains live.
 - `state0` and `state1` are opaque ABI fields owned by the native implementation.
 - `kind_hint` uses `pure_simdjson_value_kind_t` and is advisory; callers still check return codes on accessors.
+- `reserved` must be zero. Non-zero reserved bits are rejected as `PURE_SIMDJSON_ERR_INVALID_HANDLE`.
 - `pure_simdjson_array_iter_t` and `pure_simdjson_object_iter_t` are stateful, document-tied iterators driven from Go/C by repeated `*_next` calls.
 - Iterator `tag` is implementation-owned state reserved for runtime kind validation. Iterator `reserved` is pinned for future growth and callers must leave it untouched.
 - `pure_simdjson_doc_root`, `pure_simdjson_object_get_field`, `pure_simdjson_array_iter_next`, and `pure_simdjson_object_iter_next` return new view state through out-params rather than allocating child handles.
@@ -128,6 +129,7 @@ The parser/document state machine is fixed:
 Busy-state rule:
 
 - `pure_simdjson_parser_parse` returns `PURE_SIMDJSON_ERR_PARSER_BUSY` while a live `Doc` exists for that parser.
+- `pure_simdjson_parser_free` also returns `PURE_SIMDJSON_ERR_PARSER_BUSY` while a live `Doc` exists for that parser.
 - Re-parse never discards, replaces, or mutates the old `Doc` as a side effect.
 - Only `pure_simdjson_doc_free` clears the busy state.
 - Generation checks remain the mechanism that turns stale parser/doc/view use into `PURE_SIMDJSON_ERR_INVALID_HANDLE`.

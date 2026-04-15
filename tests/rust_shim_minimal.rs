@@ -1,11 +1,14 @@
 use std::ptr;
+use std::thread;
 
 use pure_simdjson::{
     pure_simdjson_copy_implementation_name, pure_simdjson_doc_free, pure_simdjson_doc_root,
     pure_simdjson_element_get_int64, pure_simdjson_element_type,
     pure_simdjson_error_code_t::{
-        PURE_SIMDJSON_ERR_CPP_EXCEPTION, PURE_SIMDJSON_ERR_INVALID_HANDLE,
-        PURE_SIMDJSON_ERR_INVALID_JSON, PURE_SIMDJSON_ERR_PARSER_BUSY, PURE_SIMDJSON_OK,
+        PURE_SIMDJSON_ERR_CPP_EXCEPTION, PURE_SIMDJSON_ERR_INVALID_ARGUMENT,
+        PURE_SIMDJSON_ERR_INVALID_HANDLE, PURE_SIMDJSON_ERR_INVALID_JSON,
+        PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE, PURE_SIMDJSON_ERR_PARSER_BUSY,
+        PURE_SIMDJSON_ERR_PRECISION_LOSS, PURE_SIMDJSON_ERR_WRONG_TYPE, PURE_SIMDJSON_OK,
     },
     pure_simdjson_get_abi_version, pure_simdjson_get_implementation_name_len,
     pure_simdjson_handle_t, pure_simdjson_parser_copy_last_error,
@@ -252,4 +255,138 @@ fn parser_get_last_error_helpers_validate_handles() {
         pure_simdjson_parser_copy_last_error(0, ptr::null_mut(), 0, &mut written)
     };
     assert_eq!(copy_rc, PURE_SIMDJSON_ERR_INVALID_HANDLE);
+}
+
+#[test]
+fn null_pointer_matrix_returns_invalid_argument() {
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, b"42");
+    let root = doc_root(doc);
+
+    assert_eq!(
+        unsafe { pure_simdjson_parser_new(ptr::null_mut()) },
+        PURE_SIMDJSON_ERR_INVALID_ARGUMENT
+    );
+
+    let mut parsed_doc = 0_u64;
+    assert_eq!(
+        unsafe { pure_simdjson_parser_parse(parser, ptr::null(), 1, &mut parsed_doc) },
+        PURE_SIMDJSON_ERR_INVALID_ARGUMENT
+    );
+    assert_eq!(
+        unsafe { pure_simdjson_parser_parse(parser, b"42".as_ptr(), 2, ptr::null_mut()) },
+        PURE_SIMDJSON_ERR_INVALID_ARGUMENT
+    );
+
+    assert_eq!(
+        unsafe { pure_simdjson_doc_root(doc, ptr::null_mut()) },
+        PURE_SIMDJSON_ERR_INVALID_ARGUMENT
+    );
+
+    let mut kind = 0_u32;
+    assert_eq!(
+        unsafe { pure_simdjson_element_type(ptr::null(), &mut kind) },
+        PURE_SIMDJSON_ERR_INVALID_ARGUMENT
+    );
+    assert_eq!(
+        unsafe { pure_simdjson_element_type(&root, ptr::null_mut()) },
+        PURE_SIMDJSON_ERR_INVALID_ARGUMENT
+    );
+
+    let mut value = 0_i64;
+    assert_eq!(
+        unsafe { pure_simdjson_element_get_int64(ptr::null(), &mut value) },
+        PURE_SIMDJSON_ERR_INVALID_ARGUMENT
+    );
+    assert_eq!(
+        unsafe { pure_simdjson_element_get_int64(&root, ptr::null_mut()) },
+        PURE_SIMDJSON_ERR_INVALID_ARGUMENT
+    );
+
+    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
+    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+}
+
+#[test]
+fn distinct_parsers_work_from_two_threads() {
+    let worker = thread::spawn(|| {
+        let parser = parser_new();
+        let doc = parser_parse_literal(parser, b"43");
+        let root = doc_root(doc);
+
+        assert_eq!(element_get_int64_of(&root), 43);
+        assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
+        assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+    });
+
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, b"42");
+    let root = doc_root(doc);
+
+    assert_eq!(element_get_int64_of(&root), 42);
+    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
+    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+
+    worker.join().expect("worker thread should complete");
+}
+
+#[test]
+fn parser_and_doc_handles_do_not_alias_across_types() {
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, b"42");
+
+    assert_ne!(parser, doc);
+    assert_eq!(
+        unsafe { pure_simdjson_parser_free(doc) },
+        PURE_SIMDJSON_ERR_INVALID_HANDLE
+    );
+    assert_eq!(
+        unsafe { pure_simdjson_doc_free(parser) },
+        PURE_SIMDJSON_ERR_INVALID_HANDLE
+    );
+
+    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
+    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+}
+
+#[test]
+fn element_get_int64_reports_wrong_type_for_bool() {
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, b"true");
+    let root = doc_root(doc);
+    let mut value = 0_i64;
+
+    let rc = unsafe { pure_simdjson_element_get_int64(&root, &mut value) };
+    assert_eq!(rc, PURE_SIMDJSON_ERR_WRONG_TYPE);
+
+    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
+    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+}
+
+#[test]
+fn element_type_reports_precision_loss_for_bigint() {
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, b"99999999999999999999");
+    let root = doc_root(doc);
+    let mut kind = 0_u32;
+
+    let rc = unsafe { pure_simdjson_element_type(&root, &mut kind) };
+    assert_eq!(rc, PURE_SIMDJSON_ERR_PRECISION_LOSS);
+
+    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
+    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+}
+
+#[test]
+fn element_get_int64_reports_number_out_of_range_for_bigint() {
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, b"99999999999999999999");
+    let root = doc_root(doc);
+    let mut value = 0_i64;
+
+    let rc = unsafe { pure_simdjson_element_get_int64(&root, &mut value) };
+    assert_eq!(rc, PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE);
+
+    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
+    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
 }
