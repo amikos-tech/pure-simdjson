@@ -26,6 +26,8 @@ fn main() {
 
     let target = env::var("TARGET").expect("TARGET must be set by Cargo");
 
+    // glibc only; musl targets need a different libstdc++/libc++ story and
+    // are out of scope for Phase 02.
     if target.contains("linux-gnu") {
         println!("cargo:rustc-link-arg-cdylib=-static-libstdc++");
         println!("cargo:rustc-link-arg-cdylib=-static-libgcc");

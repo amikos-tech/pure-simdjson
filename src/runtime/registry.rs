@@ -141,6 +141,8 @@ fn unpack_handle(handle: u64) -> Result<(usize, u32, u32), pure_simdjson_error_c
 }
 
 impl Registry {
+    // Linear scan acceptable at Phase 02 scope (few parsers, short lifetimes).
+    // Switch to a free-list of vacant indices if parser churn grows.
     fn alloc_parser(
         &mut self,
         native_ptr: usize,
@@ -461,6 +463,8 @@ where
     }
 
     let root_ptr = entry.root_ptr;
+    // Safe: thread-affinity contract prevents concurrent doc_free, so the raw
+    // root_ptr remains valid across the native call without holding the lock.
     drop(registry);
     action(root_ptr)
 }

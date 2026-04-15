@@ -6,7 +6,7 @@ import argparse
 import pathlib
 import re
 import sys
-from typing import Callable
+from typing import Callable, NoReturn
 
 
 PROTO_RE = re.compile(
@@ -108,7 +108,7 @@ def parse_prototypes(header_text: str) -> dict[str, tuple[str, list[str]]]:
     return prototypes
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     raise SystemExit(message)
 
 
