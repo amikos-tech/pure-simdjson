@@ -12,7 +12,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 
 ## Phases
 
-- [ ] **Phase 1: FFI Contract Design** — Lock the C ABI, error-code space, handle format, and ownership rules in a committed contract document before any code is written
+- [x] **Phase 1: FFI Contract Design** — Lock the C ABI, error-code space, handle format, and ownership rules in a committed contract document before any code is written
 - [ ] **Phase 2: Rust Shim + Minimal Parse Path** — Build the Rust cdylib with vendored simdjson and the smallest end-to-end parse path (parser_new -> parse -> doc_root -> get_int64)
 - [ ] **Phase 3: Go Public API + purego Happy Path** — Wire Go's `purejson` package to the shim with handle lifecycle, ParserPool, typed errors, and one accessor as smoke test
 - [ ] **Phase 4: Full Typed Accessor Surface** — Complete the DOM accessor surface (uint64/float64/string/bool/null) and cursor-pull iteration over arrays and objects
@@ -35,7 +35,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 - Error-code numeric space defined; every export returns `int32` with out-params for results (pitfall 8)
 - Generation-stamped opaque handles `{slot: u32, gen: u32}` packed into `u64` (pitfall 1, 10)
 - Ownership rule: input buffer copied into Rust-owned padded arena on every parse (pitfall 2, 3)
-- `ffi_fn!` macro contract: `catch_unwind` + error-code return on every export; `panic = "abort"` (pitfall 4)
+- `ffi_wrap` helper contract: `catch_unwind` + error-code return on every export; `panic = "abort"` (pitfall 4)
 - C++ `.get(err)` form mandated; grep-CI rule documented (pitfall 5)
 - ABI version function `get_abi_version()` and Go-side `^0.1.x` constraint
 - No-float/int-mixing rule documented for Windows/arm64 calling convention (pitfall 9)
@@ -52,7 +52,12 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 3. Handle format, error-code space, and ABI version handshake are fully specified with byte-level layouts
 4. The 7 P0 pitfalls (1, 2, 7, 8, 9, 10, 12) each map to a documented contract rule that prevents recurrence
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [x] `01-01-PLAN.md` — Bootstrap the ABI-source crate and reproducible `cbindgen` header pipeline
+- [x] `01-02-PLAN.md` — Define the stable C ABI surface in `src/lib.rs` and regenerate `include/pure_simdjson.h`
+- [x] `01-03-PLAN.md` — Write the normative contract and static verification checks for header drift and ABI rules
 
 **Research flag:** YES — spawn `/gsd-research-phase` during planning. No prior `pure-*` library has compiled C++ inside a Rust build, and the contract is expensive to walk back after code lands. Research should validate signature shapes against purego v0.10.0 across all five targets.
 
@@ -70,7 +75,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 - Crate `pure_simdjson` with `crate-type = ["cdylib", "staticlib"]`
 - `build.rs` driving `cc` crate over simdjson v4.6.1 single-file amalgamation; `-static-libstdc++ -static-libgcc`; C++17
 - simdjson vendored as a git submodule at `third_party/simdjson` with pinned commit
-- `ffi_fn!` macro implemented and applied to every export (catch_unwind + error code)
+- `ffi_wrap` helper (shipped in Phase 1) applied to every export (catch_unwind + error code)
 - All 17 exports from SHIM-06 implemented with stub-or-real semantics so the header compiles
 - Runtime kernel dispatch left to simdjson auto-detection (no `-march=native`)
 - `get_implementation_name()` exposes selected kernel; `parser_new` returns `ERR_CPU_UNSUPPORTED` when `fallback` is selected (with documented bypass for testing)
@@ -332,7 +337,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. FFI Contract Design | 0/? | Not started | — |
+| 1. FFI Contract Design | 3/3 | Complete | 2026-04-14 |
 | 2. Rust Shim + Minimal Parse | 0/? | Not started | — |
 | 3. Go API + purego Happy Path | 0/? | Not started | — |
 | 4. Full Typed Accessor Surface | 0/? | Not started | — |
@@ -341,6 +346,21 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 7. Benchmarks + v0.1 Release | 0/? | Not started | — |
 
 Plan counts populated by `/gsd-plan-phase`.
+
+## Backlog
+
+Parking lot for ideas not yet scheduled. Promote with `/gsd-review-backlog`.
+
+### Phase 999.1: Local pre-commit and pre-push verification hooks (BACKLOG)
+
+**Goal:** [Captured for future planning] Add lefthook (or equivalent — e.g., `pre-commit`, git-native hooks) so `make verify-contract` and `make verify-docs` (and future lint/format gates) run locally before code reaches CI. Prevents drift between local and CI verification and catches header/doc regressions at the dev's machine instead of after push.
+
+**Requirements:** TBD
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
 
 ---
 *Roadmap created: 2026-04-14 from PROJECT.md, REQUIREMENTS.md, and research/SUMMARY.md*

@@ -30,7 +30,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster
 - [ ] Explicit handle lifecycle: `Close()`/`Free()`, generation-stamped handles; finalizer as leak-warning only
 - [ ] Five-platform support: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
 - [ ] musl/Alpine smoke-test job + `PURE_SIMDJSON_LIB_PATH` escape hatch (implementation strategy TBD in Phase 6)
-- [ ] Rust FFI shim with C ABI, `ffi_fn!`-macro-enforced `catch_unwind` + error-code convention (mirrors pure-tokenizers)
+- [ ] Rust FFI shim with C ABI, `ffi_wrap`-helper-enforced `catch_unwind` + error-code convention (mirrors pure-tokenizers)
 - [ ] Binary bootstrap: download pre-built shared library from CloudFlare R2 (primary) + GitHub Releases (fallback); SHA-256 table in Go source
 - [ ] CI release matrix with cosign keyless signing + ad-hoc macOS codesign
 - [ ] Benchmarks vs `encoding/json`, `minio/simdjson-go`, `bytedance/sonic` on twitter.json, canada.json, citm_catalog.json
@@ -81,7 +81,13 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster
 - **Platforms**: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64 — five first-class targets. musl/Alpine smoke-tested with documented escape hatch.
 - **Distribution**: CloudFlare R2 + Workers (primary) + GitHub Releases (fallback); SHA-256 table embedded in Go source; cosign keyless signing
 - **Failure mode**: explicit CPU-feature failures over silent SIMD-disabled fallback
-- **FFI safety**: `ffi_fn!` macro enforces `catch_unwind` on every `extern "C"` boundary; error-code return only (no struct-by-value)
+- **FFI safety**: `ffi_wrap` helper enforces `catch_unwind` on every `extern "C"` boundary; error-code return only (no struct-by-value)
+
+## Current State
+
+Phase 1 is complete. The repository now has a generated public ABI header, a normative FFI contract, and static verification gates that lock the handle format, error-code space, parser lifecycle, ownership model, and ABI compatibility rules before shim implementation begins.
+
+Next up: Phase 2 builds the real Rust shim and the first end-to-end parse path against this fixed contract.
 
 ## Key Decisions
 
@@ -89,15 +95,15 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Rust shim over direct C++ FFI | Stable C ABI via `extern "C"`, no C++ name mangling/ABI instability; ~15-function hand-written surface | — Pending |
+| Rust shim over direct C++ FFI | Stable C ABI via `extern "C"`, no C++ name mangling/ABI instability; ~15-function hand-written surface | ABI-source crate + generated header established in Phase 1; shim implementation pending in Phase 2 |
 | purego over cgo | Consumers build pure-Go; no cgo toolchain requirement; matches pure-* family | — Pending |
 | CloudFlare R2 for binary distribution | Already-operational infra (pure-onnx, pure-tokenizers); per-platform artifacts on demand | — Pending |
-| Generation-stamped opaque handles | Turns double-free / use-after-close into clean `ErrInvalidHandle` instead of segfaults | — Pending |
-| C-style error codes at FFI + typed Go errors at wrapper | pure-tokenizers convention; clean separation of FFI from idiomatic Go | — Pending |
+| Generation-stamped opaque handles | Turns double-free / use-after-close into clean `ErrInvalidHandle` instead of segfaults | Locked in Phase 1 ABI (`pure_simdjson_handle_t` + `pure_simdjson_handle_parts_t`) |
+| C-style error codes at FFI + typed Go errors at wrapper | pure-tokenizers convention; clean separation of FFI from idiomatic Go | Numeric FFI error-code space locked in Phase 1; Go mapping still pending |
 | Parser/Doc reuse + `ParserPool` baked into v0.1 API | simdjson's primary performance lever; per-parser single-doc invariant requires explicit concurrency primitive | — Pending |
-| DOM API for v0.1, On-Demand for v0.2 | DOM is re-readable, lifetime-simple; On-Demand's single-shot semantics + lazy UTF-8 validation need consumption-tracking that benefits from a stable DOM foundation | — Pending |
-| Cursor/pull iteration (no visitor callbacks) | Avoids `purego.NewCallback` leak (~2000-callback lifetime limit) + stack-switch cost per node | — Pending |
-| Rust-owned padded input arena (Rust copies every `Parse` input) | purego has no pointer-pinning; Go GC may move/free the `[]byte` while Rust reads it. Copy-in also satisfies SIMDJSON_PADDING. | — Pending |
+| DOM API for v0.1, On-Demand for v0.2 | DOM is re-readable, lifetime-simple; On-Demand's single-shot semantics + lazy UTF-8 validation need consumption-tracking that benefits from a stable DOM foundation | Locked in Phase 1 scope and contract |
+| Cursor/pull iteration (no visitor callbacks) | Avoids `purego.NewCallback` leak (~2000-callback lifetime limit) + stack-switch cost per node | Locked in Phase 1 ABI (`*_iter_new`, `*_iter_next`, `object_get_field`) |
+| Rust-owned padded input arena (Rust copies every `Parse` input) | purego has no pointer-pinning; Go GC may move/free the `[]byte` while Rust reads it. Copy-in also satisfies SIMDJSON_PADDING. | Locked in Phase 1 contract and header comments |
 | `cc` crate over cmake for simdjson amalgamation | Simpler build.rs; no cmake toolchain dependency; simdjson single-file amalgamation is designed for this | — Pending |
 | Raw `extern "C"` over `cxx`/`autocxx`/`bindgen` | ~15-function surface; matches pure-* family convention; avoids extra dep | — Pending |
 | Drop linux/arm from v0.1 | purego requires `CGO_ENABLED=1` on arm7; keeping it breaks no-cgo promise | — Pending |
@@ -122,4 +128,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-14 after research + scope decisions*
+*Last updated: 2026-04-14 after Phase 1 completion*
