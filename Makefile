@@ -6,11 +6,14 @@ generate-header:
 verify-contract:
 	cargo check
 	cargo test
-	tmp="$$(mktemp)"; out="$$(mktemp /tmp/pure_simdjson_handle_layout.XXXXXX.o)"; trap 'rm -f "$$tmp" "$$out"' EXIT; \
+	tmp_dir="$$(mktemp -d)"; \
+	tmp="$$tmp_dir/pure_simdjson.h"; \
+	out="$$tmp_dir/pure_simdjson_handle_layout.o"; \
+	trap 'rm -rf "$$tmp_dir"' EXIT; \
 	cbindgen --config cbindgen.toml --crate pure_simdjson --output "$$tmp"; \
-	diff -u include/pure_simdjson.h "$$tmp"
-	python3 tests/abi/test_check_header.py
-	python3 tests/abi/check_header.py --rule error-code-outparams --rule no-mixed-float-int --rule required-symbols --rule string-copy-ownership --rule diag-surface include/pure_simdjson.h
+	diff -u include/pure_simdjson.h "$$tmp"; \
+	python3 tests/abi/test_check_header.py; \
+	python3 tests/abi/check_header.py --rule error-code-outparams --rule no-mixed-float-int --rule required-symbols --rule string-copy-ownership --rule diag-surface include/pure_simdjson.h; \
 	cc -Iinclude tests/abi/handle_layout.c -c -o "$$out"
 
 verify-docs:
