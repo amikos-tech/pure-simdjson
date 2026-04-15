@@ -11,8 +11,7 @@ use pure_simdjson::{
     pure_simdjson_error_code_t::{
         PURE_SIMDJSON_ERR_CPP_EXCEPTION, PURE_SIMDJSON_ERR_INVALID_ARGUMENT,
         PURE_SIMDJSON_ERR_INVALID_HANDLE, PURE_SIMDJSON_ERR_INVALID_JSON,
-        PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE, PURE_SIMDJSON_ERR_PARSER_BUSY,
-        PURE_SIMDJSON_ERR_PRECISION_LOSS, PURE_SIMDJSON_ERR_WRONG_TYPE, PURE_SIMDJSON_OK,
+        PURE_SIMDJSON_ERR_PARSER_BUSY, PURE_SIMDJSON_ERR_WRONG_TYPE, PURE_SIMDJSON_OK,
     },
     pure_simdjson_get_abi_version, pure_simdjson_get_implementation_name_len,
     pure_simdjson_handle_t, pure_simdjson_parser_copy_last_error,
@@ -439,30 +438,18 @@ fn element_get_int64_reports_wrong_type_for_bool() {
 }
 
 #[test]
-fn element_type_reports_precision_loss_for_bigint() {
+fn oversized_integer_is_rejected_at_parse_time() {
     let parser = parser_new();
-    let doc = parser_parse_literal(parser, b"99999999999999999999");
-    let root = doc_root(doc);
-    let mut kind = 0_u32;
+    let mut doc = 0_u64;
 
-    let rc = unsafe { pure_simdjson_element_type(&root, &mut kind) };
-    assert_eq!(rc, PURE_SIMDJSON_ERR_PRECISION_LOSS);
+    let rc = unsafe {
+        pure_simdjson_parser_parse(parser, b"99999999999999999999".as_ptr(), 20, &mut doc)
+    };
+    assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_JSON);
+    assert_eq!(doc, 0);
+    assert!(!parser_last_error(parser).is_empty());
+    assert_eq!(parser_last_error_offset(parser), u64::MAX);
 
-    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
-    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
-}
-
-#[test]
-fn element_get_int64_reports_number_out_of_range_for_bigint() {
-    let parser = parser_new();
-    let doc = parser_parse_literal(parser, b"99999999999999999999");
-    let root = doc_root(doc);
-    let mut value = 0_i64;
-
-    let rc = unsafe { pure_simdjson_element_get_int64(&root, &mut value) };
-    assert_eq!(rc, PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE);
-
-    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
     assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
 }
 
