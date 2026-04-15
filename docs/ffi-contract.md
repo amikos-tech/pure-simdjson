@@ -10,7 +10,7 @@ Phase 1 currently ships the metadata helpers `pure_simdjson_get_abi_version`, `p
 
 # ABI invariants
 
-- Every exported `pure_simdjson_*` function returns `int32_t`.
+- Every exported `pure_simdjson_*` function returns `pure_simdjson_error_code_t`, with `int32_t` wire representation.
 - Success is `PURE_SIMDJSON_OK == 0`. All other return values are stable numeric error codes.
 - Multi-value results always flow through pointer out-params. The ABI does not return structs by value.
 - Public signatures must not mix floating-point and integer scalar parameters in the same argument list. Numeric results are returned through out-params such as `int64_t *`, `uint64_t *`, or `double *`.

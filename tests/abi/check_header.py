@@ -196,7 +196,6 @@ def rule_diag_surface(
 
 RULES: dict[str, Callable[[dict[str, tuple[str, list[str]]], str], None]] = {
     "error-code-outparams": rule_error_code_outparams,
-    "int32-outparams": rule_error_code_outparams,
     "no-mixed-float-int": rule_no_mixed_float_int,
     "required-symbols": rule_required_symbols,
     "string-copy-ownership": rule_string_copy_ownership,
