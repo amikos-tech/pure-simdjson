@@ -1,0 +1,90 @@
+name: phase2-rust-shim-smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux smoke prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+          cargo install cbindgen --locked
+
+      - name: Verify contract
+        run: make verify-contract
+
+      - name: Build release library
+        run: cargo build --release
+
+      - name: Run Linux smoke harness
+        run: make phase2-smoke-linux
+
+      - name: Verify Linux exports
+        run: |
+          nm -D --defined-only target/release/libpure_simdjson.so | rg 'pure_simdjson_(get_abi_version|parser_new|parser_parse|doc_root|element_type|element_get_int64)'
+
+  windows-smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Configure MSVC developer shell
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build release library
+        shell: cmd
+        run: cargo build --release
+
+      - name: Compile Windows smoke harness
+        shell: cmd
+        run: |
+          if not exist target\phase2-smoke mkdir target\phase2-smoke
+          cl /nologo /Iinclude tests\smoke\minimal_parse.c /link /LIBPATH:target\release pure_simdjson.dll.lib /OUT:target\phase2-smoke\minimal_parse.exe
+
+      - name: Run Windows smoke harness
+        shell: cmd
+        run: |
+          set PATH=%CD%\target\release;%PATH%
+          target\phase2-smoke\minimal_parse.exe
+
+      - name: Verify Windows exports
+        shell: cmd
+        run: |
+          dumpbin /EXPORTS target\release\pure_simdjson.dll | findstr pure_simdjson_
+
+  darwin-build-only:
+    runs-on: macos-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release library
+        run: cargo build --release
+
+      - name: Verify macOS dylib exists
+        run: test -f target/release/libpure_simdjson.dylib
