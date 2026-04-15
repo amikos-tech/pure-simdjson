@@ -318,6 +318,11 @@ pub(crate) fn selected_implementation_name_for_parser_new(
         if value == b"fallback" {
             return Ok(value);
         }
+        // Test-only env var; fail loud so a typo (e.g. "fallbck") does not silently no-op.
+        panic!(
+            "PURE_SIMDJSON_TEST_FORCE_IMPLEMENTATION only accepts \"fallback\"; got {:?}",
+            String::from_utf8_lossy(&value)
+        );
     }
     implementation_name()
 }

@@ -471,6 +471,10 @@ pub unsafe extern "C" fn pure_simdjson_doc_free(
 
 /// Resolve the root value view for a live document handle.
 ///
+/// The returned view's `kind_hint` is `PURE_SIMDJSON_VALUE_KIND_INVALID` for roots whose value
+/// kind cannot be classified (for example, BIGINT). The canonical precision-loss error surfaces
+/// at `pure_simdjson_element_type`, not here.
+///
 /// # Safety
 /// `doc` must be a live document handle from this library. `out_root` must be a valid writable
 /// pointer to a `pure_simdjson_value_view_t`.

@@ -83,6 +83,15 @@ fn err_parser_busy() -> pure_simdjson_error_code_t {
 }
 
 #[inline]
+fn err_precision_loss() -> pure_simdjson_error_code_t {
+    pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PRECISION_LOSS
+}
+
+/// Coarse value kind sentinel for views whose backing element cannot be classified
+/// (e.g. BIGINT elements, where the canonical error surfaces at `pure_simdjson_element_type`).
+const KIND_HINT_INVALID: u32 = 0;
+
+#[inline]
 fn registry() -> &'static Mutex<Registry> {
     REGISTRY.get_or_init(|| Mutex::new(Registry::default()))
 }
@@ -269,6 +278,10 @@ pub(crate) fn parser_parse(
     handle: pure_simdjson_parser_t,
     input: &[u8],
 ) -> Result<pure_simdjson_doc_t, pure_simdjson_error_code_t> {
+    // The registry mutex is held across `native_parser_parse` deliberately: the parser slot's
+    // Idle->Busy transition must be atomic with the doc allocation that owns the busy state, and
+    // simdjson parsers are thread-compatible (one parser per thread). Multi-parser throughput is
+    // not a Phase 02 goal; revisit if cross-parser contention becomes a measured bottleneck.
     let mut registry = registry_guard();
     let (index, slot, generation) = unpack_handle(handle)?;
 
@@ -407,7 +420,15 @@ pub(crate) fn doc_root(
 ) -> Result<pure_simdjson_value_view_t, pure_simdjson_error_code_t> {
     let registry = registry_guard();
     let entry = registry.doc_entry(handle)?;
-    let kind_hint = super::native_element_type(entry.root_ptr)?;
+    // BIGINT roots are unreachable today (bridge does not enable bigint storage), but the bridge's
+    // `psimdjson_element_type` would surface PRECISION_LOSS for them. Per the header contract that
+    // error must surface at `pure_simdjson_element_type`, not at `pure_simdjson_doc_root`, so we
+    // hand back a view with an invalid kind hint and let the canonical error fire downstream.
+    let kind_hint = match super::native_element_type(entry.root_ptr) {
+        Ok(kind) => kind,
+        Err(rc) if rc == err_precision_loss() => KIND_HINT_INVALID,
+        Err(rc) => return Err(rc),
+    };
     Ok(pure_simdjson_value_view_t {
         doc: handle,
         state0: entry.root_ptr as u64,

@@ -75,6 +75,10 @@ jobs:
         shell: pwsh
         run: cargo build --release
 
+      - name: Run Rust integration tests
+        shell: pwsh
+        run: cargo test --release
+
       - name: Compile Windows smoke harness
         shell: pwsh
         run: |
@@ -109,6 +113,11 @@ jobs:
         run: |
           set -euo pipefail
           cargo build --release
+
+      - name: Run Rust integration tests
+        run: |
+          set -euo pipefail
+          cargo test --release
 
       - name: Verify macOS dylib exists
         run: |
