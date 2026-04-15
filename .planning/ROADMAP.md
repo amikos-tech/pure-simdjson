@@ -347,5 +347,20 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 
 Plan counts populated by `/gsd-plan-phase`.
 
+## Backlog
+
+Parking lot for ideas not yet scheduled. Promote with `/gsd-review-backlog`.
+
+### Phase 999.1: Local pre-commit and pre-push verification hooks (BACKLOG)
+
+**Goal:** [Captured for future planning] Add lefthook (or equivalent — e.g., `pre-commit`, git-native hooks) so `make verify-contract` and `make verify-docs` (and future lint/format gates) run locally before code reaches CI. Prevents drift between local and CI verification and catches header/doc regressions at the dev's machine instead of after push.
+
+**Requirements:** TBD
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
 ---
 *Roadmap created: 2026-04-14 from PROJECT.md, REQUIREMENTS.md, and research/SUMMARY.md*
