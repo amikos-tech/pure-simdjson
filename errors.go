@@ -22,6 +22,8 @@ var (
 
 var errLoadLibrary = errors.New("load library")
 
+// Error carries native status details while still participating in Go's
+// sentinel-error matching via Unwrap.
 type Error struct {
 	Code    int32
 	Offset  uint64

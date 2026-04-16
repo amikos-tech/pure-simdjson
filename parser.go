@@ -15,6 +15,8 @@ var (
 	docFinalizerCount     atomic.Int64
 )
 
+// Parser owns one live native parser handle and enforces the Phase 3
+// one-document-at-a-time lifecycle rules.
 type Parser struct {
 	mu      sync.Mutex
 	library *loadedLibrary
@@ -23,6 +25,8 @@ type Parser struct {
 	liveDoc ffi.DocHandle
 }
 
+// NewParser resolves the local shared library, verifies the ABI, and allocates
+// a reusable native parser.
 func NewParser() (*Parser, error) {
 	library, err := activeLibrary()
 	if err != nil {
@@ -53,6 +57,8 @@ func NewParser() (*Parser, error) {
 	return parser, nil
 }
 
+// Parse copies one JSON buffer into the native parser and returns a live Doc on
+// success.
 func (p *Parser) Parse(data []byte) (*Doc, error) {
 	p.mu.Lock()
 	if p.closed {
@@ -92,6 +98,8 @@ func (p *Parser) Parse(data []byte) (*Doc, error) {
 	return doc, nil
 }
 
+// Close releases the native parser. It is idempotent and returns ErrParserBusy
+// while a live document still belongs to the parser.
 func (p *Parser) Close() error {
 	p.mu.Lock()
 	if p.closed {

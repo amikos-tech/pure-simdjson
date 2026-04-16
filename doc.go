@@ -7,6 +7,7 @@ import (
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
 
+// Doc wraps one live native document handle plus its cached root view.
 type Doc struct {
 	mu     sync.Mutex
 	parser *Parser
@@ -15,10 +16,13 @@ type Doc struct {
 	closed bool
 }
 
+// Root returns the cached root element view for the live document.
 func (d *Doc) Root() Element {
 	return Element{doc: d, view: d.root}
 }
 
+// Close releases the native document and clears the owning parser's busy
+// state. It is idempotent.
 func (d *Doc) Close() error {
 	d.mu.Lock()
 	if d.closed {
