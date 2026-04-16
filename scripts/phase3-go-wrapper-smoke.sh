@@ -64,7 +64,19 @@ if [[ -z "${run_id}" ]]; then
   exit 1
 fi
 
-gh run watch "${run_id}" || true
+run_status=""
+for attempt in $(seq 1 180); do
+  run_status="$(gh run view "${run_id}" --json status --jq .status)"
+  if [[ "${run_status}" == "completed" ]]; then
+    break
+  fi
+  sleep 5
+done
+
+if [[ "${run_status}" != "completed" ]]; then
+  echo "timed out waiting for run ${run_id} to complete" >&2
+  exit 1
+fi
 
 gh run view "${run_id}" --json conclusion,jobs \
 | python3 - "${run_id}" "${required_jobs[@]}" <<'PY'
