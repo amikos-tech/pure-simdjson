@@ -1,0 +1,209 @@
+package ffi
+
+import (
+	"fmt"
+	"runtime"
+	"unsafe"
+
+	"github.com/ebitengine/purego"
+)
+
+type Bindings struct {
+	handle uintptr
+
+	getABIVersion            func(*uint32) int32
+	getImplementationNameLen func(*uintptr) int32
+	copyImplementationName   func(*byte, uintptr, *uintptr) int32
+
+	parserNew                func(*ParserHandle) int32
+	parserFree               func(ParserHandle) int32
+	parserParse              func(ParserHandle, *byte, uintptr, *DocHandle) int32
+	parserGetLastErrorLen    func(ParserHandle, *uintptr) int32
+	parserCopyLastError      func(ParserHandle, *byte, uintptr, *uintptr) int32
+	parserGetLastErrorOffset func(ParserHandle, *uint64) int32
+
+	docFree         func(DocHandle) int32
+	docRoot         func(DocHandle, *ValueView) int32
+	elementType     func(*ValueView, *uint32) int32
+	elementGetInt64 func(*ValueView, *int64) int32
+}
+
+type SymbolLookup func(handle uintptr, name string) (uintptr, error)
+
+func Bind(handle uintptr, lookup SymbolLookup) (*Bindings, error) {
+	b := &Bindings{handle: handle}
+
+	symbols := []struct {
+		name   string
+		target any
+	}{
+		{name: "pure_simdjson_get_abi_version", target: &b.getABIVersion},
+		{name: "pure_simdjson_get_implementation_name_len", target: &b.getImplementationNameLen},
+		{name: "pure_simdjson_copy_implementation_name", target: &b.copyImplementationName},
+		{name: "pure_simdjson_parser_new", target: &b.parserNew},
+		{name: "pure_simdjson_parser_free", target: &b.parserFree},
+		{name: "pure_simdjson_parser_parse", target: &b.parserParse},
+		{name: "pure_simdjson_parser_get_last_error_len", target: &b.parserGetLastErrorLen},
+		{name: "pure_simdjson_parser_copy_last_error", target: &b.parserCopyLastError},
+		{name: "pure_simdjson_parser_get_last_error_offset", target: &b.parserGetLastErrorOffset},
+		{name: "pure_simdjson_doc_free", target: &b.docFree},
+		{name: "pure_simdjson_doc_root", target: &b.docRoot},
+		{name: "pure_simdjson_element_type", target: &b.elementType},
+		{name: "pure_simdjson_element_get_int64", target: &b.elementGetInt64},
+	}
+
+	for _, symbol := range symbols {
+		if err := registerFunc(handle, lookup, symbol.name, symbol.target); err != nil {
+			return nil, err
+		}
+	}
+
+	return b, nil
+}
+
+func registerFunc(handle uintptr, lookup SymbolLookup, name string, target any) (err error) {
+	sym, err := lookup(handle, name)
+	if err != nil {
+		return fmt.Errorf("lookup %s: %w", name, err)
+	}
+
+	defer func() {
+		if panicVal := recover(); panicVal != nil {
+			err = fmt.Errorf("register %s: %v", name, panicVal)
+		}
+	}()
+
+	purego.RegisterFunc(target, sym)
+	return nil
+}
+
+func (b *Bindings) ABI() (uint32, int32) {
+	var abi uint32
+	rc := b.getABIVersion(&abi)
+	runtime.KeepAlive(b)
+	return abi, rc
+}
+
+func (b *Bindings) ImplementationName() (string, int32) {
+	var length uintptr
+	rc := b.getImplementationNameLen(&length)
+	if rc != int32(OK) {
+		runtime.KeepAlive(b)
+		return "", rc
+	}
+	if length == 0 {
+		runtime.KeepAlive(b)
+		return "", int32(OK)
+	}
+
+	buffer := make([]byte, length)
+	var written uintptr
+	rc = b.copyImplementationName(unsafe.SliceData(buffer), uintptr(len(buffer)), &written)
+	runtime.KeepAlive(buffer)
+	runtime.KeepAlive(b)
+	if rc != int32(OK) {
+		return "", rc
+	}
+
+	if written > uintptr(len(buffer)) {
+		written = uintptr(len(buffer))
+	}
+	return string(buffer[:written]), int32(OK)
+}
+
+func (b *Bindings) ParserNew() (ParserHandle, int32) {
+	var parser ParserHandle
+	rc := b.parserNew(&parser)
+	runtime.KeepAlive(b)
+	return parser, rc
+}
+
+func (b *Bindings) ParserFree(parser ParserHandle) int32 {
+	rc := b.parserFree(parser)
+	runtime.KeepAlive(parser)
+	runtime.KeepAlive(b)
+	return rc
+}
+
+func (b *Bindings) ParserParse(parser ParserHandle, data []byte) (DocHandle, int32) {
+	var inputPtr *byte
+	if len(data) > 0 {
+		inputPtr = unsafe.SliceData(data)
+	}
+
+	var doc DocHandle
+	rc := b.parserParse(parser, inputPtr, uintptr(len(data)), &doc)
+	runtime.KeepAlive(data)
+	runtime.KeepAlive(parser)
+	runtime.KeepAlive(b)
+	return doc, rc
+}
+
+func (b *Bindings) ParserLastError(parser ParserHandle) (string, int32) {
+	var length uintptr
+	rc := b.parserGetLastErrorLen(parser, &length)
+	if rc != int32(OK) {
+		runtime.KeepAlive(parser)
+		runtime.KeepAlive(b)
+		return "", rc
+	}
+	if length == 0 {
+		runtime.KeepAlive(parser)
+		runtime.KeepAlive(b)
+		return "", int32(OK)
+	}
+
+	buffer := make([]byte, length)
+	var written uintptr
+	rc = b.parserCopyLastError(parser, unsafe.SliceData(buffer), uintptr(len(buffer)), &written)
+	runtime.KeepAlive(buffer)
+	runtime.KeepAlive(parser)
+	runtime.KeepAlive(b)
+	if rc != int32(OK) {
+		return "", rc
+	}
+
+	if written > uintptr(len(buffer)) {
+		written = uintptr(len(buffer))
+	}
+	return string(buffer[:written]), int32(OK)
+}
+
+func (b *Bindings) ParserLastErrorOffset(parser ParserHandle) (uint64, int32) {
+	var offset uint64
+	rc := b.parserGetLastErrorOffset(parser, &offset)
+	runtime.KeepAlive(parser)
+	runtime.KeepAlive(b)
+	return offset, rc
+}
+
+func (b *Bindings) DocFree(doc DocHandle) int32 {
+	rc := b.docFree(doc)
+	runtime.KeepAlive(doc)
+	runtime.KeepAlive(b)
+	return rc
+}
+
+func (b *Bindings) DocRoot(doc DocHandle) (ValueView, int32) {
+	var view ValueView
+	rc := b.docRoot(doc, &view)
+	runtime.KeepAlive(doc)
+	runtime.KeepAlive(b)
+	return view, rc
+}
+
+func (b *Bindings) ElementType(view *ValueView) (uint32, int32) {
+	var kind uint32
+	rc := b.elementType(view, &kind)
+	runtime.KeepAlive(view)
+	runtime.KeepAlive(b)
+	return kind, rc
+}
+
+func (b *Bindings) ElementGetInt64(view *ValueView) (int64, int32) {
+	var value int64
+	rc := b.elementGetInt64(view, &value)
+	runtime.KeepAlive(view)
+	runtime.KeepAlive(b)
+	return value, rc
+}
