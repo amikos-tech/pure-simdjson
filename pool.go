@@ -16,7 +16,7 @@ func NewParserPool() *ParserPool {
 // Get returns a reusable parser or allocates a new one on a pool miss.
 func (p *ParserPool) Get() (*Parser, error) {
 	if value := p.pool.Get(); value != nil {
-		if parser, ok := value.(*Parser); ok && parser != nil {
+		if parser, ok := value.(*Parser); ok {
 			return parser, nil
 		}
 	}

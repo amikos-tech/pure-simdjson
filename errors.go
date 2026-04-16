@@ -188,6 +188,8 @@ func sentinelForStatus(code int32) error {
 	case ffi.ErrABIMismatch:
 		return ErrABIVersionMismatch
 	default:
+		// ErrInvalidArg and ErrBufferTooSmall indicate a bug in the Go wrapper,
+		// not user error; they intentionally map to ErrInternal.
 		return ErrInternal
 	}
 }

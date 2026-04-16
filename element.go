@@ -14,16 +14,17 @@ type Element struct {
 
 // Array wraps an Element verified to represent a JSON array. Construct via
 // Element.AsArray; the unexported field prevents callers from creating an
-// unverified instance.
+// unverified instance. Traversal methods will be added in a later phase.
 type Array struct{ element Element }
 
 // Object wraps an Element verified to represent a JSON object. Construct via
 // Element.AsObject; the unexported field prevents callers from creating an
-// unverified instance.
+// unverified instance. Traversal methods will be added in a later phase.
 type Object struct{ element Element }
 
 // GetInt64 reads the current element as an int64 and returns ErrClosed when the
-// owning document has already been released.
+// owning document has already been released. Element accessors are not safe for
+// concurrent use with Doc.Close.
 func (e Element) GetInt64() (int64, error) {
 	if e.doc == nil || e.doc.isClosed() {
 		return 0, ErrClosed

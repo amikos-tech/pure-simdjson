@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - gsd/phase-03-go-public-api-purego-happy-path
+      - main
 
 permissions:
   contents: read
