@@ -49,7 +49,7 @@ if err := pool.Put(parser); err != nil {
 
 ## Put Rejection Rules
 
-`ParserPool.Put` rejects parsers that do not satisfy the Phase 3 lifecycle
+`ParserPool.Put` rejects parsers that do not satisfy the parser-pool lifecycle
 contract:
 
 - `nil` parsers return `ErrInvalidHandle`

@@ -1,6 +1,9 @@
 package purejson
 
 import (
+	"errors"
+	"fmt"
+	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -63,6 +66,9 @@ func (p *Parser) Parse(data []byte) (*Doc, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	if p.library == nil {
+		return nil, ErrInvalidHandle
+	}
 	if p.closed {
 		return nil, ErrClosed
 	}
@@ -83,7 +89,9 @@ func (p *Parser) Parse(data []byte) (*Doc, error) {
 	root, rc := library.bindings.DocRoot(docHandle)
 	runtime.KeepAlive(p)
 	if err := wrapStatus(rc); err != nil {
-		_ = library.bindings.DocFree(docHandle)
+		if freeErr := wrapStatus(library.bindings.DocFree(docHandle)); freeErr != nil {
+			err = errors.Join(err, freeErr)
+		}
 		return nil, err
 	}
 
@@ -98,12 +106,16 @@ func (p *Parser) Parse(data []byte) (*Doc, error) {
 	return doc, nil
 }
 
-// Close releases the native parser. It is idempotent and returns ErrParserBusy
-// while a live document still belongs to the parser.
+// Close releases the native parser. While a live document still belongs to the
+// parser, Close returns ErrParserBusy and leaves the parser usable. Subsequent
+// calls after a successful Close return nil.
 func (p *Parser) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	if p.library == nil {
+		return ErrInvalidHandle
+	}
 	if p.closed {
 		return nil
 	}
@@ -119,6 +131,9 @@ func (p *Parser) Close() error {
 	runtime.KeepAlive(p)
 	if err := wrapStatus(rc); err != nil {
 		attachParserFinalizer(p)
+		if leakWarningsEnabled() {
+			fmt.Fprintf(os.Stderr, "purejson close-failed: parser %v\n", err)
+		}
 		return err
 	}
 
@@ -142,11 +157,14 @@ func (p *Parser) hasLeakedState() bool {
 	return !p.closed && (p.handle != 0 || p.liveDoc != 0)
 }
 
-func (p *Parser) finalizeLeaked() bool {
+// finalizeLeaked frees native resources from the GC finalizer. It releases the
+// mutex around FFI calls so a stuck native side cannot hold the runtime, then
+// re-acquires it to commit only the state for handles that actually freed.
+func (p *Parser) finalizeLeaked() {
 	p.mu.Lock()
 	if p.closed {
 		p.mu.Unlock()
-		return false
+		return
 	}
 
 	handle := p.handle
@@ -177,10 +195,10 @@ func (p *Parser) finalizeLeaked() bool {
 	if parserFreed {
 		p.handle = 0
 	}
-	p.closed = p.handle == 0 && p.liveDoc == 0
+	if p.handle == 0 && p.liveDoc == 0 {
+		p.closed = true
+	}
 	p.mu.Unlock()
-
-	return p.closed
 }
 
 func expectedABIVersion() uint32 {

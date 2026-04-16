@@ -28,7 +28,8 @@ var (
 	ErrElementNotFound = errors.New("element not found")
 	// ErrWrongType reports an accessor call on the wrong JSON value kind.
 	ErrWrongType = errors.New("wrong type")
-	// ErrInternal reports native panics, internal failures, and unknown status codes.
+	// ErrInternal reports native panics, internal failures, and any status code
+	// not mapped to a dedicated sentinel.
 	ErrInternal = errors.New("internal error")
 )
 

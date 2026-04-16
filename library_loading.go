@@ -80,6 +80,9 @@ func resolveLibraryPath() (string, []string, error) {
 		return "", nil, err
 	}
 
+	// Walk candidates in priority order. Filter NotExist (the common miss) so the
+	// returned error reflects the first real problem (permission denied, broken
+	// path) rather than the trailing "not found" from the last candidate.
 	attempted := make([]string, 0, len(candidates))
 	var statErr error
 	for _, candidate := range candidates {

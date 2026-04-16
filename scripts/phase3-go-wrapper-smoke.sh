@@ -13,7 +13,7 @@ required_jobs=(
 branch="$(git rev-parse --abbrev-ref HEAD)"
 pushed_after="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-gh auth status -h github.com >/dev/null
+gh auth status -h github.com
 git remote get-url origin >/dev/null
 
 git push origin "${branch}"

@@ -39,3 +39,7 @@ func clearDocFinalizer(doc *Doc) {
 func testBuildFinalizersEnabled() bool {
 	return true
 }
+
+func leakWarningsEnabled() bool {
+	return true
+}

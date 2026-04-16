@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
@@ -477,12 +478,15 @@ func runMassParserLeakHelper(t *testing.T, count int) {
 func waitForFinalizers(t *testing.T, done func() bool) {
 	t.Helper()
 
-	for i := 0; i < 400; i++ {
+	// 2000 iterations × 5ms = 10s upper bound. Race-detector overhead and the
+	// mass-leak helper together can need >400 GC cycles before all finalizers
+	// drain, so we yield briefly between cycles instead of spinning.
+	for i := 0; i < 2000; i++ {
 		runtime.GC()
-		runtime.Gosched()
 		if done() {
 			return
 		}
+		time.Sleep(5 * time.Millisecond)
 	}
 
 	t.Fatal("finalizer condition was not satisfied")

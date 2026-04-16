@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -81,7 +82,11 @@ func TestActiveLibraryEnvOverrideLoadsBuiltLibrary(t *testing.T) {
 	restore := withLibraryCacheClearedForTest(t)
 	defer restore()
 
-	t.Setenv(libraryEnvPath, filepath.Join("target", "release", platformLibraryName()))
+	libPath := filepath.Join(projectRootForTest(t), "target", "release", platformLibraryName())
+	if _, err := os.Stat(libPath); err != nil {
+		t.Skipf("built library not present at %s; run `cargo build --release` first", libPath)
+	}
+	t.Setenv(libraryEnvPath, libPath)
 
 	library, err := activeLibrary()
 	if err != nil {
@@ -150,6 +155,16 @@ func withLibraryCacheClearedForTest(t *testing.T) func() {
 		cachedLibrary = previous
 		libraryMu.Unlock()
 	}
+}
+
+func projectRootForTest(t *testing.T) string {
+	t.Helper()
+
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller(0) returned ok=false")
+	}
+	return filepath.Dir(thisFile)
 }
 
 func mustChdir(t *testing.T, dir string) func() {

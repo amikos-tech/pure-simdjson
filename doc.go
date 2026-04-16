@@ -1,6 +1,8 @@
 package purejson
 
 import (
+	"fmt"
+	"os"
 	"runtime"
 	"sync"
 
@@ -41,6 +43,9 @@ func (d *Doc) Close() error {
 	if err := wrapStatus(rc); err != nil {
 		attachDocFinalizer(d)
 		d.mu.Unlock()
+		if leakWarningsEnabled() {
+			fmt.Fprintf(os.Stderr, "purejson close-failed: doc %v\n", err)
+		}
 		return err
 	}
 
@@ -64,11 +69,14 @@ func (d *Doc) hasLeakedState() bool {
 	return !d.closed && d.handle != 0
 }
 
-func (d *Doc) finalizeLeaked() bool {
+// finalizeLeaked frees the native document from the GC finalizer. It releases
+// the mutex around the FFI call so a stuck native side cannot hold the runtime,
+// then re-acquires it to commit state only when the free succeeded.
+func (d *Doc) finalizeLeaked() {
 	d.mu.Lock()
 	if d.closed {
 		d.mu.Unlock()
-		return false
+		return
 	}
 
 	handle := d.handle
@@ -92,5 +100,4 @@ func (d *Doc) finalizeLeaked() bool {
 	if docFreed {
 		parser.clearLiveDoc(handle)
 	}
-	return docFreed
 }

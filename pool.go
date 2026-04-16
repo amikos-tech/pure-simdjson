@@ -25,21 +25,20 @@ func (p *ParserPool) Get() (*Parser, error) {
 }
 
 // Put returns a parser to the pool and rejects nil, closed, or still-busy
-// parsers instead of silently repairing misuse.
+// parsers instead of silently repairing misuse. The parser's mutex is held
+// across the pool insert so a racing Close cannot stash a just-closed parser.
 func (p *ParserPool) Put(parser *Parser) error {
 	if parser == nil {
 		return ErrInvalidHandle
 	}
 
 	parser.mu.Lock()
-	closed := parser.closed
-	liveDoc := parser.liveDoc
-	parser.mu.Unlock()
+	defer parser.mu.Unlock()
 
 	switch {
-	case closed:
+	case parser.closed:
 		return ErrClosed
-	case liveDoc != 0:
+	case parser.liveDoc != 0:
 		return ErrParserBusy
 	default:
 		p.pool.Put(parser)
