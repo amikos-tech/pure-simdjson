@@ -1,0 +1,135 @@
+name: phase3-go-wrapper-smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-amd64-go-race:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Go toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Build release library
+        run: cargo build --release
+
+      - name: Run Go wrapper race tests
+        run: go test ./... -race
+
+  linux-arm64-go-race:
+    runs-on: ubuntu-24.04-arm
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Go toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Build release library
+        run: cargo build --release
+
+      - name: Run Go wrapper race tests
+        run: go test ./... -race
+
+  darwin-amd64-go-race:
+    runs-on: macos-15-intel
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Go toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Build release library
+        run: cargo build --release
+
+      - name: Run Go wrapper race tests
+        run: go test ./... -race
+
+  darwin-arm64-go-race:
+    runs-on: macos-15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Go toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Build release library
+        run: cargo build --release
+
+      - name: Run Go wrapper race tests
+        run: go test ./... -race
+
+  windows-amd64-go-race:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Go toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Configure MSVC developer shell
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build release library
+        shell: pwsh
+        run: cargo build --release
+
+      - name: Run Go wrapper race tests
+        shell: pwsh
+        run: go test ./... -race
