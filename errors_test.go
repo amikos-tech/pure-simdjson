@@ -29,8 +29,8 @@ func TestWrapStatusInternalCodesMapToErrInternal(t *testing.T) {
 			if !errors.As(err, &nativeErr) {
 				t.Fatalf("wrapStatus(%d) error = %v, want *Error", tc.code, err)
 			}
-			if nativeErr.Code != tc.code {
-				t.Fatalf("wrapStatus(%d) native code = %d, want %d", tc.code, nativeErr.Code, tc.code)
+			if nativeErr.Code() != tc.code {
+				t.Fatalf("wrapStatus(%d) native code = %d, want %d", tc.code, nativeErr.Code(), tc.code)
 			}
 		})
 	}

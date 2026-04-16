@@ -35,16 +35,13 @@ var (
 var errLoadLibrary = errors.New("load library")
 
 // Error carries native status details while still participating in Go's
-// sentinel-error matching via Unwrap.
+// sentinel-error matching via Unwrap. Status details are exposed through
+// accessor methods so callers cannot mutate them after construction.
 type Error struct {
-	// Code is the native status code returned by the FFI call.
-	Code int32
-	// Offset is the reported byte offset for parse errors. Zero means unknown.
-	Offset uint64
-	// Message is the native error message, when available.
-	Message string
-	// Err is the wrapped Go sentinel used by errors.Is.
-	Err error
+	code    int32
+	offset  uint64
+	message string
+	err     error
 }
 
 func (e *Error) Error() string {
@@ -53,31 +50,55 @@ func (e *Error) Error() string {
 	}
 
 	label := "purejson error"
-	if e.Err != nil {
-		label = e.Err.Error()
+	if e.err != nil {
+		label = e.err.Error()
 	}
 
 	switch {
-	case e.Code != 0 && e.Message != "" && hasOffset(e.Offset):
-		return fmt.Sprintf("%s (code=%d, offset=%d): %s", label, e.Code, e.Offset, e.Message)
-	case e.Code != 0 && e.Message != "":
-		return fmt.Sprintf("%s (code=%d): %s", label, e.Code, e.Message)
-	case e.Code != 0 && hasOffset(e.Offset):
-		return fmt.Sprintf("%s (code=%d, offset=%d)", label, e.Code, e.Offset)
-	case e.Code != 0:
-		return fmt.Sprintf("%s (code=%d)", label, e.Code)
-	case e.Message != "":
-		return fmt.Sprintf("%s: %s", label, e.Message)
+	case e.code != 0 && e.message != "" && hasOffset(e.offset):
+		return fmt.Sprintf("%s (code=%d, offset=%d): %s", label, e.code, e.offset, e.message)
+	case e.code != 0 && e.message != "":
+		return fmt.Sprintf("%s (code=%d): %s", label, e.code, e.message)
+	case e.code != 0 && hasOffset(e.offset):
+		return fmt.Sprintf("%s (code=%d, offset=%d)", label, e.code, e.offset)
+	case e.code != 0:
+		return fmt.Sprintf("%s (code=%d)", label, e.code)
+	case e.message != "":
+		return fmt.Sprintf("%s: %s", label, e.message)
 	default:
 		return label
 	}
+}
+
+// Code returns the native status code returned by the FFI call.
+func (e *Error) Code() int32 {
+	if e == nil {
+		return 0
+	}
+	return e.code
+}
+
+// Offset returns the reported byte offset for parse errors. Zero means unknown.
+func (e *Error) Offset() uint64 {
+	if e == nil {
+		return 0
+	}
+	return e.offset
+}
+
+// Message returns the native error message, when available.
+func (e *Error) Message() string {
+	if e == nil {
+		return ""
+	}
+	return e.message
 }
 
 func (e *Error) Unwrap() error {
 	if e == nil {
 		return nil
 	}
-	return e.Err
+	return e.err
 }
 
 type nativeDetails struct {
@@ -138,10 +159,10 @@ func newError(code int32, details nativeDetails, err error) error {
 	}
 
 	return &Error{
-		Code:    code,
-		Offset:  normalizeOffset(details.offset),
-		Message: details.message,
-		Err:     err,
+		code:    code,
+		offset:  normalizeOffset(details.offset),
+		message: details.message,
+		err:     err,
 	}
 }
 

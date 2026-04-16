@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
@@ -64,10 +65,10 @@ func TestABIMismatchAtNewParser(t *testing.T) {
 	if !errors.As(err, &nativeErr) {
 		t.Fatalf("NewParser() mismatch error = %v, want *Error", err)
 	}
-	if nativeErr.Code != int32(ffi.ErrABIMismatch) {
-		t.Fatalf("native error code = %d, want %d", nativeErr.Code, ffi.ErrABIMismatch)
+	if nativeErr.Code() != int32(ffi.ErrABIMismatch) {
+		t.Fatalf("native error code = %d, want %d", nativeErr.Code(), ffi.ErrABIMismatch)
 	}
-	if nativeErr.Message == "" {
+	if nativeErr.Message() == "" {
 		t.Fatal("native error message is empty")
 	}
 }
@@ -101,6 +102,74 @@ func TestDocDoubleClose(t *testing.T) {
 	}
 	if err := doc.Close(); err != nil {
 		t.Fatalf("second doc.Close() error = %v, want nil", err)
+	}
+}
+
+func TestParserConcurrentDoubleClose(t *testing.T) {
+	parser := mustNewParser(t)
+
+	const closers = 8
+
+	start := make(chan struct{})
+	errs := make(chan error, closers)
+
+	var wg sync.WaitGroup
+	for i := 0; i < closers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			errs <- parser.Close()
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent parser.Close() error = %v, want nil", err)
+		}
+	}
+}
+
+func TestDocConcurrentDoubleClose(t *testing.T) {
+	parser := mustNewParser(t)
+	t.Cleanup(func() {
+		if err := parser.Close(); err != nil {
+			t.Fatalf("parser.Close() cleanup error = %v", err)
+		}
+	})
+
+	doc, err := parser.Parse([]byte("42"))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	const closers = 8
+
+	start := make(chan struct{})
+	errs := make(chan error, closers)
+
+	var wg sync.WaitGroup
+	for i := 0; i < closers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			errs <- doc.Close()
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent doc.Close() error = %v, want nil", err)
+		}
 	}
 }
 
@@ -245,10 +314,10 @@ func TestStructuredErrorDetails(t *testing.T) {
 	if !errors.As(err, &nativeErr) {
 		t.Fatalf("Parse() invalid json error = %v, want *Error", err)
 	}
-	if nativeErr.Code != int32(ffi.ErrInvalidJSON) {
-		t.Fatalf("native error code = %d, want %d", nativeErr.Code, ffi.ErrInvalidJSON)
+	if nativeErr.Code() != int32(ffi.ErrInvalidJSON) {
+		t.Fatalf("native error code = %d, want %d", nativeErr.Code(), ffi.ErrInvalidJSON)
 	}
-	if nativeErr.Message == "" {
+	if nativeErr.Message() == "" {
 		t.Fatal("native error message is empty")
 	}
 
@@ -456,6 +525,7 @@ func TestParseInputVariants(t *testing.T) {
 		{name: "nil", data: nil, wantErr: ErrInvalidJSON},
 		{name: "empty", data: []byte{}, wantErr: ErrInvalidJSON},
 		{name: "whitespace-only", data: []byte(" \n\t "), wantErr: ErrInvalidJSON},
+		{name: "trailing-garbage", data: []byte("42 trailing"), wantErr: ErrInvalidJSON},
 		{name: "invalid-utf8", data: []byte{'"', 0xff, '"'}, wantErr: ErrInvalidJSON},
 		{
 			name:      "multi-megabyte-whitespace-padded-int",

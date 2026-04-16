@@ -2,6 +2,7 @@ package purejson
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,6 +89,51 @@ func TestActiveLibraryEnvOverrideLoadsBuiltLibrary(t *testing.T) {
 	}
 	if library.path == "" {
 		t.Fatal("activeLibrary() returned empty library path")
+	}
+}
+
+func TestActiveLibraryEnvOverrideInvalidLibraryWrapsLoadFailure(t *testing.T) {
+	restore := withLibraryCacheClearedForTest(t)
+	defer restore()
+
+	tempDir := t.TempDir()
+	invalidLibrary := filepath.Join(tempDir, platformLibraryName())
+	if err := os.WriteFile(invalidLibrary, []byte("not-a-shared-library"), 0o644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", invalidLibrary, err)
+	}
+	t.Setenv(libraryEnvPath, invalidLibrary)
+
+	_, err := activeLibrary()
+	if !errors.Is(err, errLoadLibrary) {
+		t.Fatalf("activeLibrary() error = %v, want errors.Is(..., errLoadLibrary)", err)
+	}
+	if !strings.Contains(err.Error(), "attempted paths:") {
+		t.Fatalf("activeLibrary() error = %q, want attempted paths list", err)
+	}
+	if !strings.Contains(err.Error(), invalidLibrary) {
+		t.Fatalf("activeLibrary() error = %q, want invalid library path %q", err, invalidLibrary)
+	}
+}
+
+func TestResolveLibraryPathPreservesCandidatePathError(t *testing.T) {
+	restoreWD := mustChdir(t, t.TempDir())
+	defer restoreWD()
+
+	if err := os.WriteFile("target", []byte("not-a-directory"), 0o644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", "target", err)
+	}
+
+	_, attempted, err := resolveLibraryPath()
+	if err == nil {
+		t.Fatal("resolveLibraryPath() error = nil, want path error")
+	}
+	if len(attempted) == 0 {
+		t.Fatal("resolveLibraryPath() attempted = nil, want attempted candidates")
+	}
+
+	var pathErr *fs.PathError
+	if !errors.As(err, &pathErr) {
+		t.Fatalf("resolveLibraryPath() error = %v, want fs.PathError", err)
 	}
 }
 

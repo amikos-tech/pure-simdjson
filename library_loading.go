@@ -1,6 +1,7 @@
 package purejson
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -80,13 +81,19 @@ func resolveLibraryPath() (string, []string, error) {
 	}
 
 	attempted := make([]string, 0, len(candidates))
+	var statErr error
 	for _, candidate := range candidates {
 		attempted = append(attempted, candidate)
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate, attempted, nil
+		} else if !errors.Is(err, os.ErrNotExist) && statErr == nil {
+			statErr = err
 		}
 	}
 
+	if statErr != nil {
+		return "", attempted, statErr
+	}
 	return "", attempted, fmt.Errorf("shared library not found")
 }
 
