@@ -131,8 +131,14 @@ jobs:
 
       - name: Build release library
         shell: pwsh
-        run: cargo build --release
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cargo build --release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run Go wrapper race tests
         shell: pwsh
-        run: go test ./... -race
+        run: |
+          $ErrorActionPreference = 'Stop'
+          go test ./... -race
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

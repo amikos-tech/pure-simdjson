@@ -42,8 +42,8 @@ const (
 	ValueKindObject  ValueKind = 8
 )
 
-type ParserHandle = uint64
-type DocHandle = uint64
+type ParserHandle uint64
+type DocHandle uint64
 
 type ValueView struct {
 	Doc      DocHandle

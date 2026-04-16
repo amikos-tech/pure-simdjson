@@ -8,16 +8,28 @@ import (
 )
 
 var (
-	ErrInvalidHandle      = errors.New("invalid handle")
-	ErrClosed             = errors.New("closed")
-	ErrParserBusy         = errors.New("parser busy")
-	ErrNumberOutOfRange   = errors.New("number out of range")
-	ErrPrecisionLoss      = errors.New("precision loss")
-	ErrCPUUnsupported     = errors.New("cpu unsupported")
+	// ErrInvalidHandle reports that a parser, document, or element handle was not valid.
+	ErrInvalidHandle = errors.New("invalid handle")
+	// ErrClosed reports use of a parser or document after Close succeeded.
+	ErrClosed = errors.New("closed")
+	// ErrParserBusy reports that a parser still owns a live document.
+	ErrParserBusy = errors.New("parser busy")
+	// ErrNumberOutOfRange reports that a numeric conversion overflowed the target type.
+	ErrNumberOutOfRange = errors.New("number out of range")
+	// ErrPrecisionLoss reports that a numeric conversion would lose precision.
+	ErrPrecisionLoss = errors.New("precision loss")
+	// ErrCPUUnsupported reports that the loaded native library cannot run on the current CPU.
+	ErrCPUUnsupported = errors.New("cpu unsupported")
+	// ErrABIVersionMismatch reports that the Go wrapper and native library expose different ABI versions.
 	ErrABIVersionMismatch = errors.New("abi version mismatch")
-	ErrInvalidJSON        = errors.New("invalid json")
-	ErrElementNotFound    = errors.New("element not found")
-	ErrWrongType          = errors.New("wrong type")
+	// ErrInvalidJSON reports invalid JSON input.
+	ErrInvalidJSON = errors.New("invalid json")
+	// ErrElementNotFound reports lookup of a missing element.
+	ErrElementNotFound = errors.New("element not found")
+	// ErrWrongType reports an accessor call on the wrong JSON value kind.
+	ErrWrongType = errors.New("wrong type")
+	// ErrInternal reports native panics, internal failures, and unknown status codes.
+	ErrInternal = errors.New("internal error")
 )
 
 var errLoadLibrary = errors.New("load library")
@@ -25,10 +37,14 @@ var errLoadLibrary = errors.New("load library")
 // Error carries native status details while still participating in Go's
 // sentinel-error matching via Unwrap.
 type Error struct {
-	Code    int32
-	Offset  uint64
+	// Code is the native status code returned by the FFI call.
+	Code int32
+	// Offset is the reported byte offset for parse errors. Zero means unknown.
+	Offset uint64
+	// Message is the native error message, when available.
 	Message string
-	Err     error
+	// Err is the wrapped Go sentinel used by errors.Is.
+	Err error
 }
 
 func (e *Error) Error() string {
@@ -150,7 +166,7 @@ func sentinelForStatus(code int32) error {
 	case ffi.ErrABIMismatch:
 		return ErrABIVersionMismatch
 	default:
-		return nil
+		return ErrInternal
 	}
 }
 

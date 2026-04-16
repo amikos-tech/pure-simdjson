@@ -15,8 +15,8 @@ var (
 	docFinalizerCount     atomic.Int64
 )
 
-// Parser owns one live native parser handle and enforces the Phase 3
-// one-document-at-a-time lifecycle rules.
+// Parser owns one live native parser handle and enforces a one-document-at-a-
+// time lifecycle.
 type Parser struct {
 	mu      sync.Mutex
 	library *loadedLibrary
@@ -61,14 +61,17 @@ func NewParser() (*Parser, error) {
 // success.
 func (p *Parser) Parse(data []byte) (*Doc, error) {
 	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	if p.closed {
-		p.mu.Unlock()
 		return nil, ErrClosed
+	}
+	if p.liveDoc != 0 {
+		return nil, ErrParserBusy
 	}
 
 	handle := p.handle
 	library := p.library
-	p.mu.Unlock()
 
 	docHandle, rc := library.bindings.ParserParse(handle, data)
 	runtime.KeepAlive(data)
@@ -91,10 +94,7 @@ func (p *Parser) Parse(data []byte) (*Doc, error) {
 	}
 	attachDocFinalizer(doc)
 
-	p.mu.Lock()
 	p.liveDoc = docHandle
-	p.mu.Unlock()
-
 	return doc, nil
 }
 
@@ -102,14 +102,17 @@ func (p *Parser) Parse(data []byte) (*Doc, error) {
 // while a live document still belongs to the parser.
 func (p *Parser) Close() error {
 	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	if p.closed {
-		p.mu.Unlock()
 		return nil
+	}
+	if p.liveDoc != 0 {
+		return ErrParserBusy
 	}
 
 	handle := p.handle
 	library := p.library
-	p.mu.Unlock()
 
 	clearParserFinalizer(p)
 	rc := library.bindings.ParserFree(handle)
@@ -119,11 +122,9 @@ func (p *Parser) Close() error {
 		return err
 	}
 
-	p.mu.Lock()
 	p.closed = true
 	p.handle = 0
 	p.liveDoc = 0
-	p.mu.Unlock()
 	return nil
 }
 
@@ -151,26 +152,35 @@ func (p *Parser) finalizeLeaked() bool {
 	handle := p.handle
 	liveDoc := p.liveDoc
 	library := p.library
-
-	p.closed = true
-	p.handle = 0
-	p.liveDoc = 0
 	p.mu.Unlock()
 
+	docFreed := liveDoc == 0
 	if liveDoc != 0 {
 		if rc := library.bindings.DocFree(liveDoc); rc == int32(ffi.OK) {
 			docFinalizerCount.Add(1)
+			docFreed = true
 		}
 	}
 
+	parserFreed := handle == 0
 	if handle != 0 {
 		if rc := library.bindings.ParserFree(handle); rc == int32(ffi.OK) {
 			parserFinalizerCount.Add(1)
-			return true
+			parserFreed = true
 		}
 	}
 
-	return false
+	p.mu.Lock()
+	if docFreed {
+		p.liveDoc = 0
+	}
+	if parserFreed {
+		p.handle = 0
+	}
+	p.closed = p.handle == 0 && p.liveDoc == 0
+	p.mu.Unlock()
+
+	return p.closed
 }
 
 func expectedABIVersion() uint32 {

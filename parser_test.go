@@ -187,6 +187,47 @@ func TestParserBusy(t *testing.T) {
 	}
 }
 
+func TestParseRejectsGoBusyState(t *testing.T) {
+	parser := mustNewParser(t)
+	t.Cleanup(func() {
+		parser.mu.Lock()
+		parser.liveDoc = 0
+		parser.mu.Unlock()
+		if err := parser.Close(); err != nil {
+			t.Fatalf("parser.Close() cleanup error = %v", err)
+		}
+	})
+
+	parser.mu.Lock()
+	parser.liveDoc = ffi.DocHandle(1)
+	parser.mu.Unlock()
+
+	_, err := parser.Parse([]byte("42"))
+	if !errors.Is(err, ErrParserBusy) {
+		t.Fatalf("Parse() with Go-only busy state error = %v, want ErrParserBusy", err)
+	}
+}
+
+func TestCloseRejectsGoBusyState(t *testing.T) {
+	parser := mustNewParser(t)
+	t.Cleanup(func() {
+		parser.mu.Lock()
+		parser.liveDoc = 0
+		parser.mu.Unlock()
+		if err := parser.Close(); err != nil {
+			t.Fatalf("parser.Close() cleanup error = %v", err)
+		}
+	})
+
+	parser.mu.Lock()
+	parser.liveDoc = ffi.DocHandle(1)
+	parser.mu.Unlock()
+
+	if err := parser.Close(); !errors.Is(err, ErrParserBusy) {
+		t.Fatalf("Close() with Go-only busy state error = %v, want ErrParserBusy", err)
+	}
+}
+
 func TestStructuredErrorDetails(t *testing.T) {
 	parser := mustNewParser(t)
 	t.Cleanup(func() {
@@ -270,6 +311,28 @@ func TestLeakWarningSilentProd(t *testing.T) {
 	}
 }
 
+func TestLeakWarningProdWhenEnabled(t *testing.T) {
+	if helperMode := os.Getenv("PUREJSON_HELPER_MODE"); helperMode != "" && helperMode != "single-parser-leak" {
+		t.Skip("different helper mode")
+	}
+	if testBuildFinalizersEnabled() {
+		t.Skip("production-only assertion")
+	}
+
+	if os.Getenv("PUREJSON_HELPER_MODE") == "single-parser-leak" {
+		runSingleParserLeakHelper(t)
+		return
+	}
+
+	stdout, stderr := runLeakHelperProcess(t, "single-parser-leak", "PURE_SIMDJSON_WARN_LEAKS=1")
+	if !strings.Contains(stderr, "purejson leak: parser") {
+		t.Fatalf("stderr = %q, want purejson leak prefix", stderr)
+	}
+	if count := parseFinalizerCount(t, stdout, "parser-finalizers"); count < 1 {
+		t.Fatalf("parser finalizer count = %d, want >= 1", count)
+	}
+}
+
 func TestLeakWarningMassLeak10000(t *testing.T) {
 	if helperMode := os.Getenv("PUREJSON_HELPER_MODE"); helperMode != "" && helperMode != "mass-parser-leak" {
 		t.Skip("different helper mode")
@@ -292,11 +355,11 @@ func TestLeakWarningMassLeak10000(t *testing.T) {
 	}
 }
 
-func runLeakHelperProcess(t *testing.T, mode string) (string, string) {
+func runLeakHelperProcess(t *testing.T, mode string, extraEnv ...string) (string, string) {
 	t.Helper()
 
 	cmd := exec.Command(os.Args[0], "-test.run=^TestLeakWarning")
-	cmd.Env = append(os.Environ(), "PUREJSON_HELPER_MODE="+mode)
+	cmd.Env = append(os.Environ(), append([]string{"PUREJSON_HELPER_MODE=" + mode}, extraEnv...)...)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -374,4 +437,58 @@ func parseFinalizerCount(t *testing.T, stdout string, key string) int {
 
 	t.Fatalf("missing %s in helper stdout %q", key, stdout)
 	return 0
+}
+
+func TestParseInputVariants(t *testing.T) {
+	parser := mustNewParser(t)
+	t.Cleanup(func() {
+		if err := parser.Close(); err != nil {
+			t.Fatalf("parser.Close() cleanup error = %v", err)
+		}
+	})
+
+	testCases := []struct {
+		name      string
+		data      []byte
+		wantValue int64
+		wantErr   error
+	}{
+		{name: "nil", data: nil, wantErr: ErrInvalidJSON},
+		{name: "empty", data: []byte{}, wantErr: ErrInvalidJSON},
+		{name: "whitespace-only", data: []byte(" \n\t "), wantErr: ErrInvalidJSON},
+		{name: "invalid-utf8", data: []byte{'"', 0xff, '"'}, wantErr: ErrInvalidJSON},
+		{
+			name:      "multi-megabyte-whitespace-padded-int",
+			data:      append(append(bytes.Repeat([]byte(" "), 2<<20), []byte("42")...), bytes.Repeat([]byte(" "), 2<<20)...),
+			wantValue: 42,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			doc, err := parser.Parse(tc.data)
+			if tc.wantErr != nil {
+				if !errors.Is(err, tc.wantErr) {
+					t.Fatalf("Parse(%s) error = %v, want %v", tc.name, err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Parse(%s) error = %v", tc.name, err)
+			}
+			defer func() {
+				if err := doc.Close(); err != nil {
+					t.Fatalf("doc.Close() cleanup error = %v", err)
+				}
+			}()
+
+			value, err := doc.Root().GetInt64()
+			if err != nil {
+				t.Fatalf("GetInt64(%s) error = %v", tc.name, err)
+			}
+			if value != tc.wantValue {
+				t.Fatalf("GetInt64(%s) = %d, want %d", tc.name, value, tc.wantValue)
+			}
+		})
+	}
 }

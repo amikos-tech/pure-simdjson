@@ -33,7 +33,6 @@ func (d *Doc) Close() error {
 	handle := d.handle
 	parser := d.parser
 	library := parser.library
-	d.mu.Unlock()
 
 	clearDocFinalizer(d)
 	rc := library.bindings.DocFree(handle)
@@ -41,14 +40,10 @@ func (d *Doc) Close() error {
 	runtime.KeepAlive(d.parser)
 	if err := wrapStatus(rc); err != nil {
 		attachDocFinalizer(d)
+		d.mu.Unlock()
 		return err
 	}
 
-	d.mu.Lock()
-	if d.closed {
-		d.mu.Unlock()
-		return nil
-	}
 	d.closed = true
 	d.handle = 0
 	d.mu.Unlock()
@@ -79,16 +74,23 @@ func (d *Doc) finalizeLeaked() bool {
 	handle := d.handle
 	parser := d.parser
 	library := parser.library
-
-	d.closed = true
-	d.handle = 0
 	d.mu.Unlock()
 
 	rc := library.bindings.DocFree(handle)
-	if rc == int32(ffi.OK) {
+	docFreed := rc == int32(ffi.OK)
+	if docFreed {
 		docFinalizerCount.Add(1)
 	}
 
-	parser.clearLiveDoc(handle)
-	return rc == int32(ffi.OK)
+	d.mu.Lock()
+	if docFreed {
+		d.closed = true
+		d.handle = 0
+	}
+	d.mu.Unlock()
+
+	if docFreed {
+		parser.clearLiveDoc(handle)
+	}
+	return docFreed
 }

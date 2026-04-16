@@ -5,12 +5,13 @@
 The single-doc invariant is simple: a `Parser` may own only one live `Doc` at a
 time. Parsing again before that document is closed returns `ErrParserBusy`.
 
-## Why Parsers Are Not Shareable
+## Sharing Parsers
 
-The native shim preserves the Phase 2 lifecycle rule that one parser owns one
-live document graph. Sharing a parser concurrently would turn that invariant
-into a race between `Parse`, `Doc.Close`, and `Parser.Close`, so Phase 3 keeps
-the contract explicit instead of trying to hide misuse.
+Parser methods serialize `Parse`, `Doc.Close`, `Parser.Close`, and `ParserPool.Put`
+with a mutex, so concurrent calls do not race at the memory level. The real
+constraint is logical ownership: one parser still owns at most one live
+document graph at a time, and a concurrent caller can only observe that parser
+as busy until the current document is closed.
 
 ## ParserPool Pattern
 
@@ -62,9 +63,9 @@ parsers, or silently repair misuse.
 
 Explicit `Close` calls remain the primary cleanup path.
 
-Production builds keep cleanup finalizers silent. They still release leaked
-native resources, including parsers evicted from `sync.Pool`, but they do not
-emit warning text.
+Production builds keep cleanup finalizers quiet by default. Setting
+`PURE_SIMDJSON_WARN_LEAKS=1` emits the same `purejson leak:` warning prefix used
+by test builds before leaked native resources are released.
 
 Builds compiled with `-tags purejson_testbuild` attach the same cleanup
 finalizers and add the warning prefix `purejson leak:` before cleanup so tests

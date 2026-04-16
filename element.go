@@ -6,16 +6,16 @@ import (
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
 
-// Element is the public value-view wrapper used for the Phase 3 happy path.
+// Element is the public value-view wrapper for a document root or child value.
 type Element struct {
 	doc  *Doc
 	view ffi.ValueView
 }
 
-// Array is the Phase 3 public array placeholder and wraps an Element view.
+// Array wraps an Element known to represent a JSON array.
 type Array struct{ Element }
 
-// Object is the Phase 3 public object placeholder and wraps an Element view.
+// Object wraps an Element known to represent a JSON object.
 type Object struct{ Element }
 
 // GetInt64 reads the current element as an int64 and returns ErrClosed when the
