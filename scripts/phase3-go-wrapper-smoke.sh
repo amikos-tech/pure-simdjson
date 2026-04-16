@@ -33,7 +33,10 @@ from datetime import datetime, timezone
 
 created_after = datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00"))
 workflow_name = sys.argv[2]
-runs = json.load(sys.stdin)
+raw = sys.stdin.read().strip()
+if not raw:
+    sys.exit(0)
+runs = json.loads(raw)
 
 def parse_created(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
