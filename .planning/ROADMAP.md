@@ -13,8 +13,8 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 ## Phases
 
 - [x] **Phase 1: FFI Contract Design** — Lock the C ABI, error-code space, handle format, and ownership rules in a committed contract document before any code is written
-- [ ] **Phase 2: Rust Shim + Minimal Parse Path** — Build the Rust cdylib with vendored simdjson and the smallest end-to-end parse path (parser_new -> parse -> doc_root -> get_int64)
-- [ ] **Phase 3: Go Public API + purego Happy Path** — Wire Go's `purejson` package to the shim with handle lifecycle, ParserPool, typed errors, and one accessor as smoke test
+- [x] **Phase 2: Rust Shim + Minimal Parse Path** — Build the Rust cdylib with vendored simdjson and the smallest end-to-end parse path (parser_new -> parse -> doc_root -> get_int64)
+- [x] **Phase 3: Go Public API + purego Happy Path** — Wire Go's `purejson` package to the shim with handle lifecycle, ParserPool, typed errors, and one accessor as smoke test
 - [ ] **Phase 4: Full Typed Accessor Surface** — Complete the DOM accessor surface (uint64/float64/string/bool/null) and cursor-pull iteration over arrays and objects
 - [ ] **Phase 5: Bootstrap + Distribution** — Implement R2 download with GitHub fallback, SHA-256 verification, OS cache, env overrides, and the bootstrap CLI
 - [ ] **Phase 6: CI Release Matrix + Platform Coverage** — Build, sign, and publish artifacts for all five targets plus Alpine smoke-test, with cosign and ad-hoc macOS codesign
@@ -93,7 +93,12 @@ Plans:
 4. CI diff check confirms the cbindgen-generated header matches the committed contract header byte-for-byte
 5. On a CPU forced to the `fallback` kernel, `parser_new` returns `ERR_CPU_UNSUPPORTED`
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [x] `02-01-PLAN.md` — Build the vendored simdjson shim and wire the minimal ABI surface
+- [x] `02-02-PLAN.md` — Implement the real minimal parse path with lifecycle-safe runtime state
+- [x] `02-03-PLAN.md` — Add smoke verification and fallback-kernel proof paths
 
 ---
 
@@ -127,7 +132,14 @@ Plans:
 4. A program that allocates 10,000 Parsers and forgets to Close produces leak warnings in test builds (and only in test builds)
 5. ParserPool round-trips a Parser across goroutines without `ErrParserBusy` when used as documented
 
-**Plans:** TBD
+**Plans:** 5 plans
+
+Plans:
+- [x] `03-01-PLAN.md` — Create the Go module, deterministic loader, and low-level purego happy-path bindings
+- [x] `03-02-PLAN.md` — Implement parser/doc lifecycle, typed happy-path access, and semantic tests
+- [x] `03-03-PLAN.md` — Add `ParserPool` plus build-tag-specific finalizer behavior and lifetime tests
+- [x] `03-04-PLAN.md` — Add local verification targets and the observed five-target wrapper-smoke workflow
+- [x] `03-05-PLAN.md` — Document the public API and concurrency contract for the exact Phase 3 surface
 
 **UI hint:** no
 
