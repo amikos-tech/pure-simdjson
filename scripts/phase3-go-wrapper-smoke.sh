@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-workflow_file="phase3-go-wrapper-smoke.yml"
+workflow_name="phase3-go-wrapper-smoke"
 required_jobs=(
   "linux-amd64-go-race"
   "linux-arm64-go-race"
@@ -11,35 +11,38 @@ required_jobs=(
 )
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
-dispatched_after="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+pushed_after="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 gh auth status -h github.com >/dev/null
 git remote get-url origin >/dev/null
 
 git push origin "${branch}"
-gh workflow run "${workflow_file}" --ref "${branch}"
 
 run_id=""
 for attempt in $(seq 1 30); do
   run_id="$(
     gh run list \
-      --workflow "${workflow_file}" \
       --branch "${branch}" \
-      --event workflow_dispatch \
-      --json databaseId,createdAt \
+      --event push \
+      --json databaseId,createdAt,workflowName \
       --limit 20 \
-    | python3 - "${dispatched_after}" <<'PY'
+    | python3 - "${pushed_after}" "${workflow_name}" <<'PY'
 import json
 import sys
 from datetime import datetime, timezone
 
 created_after = datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00"))
+workflow_name = sys.argv[2]
 runs = json.load(sys.stdin)
 
 def parse_created(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
 
-matching = [run for run in runs if parse_created(run["createdAt"]) >= created_after]
+matching = [
+    run
+    for run in runs
+    if run.get("workflowName") == workflow_name and parse_created(run["createdAt"]) >= created_after
+]
 matching.sort(key=lambda run: parse_created(run["createdAt"]), reverse=True)
 if matching:
     print(matching[0]["databaseId"])
@@ -54,7 +57,7 @@ PY
 done
 
 if [[ -z "${run_id}" ]]; then
-  echo "failed to locate workflow_dispatch run id for ${branch} after ${dispatched_after}" >&2
+  echo "failed to locate push run id for ${branch} after ${pushed_after}" >&2
   exit 1
 fi
 
