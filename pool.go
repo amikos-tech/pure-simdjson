@@ -3,7 +3,10 @@ package purejson
 import "sync"
 
 // ParserPool reuses Parser instances across goroutines while preserving the
-// one-live-doc-per-parser invariant.
+// one-live-doc-per-parser invariant. There is no Close method: sync.Pool
+// cannot be drained deterministically. Parsers left in the pool when it is
+// discarded are reclaimed by the GC finalizer; the same leak-warning rules
+// that apply to standalone parsers apply here.
 type ParserPool struct {
 	pool sync.Pool
 }

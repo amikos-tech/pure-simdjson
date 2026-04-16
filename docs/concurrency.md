@@ -59,6 +59,14 @@ contract:
 Those failures are intentional. The pool does not auto-close documents, replace
 parsers, or silently repair misuse.
 
+## Pool Shutdown
+
+`sync.Pool` cannot be drained, so there is no `ParserPool.Close`. When a
+`ParserPool` goes out of scope, any parsers still held in it are released by
+the GC finalizer. The same leak-warning rules apply: production builds are
+quiet by default; set `PURE_SIMDJSON_WARN_LEAKS=1` or build with
+`-tags purejson_testbuild` to surface warnings before cleanup runs.
+
 ## Leak Warnings
 
 Explicit `Close` calls remain the primary cleanup path.

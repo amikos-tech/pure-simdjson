@@ -120,7 +120,6 @@ func (b *Bindings) ParserNew() (ParserHandle, int32) {
 
 func (b *Bindings) ParserFree(parser ParserHandle) int32 {
 	rc := b.parserFree(parser)
-	runtime.KeepAlive(parser)
 	runtime.KeepAlive(b)
 	return rc
 }
@@ -134,7 +133,6 @@ func (b *Bindings) ParserParse(parser ParserHandle, data []byte) (DocHandle, int
 	var doc DocHandle
 	rc := b.parserParse(parser, inputPtr, uintptr(len(data)), &doc)
 	runtime.KeepAlive(data)
-	runtime.KeepAlive(parser)
 	runtime.KeepAlive(b)
 	return doc, rc
 }
@@ -143,12 +141,10 @@ func (b *Bindings) ParserLastError(parser ParserHandle) (string, int32) {
 	var length uintptr
 	rc := b.parserGetLastErrorLen(parser, &length)
 	if rc != int32(OK) {
-		runtime.KeepAlive(parser)
 		runtime.KeepAlive(b)
 		return "", rc
 	}
 	if length == 0 {
-		runtime.KeepAlive(parser)
 		runtime.KeepAlive(b)
 		return "", int32(OK)
 	}
@@ -157,7 +153,6 @@ func (b *Bindings) ParserLastError(parser ParserHandle) (string, int32) {
 	var written uintptr
 	rc = b.parserCopyLastError(parser, unsafe.SliceData(buffer), uintptr(len(buffer)), &written)
 	runtime.KeepAlive(buffer)
-	runtime.KeepAlive(parser)
 	runtime.KeepAlive(b)
 	if rc != int32(OK) {
 		return "", rc
@@ -172,14 +167,12 @@ func (b *Bindings) ParserLastError(parser ParserHandle) (string, int32) {
 func (b *Bindings) ParserLastErrorOffset(parser ParserHandle) (uint64, int32) {
 	var offset uint64
 	rc := b.parserGetLastErrorOffset(parser, &offset)
-	runtime.KeepAlive(parser)
 	runtime.KeepAlive(b)
 	return offset, rc
 }
 
 func (b *Bindings) DocFree(doc DocHandle) int32 {
 	rc := b.docFree(doc)
-	runtime.KeepAlive(doc)
 	runtime.KeepAlive(b)
 	return rc
 }
@@ -187,7 +180,6 @@ func (b *Bindings) DocFree(doc DocHandle) int32 {
 func (b *Bindings) DocRoot(doc DocHandle) (ValueView, int32) {
 	var view ValueView
 	rc := b.docRoot(doc, &view)
-	runtime.KeepAlive(doc)
 	runtime.KeepAlive(b)
 	return view, rc
 }
