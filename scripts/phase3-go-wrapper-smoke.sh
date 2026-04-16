@@ -26,7 +26,7 @@ for attempt in $(seq 1 30); do
       --event push \
       --json databaseId,createdAt,workflowName \
       --limit 20 \
-    | python3 - "${pushed_after}" "${workflow_name}" <<'PY'
+    | python3 -c '
 import json
 import sys
 from datetime import datetime, timezone
@@ -49,7 +49,7 @@ matching = [
 matching.sort(key=lambda run: parse_created(run["createdAt"]), reverse=True)
 if matching:
     print(matching[0]["databaseId"])
-PY
+' "${pushed_after}" "${workflow_name}"
   )"
 
   if [[ -n "${run_id}" ]]; then
@@ -79,7 +79,7 @@ if [[ "${run_status}" != "completed" ]]; then
 fi
 
 gh run view "${run_id}" --json conclusion,jobs \
-| python3 - "${run_id}" "${required_jobs[@]}" <<'PY'
+| python3 -c '
 import json
 import sys
 
@@ -93,11 +93,12 @@ failed = [name for name in required_jobs if jobs.get(name) != "success"]
 
 if payload.get("conclusion") != "success" or missing or failed:
     if missing:
-        print(f"run {run_id} missing jobs: {', '.join(missing)}", file=sys.stderr)
+        details = ", ".join(missing)
+        print(f"run {run_id} missing jobs: {details}", file=sys.stderr)
     if failed:
         details = ", ".join(f"{name}={jobs.get(name)!r}" for name in failed)
         print(f"run {run_id} required jobs not successful: {details}", file=sys.stderr)
     sys.exit(1)
 
 print(f"run {run_id} verified")
-PY
+' "${run_id}" "${required_jobs[@]}"
