@@ -137,9 +137,21 @@ func TestResolveLibraryPathPreservesCandidatePathError(t *testing.T) {
 	}
 
 	var pathErr *fs.PathError
-	if !errors.As(err, &pathErr) {
-		t.Fatalf("resolveLibraryPath() error = %v, want fs.PathError", err)
+	if errors.As(err, &pathErr) {
+		return
 	}
+
+	// Windows reports this parent-not-directory setup as an ordinary miss for
+	// child paths, so there is no non-ENOENT stat error for resolveLibraryPath to
+	// preserve.
+	if runtime.GOOS == "windows" {
+		if err.Error() != "shared library not found" {
+			t.Fatalf("resolveLibraryPath() error = %v, want shared library not found on windows", err)
+		}
+		return
+	}
+
+	t.Fatalf("resolveLibraryPath() error = %v, want fs.PathError", err)
 }
 
 func withLibraryCacheClearedForTest(t *testing.T) func() {
