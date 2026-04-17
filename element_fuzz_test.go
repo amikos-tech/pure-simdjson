@@ -30,8 +30,8 @@ func FuzzParseThenGetString(f *testing.F) {
 
 		doc, err := parser.Parse(data)
 		if err != nil {
-			if !errors.Is(err, ErrInvalidJSON) {
-				t.Fatalf("Parse(%q) error = %v, want ErrInvalidJSON", data, err)
+			if !errors.Is(err, ErrInvalidJSON) && !errors.Is(err, ErrPrecisionLoss) {
+				t.Fatalf("Parse(%q) error = %v, want ErrInvalidJSON or ErrPrecisionLoss", data, err)
 			}
 			return
 		}
@@ -63,9 +63,15 @@ func fuzzWalkElement(t *testing.T, element Element) {
 		if _, err := element.GetInt64(); err != nil {
 			t.Fatalf("GetInt64() error = %v", err)
 		}
+		if _, err := element.GetFloat64(); err != nil && !errors.Is(err, ErrPrecisionLoss) {
+			t.Fatalf("GetFloat64() on TypeInt64 error = %v, want nil or ErrPrecisionLoss", err)
+		}
 	case TypeUint64:
 		if _, err := element.GetUint64(); err != nil {
 			t.Fatalf("GetUint64() error = %v", err)
+		}
+		if _, err := element.GetFloat64(); err != nil && !errors.Is(err, ErrPrecisionLoss) {
+			t.Fatalf("GetFloat64() on TypeUint64 error = %v, want nil or ErrPrecisionLoss", err)
 		}
 	case TypeFloat64:
 		if _, err := element.GetFloat64(); err != nil {

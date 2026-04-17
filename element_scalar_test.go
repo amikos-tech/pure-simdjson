@@ -285,9 +285,12 @@ func TestGetFloat64PrecisionBoundaries(t *testing.T) {
 	}{
 		{name: "positive exact boundary", json: "9007199254740992", want: 9007199254740992},
 		{name: "positive precision loss", json: "9007199254740993", wantErr: ErrPrecisionLoss},
+		{name: "positive mid-range exact at 2^60", json: "1152921504606846976", want: 1152921504606846976},
+		{name: "positive mid-range precision loss at 2^60+1", json: "1152921504606846977", wantErr: ErrPrecisionLoss},
 		{name: "negative exact boundary", json: "-9007199254740992", want: -9007199254740992},
 		{name: "negative precision loss", json: "-9007199254740993", wantErr: ErrPrecisionLoss},
 		{name: "int64 exact at -2^63", json: "-9223372036854775808", want: -9223372036854775808},
+		{name: "int64 precision loss at 2^63-1", json: "9223372036854775807", wantErr: ErrPrecisionLoss},
 		{name: "uint64 exact at 2^63", json: "9223372036854775808", want: 9223372036854775808},
 		{name: "uint64 precision loss above 2^63", json: "9223372036854775809", wantErr: ErrPrecisionLoss},
 		{name: "max uint64 precision loss", json: "18446744073709551615", wantErr: ErrPrecisionLoss},

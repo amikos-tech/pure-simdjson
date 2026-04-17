@@ -568,7 +568,17 @@ func TestParseInputVariants(t *testing.T) {
 }
 
 func TestAccessorPathSurvivesInterleavedGCPressure(t *testing.T) {
-	_, doc := mustParseDoc(t, `{"outer":{"label":"ok","values":[1,2,3]}}`)
+	const elements = 64
+	var sb strings.Builder
+	sb.WriteString(`{"outer":{"label":"ok","values":[`)
+	for i := 1; i <= elements; i++ {
+		if i > 1 {
+			sb.WriteString(",")
+		}
+		sb.WriteString(strconv.Itoa(i))
+	}
+	sb.WriteString(`]}}`)
+	_, doc := mustParseDoc(t, sb.String())
 
 	rootObject, err := doc.Root().AsObject()
 	if err != nil {
@@ -603,7 +613,10 @@ func TestAccessorPathSurvivesInterleavedGCPressure(t *testing.T) {
 
 	iter := values.Iter()
 	sum := int64(0)
+	var sink []byte
 	for {
+		sink = make([]byte, 1<<16)
+		sink[0] = byte(sum)
 		runtime.GC()
 		if !iter.Next() {
 			break
@@ -615,11 +628,13 @@ func TestAccessorPathSurvivesInterleavedGCPressure(t *testing.T) {
 		}
 		sum += value
 	}
+	runtime.KeepAlive(sink)
 	if err := iter.Err(); err != nil {
 		t.Fatalf("iter.Err() = %v, want nil", err)
 	}
-	if sum != 6 {
-		t.Fatalf("sum = %d, want 6", sum)
+	const wantSum = int64(elements) * (elements + 1) / 2
+	if sum != wantSum {
+		t.Fatalf("sum = %d, want %d", sum, wantSum)
 	}
 }
 
