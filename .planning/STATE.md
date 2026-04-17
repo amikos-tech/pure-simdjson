@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: executing
-stopped_at: Completed 04-03-PLAN.md
-last_updated: "2026-04-17T08:49:23.791Z"
+stopped_at: Completed 04-04-PLAN.md
+last_updated: "2026-04-17T09:00:11.102Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 16
-  completed_plans: 14
-  percent: 88
+  completed_plans: 15
+  percent: 94
 ---
 
 # Project State
@@ -26,18 +26,18 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 04 (full-typed-accessor-surface) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-04-17
-Shipping: Phase 04 Plan 03 verified locally
+Shipping: Phase 04 Plan 04 verified locally
 
-Progress: [█████████░] 14/16 plans (88%)
+Progress: [█████████░] 15/16 plans (94%)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 14
+- Total plans completed: 15
 - Average duration: 11.2m
 - Total execution time: 1.1 hours
 
@@ -51,12 +51,13 @@ Progress: [█████████░] 14/16 plans (88%)
 
 **Recent Trend:**
 
-- Last 5 plans: 03-01, 03-02, 03-03, 03-04, 03-05
+- Last 5 plans: 03-05, 04-01, 04-02, 04-03, 04-04
 - Trend: Stable
 
 | Phase 04 P01 | 16m | 2 tasks | 7 files |
 | Phase 04-full-typed-accessor-surface P02 | 8m | 2 tasks | 2 files |
 | Phase 04 P03 | 4m | 2 tasks | 8 files |
+| Phase 04-full-typed-accessor-surface P04 | 8m | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 04-full-typed-accessor-surface]: Integers larger than uint64 max are locked as parse-time ErrInvalidJSON cases because simdjson rejects them before GetUint64 can run.
 - [Phase 04]: Iterator tags are locked as AR/OB and every iterator call rejects unknown tags or reserved bits before traversal continues.
 - [Phase 04]: Array/object iterator progress stays inline as current and end tape indexes because the public ABI has no iterator free hook.
+- [Phase 04-full-typed-accessor-surface]: ObjectIter.Next decodes key views through ElementGetString so Key only returns copied Go strings.
+- [Phase 04-full-typed-accessor-surface]: Object.GetStringField stays as GetField plus GetString composition to preserve primitive missing/null/wrong-type semantics without new ABI.
 
 ### Pending Todos
 
@@ -89,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T08:49:23.788Z
-Stopped at: Completed 04-03-PLAN.md
+Last session: 2026-04-17T09:00:10.864Z
+Stopped at: Completed 04-04-PLAN.md
 Resume file: None

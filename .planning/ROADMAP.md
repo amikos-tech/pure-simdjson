@@ -180,7 +180,7 @@ Plans:
 - [x] `04-01-PLAN.md` — Lock descendant-view encoding and activate the native scalar/string/bool/null substrate
 - [x] `04-02-PLAN.md` — Expose the public scalar/type/string/bool/null API and semantic tests
 - [x] `04-03-PLAN.md` — Implement inline-only native iterator/object-lookup transport and hidden Go mirrors
-- [ ] `04-04-PLAN.md` — Expose the public scanner-style array/object traversal and field helpers
+- [x] `04-04-PLAN.md` — Expose the public scanner-style array/object traversal and field helpers
 - [ ] `04-05-PLAN.md` — Close Phase 4 with DOC-03, examples, fuzz entrypoint, and full semantic verification
 
 **UI hint:** no
