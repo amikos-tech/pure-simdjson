@@ -45,6 +45,8 @@ type Error struct {
 	err     error
 }
 
+// Error formats the native status details as a human-readable message while
+// preserving the wrapped sentinel error semantics.
 func (e *Error) Error() string {
 	if e == nil {
 		return "<nil>"
@@ -95,6 +97,8 @@ func (e *Error) Message() string {
 	return e.message
 }
 
+// Unwrap returns the sentinel error associated with the native status code so
+// callers can use errors.Is with the exported package errors.
 func (e *Error) Unwrap() error {
 	if e == nil {
 		return nil
