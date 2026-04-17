@@ -57,8 +57,11 @@ struct DocEntry {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct IteratorLease {
+    // Current iterator cursor, or the exhausted sentinel once `state0 == state1`.
     state0: u64,
+    // Paired end bound carried in the public iterator struct and re-validated on each call.
     state1: u64,
+    // Distinguishes array iterator leases from object iterator leases.
     tag: u16,
 }
 
@@ -147,6 +150,8 @@ fn registry() -> &'static Mutex<Registry> {
 fn registry_guard() -> MutexGuard<'static, Registry> {
     registry()
         .lock()
+        // Intentional poison-heal: every exported FFI entrypoint wraps its body in `catch_unwind`,
+        // so reachable callers should never observe a poisoned registry mutex.
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
@@ -311,6 +316,10 @@ impl DocEntry {
         state0: u64,
         state1: u64,
     ) -> Result<u32, pure_simdjson_error_code_t> {
+        if self.iter_leases.len() >= u32::MAX as usize {
+            return Err(err_internal());
+        }
+
         let mut lease_id = if self.next_iter_lease == 0 {
             ITER_LEASE_START
         } else {
@@ -358,6 +367,8 @@ impl DocEntry {
         match self.iter_leases.get_mut(&lease_id) {
             Some(lease) if lease.tag == tag => {
                 lease.state0 = state0;
+                // Thread `state1` back through the registry copy even when it is unchanged so the
+                // lease always mirrors the caller-visible iterator header exactly.
                 lease.state1 = state1;
                 Ok(())
             }

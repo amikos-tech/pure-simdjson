@@ -10,6 +10,7 @@ func FuzzParseThenGetString(f *testing.F) {
 	f.Add([]byte(`"hello"`))
 	f.Add([]byte(`{"name":"alice","tags":["one","two"]}`))
 	f.Add([]byte(`[1,"two",true,null]`))
+	f.Add([]byte(`1.5`))
 	f.Add([]byte(`9223372036854775807`))
 	f.Add([]byte(`-9223372036854775808`))
 	f.Add([]byte(`9007199254740992`))
@@ -76,6 +77,12 @@ func fuzzWalkElement(t *testing.T, element Element) {
 	case TypeFloat64:
 		if _, err := element.GetFloat64(); err != nil {
 			t.Fatalf("GetFloat64() error = %v", err)
+		}
+		if _, err := element.GetInt64(); !errors.Is(err, ErrWrongType) {
+			t.Fatalf("GetInt64() on TypeFloat64 error = %v, want ErrWrongType", err)
+		}
+		if _, err := element.GetUint64(); !errors.Is(err, ErrWrongType) {
+			t.Fatalf("GetUint64() on TypeFloat64 error = %v, want ErrWrongType", err)
 		}
 	case TypeString:
 		value, err := element.GetString()

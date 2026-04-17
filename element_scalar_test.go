@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"testing"
 	"testing/quick"
+
+	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
 
 var descendantViewTag = binary.LittleEndian.Uint64([]byte("PSDJDESC"))
@@ -310,6 +312,42 @@ func TestGetFloat64PrecisionBoundaries(t *testing.T) {
 			_, doc := mustParseDoc(t, tc.json)
 
 			got, err := doc.Root().GetFloat64()
+			if tc.wantErr != nil {
+				if !errors.Is(err, tc.wantErr) {
+					t.Fatalf("GetFloat64() error = %v, want %v", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("GetFloat64() error = %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("GetFloat64() = %.0f, want %.0f", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestGetFloat64InvalidKindHintFallback(t *testing.T) {
+	testCases := []struct {
+		name    string
+		json    string
+		want    float64
+		wantErr error
+	}{
+		{name: "positive exact boundary", json: "9007199254740992", want: 9007199254740992},
+		{name: "positive precision loss", json: "9007199254740993", wantErr: ErrPrecisionLoss},
+		{name: "negative exact boundary", json: "-9007199254740992", want: -9007199254740992},
+		{name: "negative precision loss", json: "-9007199254740993", wantErr: ErrPrecisionLoss},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, doc := mustParseDoc(t, tc.json)
+			root := doc.Root()
+			root.view.KindHint = uint32(ffi.ValueKindInvalid)
+
+			got, err := root.GetFloat64()
 			if tc.wantErr != nil {
 				if !errors.Is(err, tc.wantErr) {
 					t.Fatalf("GetFloat64() error = %v, want %v", err, tc.wantErr)

@@ -291,8 +291,9 @@ func (e Element) AsObject() (Object, error) {
 }
 
 // Iter returns a scanner-style iterator over the array contents in document
-// order. Successful descendant traversal records document-tied bookkeeping in
-// the native registry that is released when Doc.Close runs.
+// order. Creating many descendant views or iterators on a long-lived document
+// grows native bookkeeping proportionally; Doc.Close releases all of it at
+// once.
 func (a Array) Iter() *ArrayIter {
 	it := &ArrayIter{doc: a.element.doc}
 	doc, err := a.element.usableDoc()
@@ -318,8 +319,9 @@ func (a Array) Iter() *ArrayIter {
 }
 
 // Iter returns a scanner-style iterator over the object fields in document
-// order. Successful descendant traversal records document-tied bookkeeping in
-// the native registry that is released when Doc.Close runs.
+// order. Creating many descendant views or iterators on a long-lived document
+// grows native bookkeeping proportionally; Doc.Close releases all of it at
+// once.
 func (o Object) Iter() *ObjectIter {
 	it := &ObjectIter{doc: o.element.doc}
 	doc, err := o.element.usableDoc()
@@ -347,9 +349,10 @@ func (o Object) Iter() *ObjectIter {
 // GetField returns the element for the given object key. Missing fields return
 // ErrElementNotFound, while present null fields return a valid Element whose
 // IsNull method reports true. When duplicate keys are present, GetField returns
-// the first matching field. Successful lookups also record document-tied
-// descendant bookkeeping in the native registry that is released when
-// Doc.Close runs.
+// the first matching field. An empty key performs a literal lookup for the
+// JSON key "". Creating many descendant views or iterators on a long-lived
+// document grows native bookkeeping proportionally; Doc.Close releases all of
+// it at once.
 func (o Object) GetField(key string) (Element, error) {
 	doc, err := o.element.usableDoc()
 	if err != nil {
@@ -369,9 +372,9 @@ func (o Object) GetField(key string) (Element, error) {
 }
 
 // GetStringField returns the named field as a copied Go string using the same
-// semantics as GetField followed by Element.GetString, including
-// ErrElementNotFound for missing fields and ErrWrongType for present non-string
-// values.
+// semantics as GetField followed by Element.GetString, including literal
+// lookup for the JSON key "", ErrElementNotFound for missing fields, and
+// ErrWrongType for present non-string values.
 func (o Object) GetStringField(name string) (string, error) {
 	field, err := o.GetField(name)
 	if err != nil {
