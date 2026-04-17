@@ -1,4 +1,4 @@
-.PHONY: generate-header verify-contract verify-docs phase2-smoke-linux phase2-smoke-windows phase2-verify-exports
+.PHONY: generate-header verify-contract verify-docs phase2-smoke-linux phase2-smoke-windows phase2-verify-exports phase3-go-test phase3-go-race phase3-go-wrapper-remote
 
 generate-header:
 	cbindgen --config cbindgen.toml --crate pure_simdjson --output include/pure_simdjson.h
@@ -45,3 +45,14 @@ ifeq ($(OS),Windows_NT)
 else
 	nm -D --defined-only target/release/libpure_simdjson.so
 endif
+
+phase3-go-test:
+	cargo build --release
+	go test ./...
+
+phase3-go-race:
+	cargo build --release
+	go test ./... -race
+
+phase3-go-wrapper-remote:
+	./scripts/phase3-go-wrapper-smoke.sh
