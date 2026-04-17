@@ -33,11 +33,11 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **API-01**: Package `purejson` with `Parser`, `Doc`, `Element`, `Array`, `Object`, `ParserPool` types
 - [x] **API-02**: `NewParser() (*Parser, error)` allocates a reusable parser
 - [x] **API-03**: `Parser.Parse(data []byte) (*Doc, error)` parses JSON; returns typed errors; input is copied into Rust-owned arena
-- [ ] **API-04**: Distinct typed number accessors on `Element`: `GetInt64() (int64, error)`, `GetUint64() (uint64, error)`, `GetFloat64() (float64, error)`; overflow → `ErrNumberOutOfRange`; precision loss → `ErrPrecisionLoss`
-- [ ] **API-05**: `GetString() (string, error)` returns a Go string copy (zero-copy views deferred to v0.2)
-- [ ] **API-06**: `GetBool() (bool, error)`, `IsNull() bool`, `Type() ElementType`
-- [ ] **API-07**: Cursor/pull iteration: `Array.Iter() *ArrayIter`, `Object.Iter() *ObjectIter`; Go drives with `Next()` / `Value()` / `Key()` — no callbacks into Go
-- [ ] **API-08**: `Object.GetField(key string) (Element, error)` for direct-key lookup
+- [x] **API-04**: Distinct typed number accessors on `Element`: `GetInt64() (int64, error)`, `GetUint64() (uint64, error)`, `GetFloat64() (float64, error)`; overflow → `ErrNumberOutOfRange`; precision loss → `ErrPrecisionLoss`
+- [x] **API-05**: `GetString() (string, error)` returns a Go string copy (zero-copy views deferred to v0.2)
+- [x] **API-06**: `GetBool() (bool, error)`, `IsNull() bool`, `Type() ElementType`
+- [x] **API-07**: Cursor/pull iteration: `Array.Iter() *ArrayIter`, `Object.Iter() *ObjectIter`; Go drives with `Next()` / `Value()` / `Key()` — no callbacks into Go
+- [x] **API-08**: `Object.GetField(key string) (Element, error)` for direct-key lookup
 - [x] **API-09**: `Parser.Close()` and `Doc.Close()` are idempotent; double-close returns nil error; use-after-close returns `ErrClosed`
 - [x] **API-10**: `ParserPool` wraps `sync.Pool` with Get/Put and finalization; goroutine-per-parser is the documented concurrency model
 - [x] **API-11**: `runtime.SetFinalizer` on `Parser`/`Doc` logs a leak warning in test builds; production builds silent (never primary cleanup)
@@ -89,7 +89,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **DOC-01**: `README.md` with installation, quick-start code example, platform matrix, and benchmark snapshot
 - [x] **DOC-02**: `docs/ffi-contract.md` — full FFI contract (from Phase 1); versioned alongside ABI
-- [ ] **DOC-03**: Godoc on every exported type/function in `purejson`
+- [x] **DOC-03**: Godoc on every exported type/function in `purejson`
 - [x] **DOC-04**: `docs/concurrency.md` — per-parser single-doc invariant, `ParserPool` pattern, why not to share a Parser
 - [ ] **DOC-05**: `docs/bootstrap.md` — env vars, mirror setup, air-gapped install flow
 - [ ] **DOC-06**: `CHANGELOG.md` following Keep-a-Changelog format
@@ -166,11 +166,11 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | API-01 | Phase 3 | Complete |
 | API-02 | Phase 3 | Complete |
 | API-03 | Phase 3 | Complete |
-| API-04 | Phase 4 | Pending |
-| API-05 | Phase 4 | Pending |
-| API-06 | Phase 4 | Pending |
-| API-07 | Phase 4 | Pending |
-| API-08 | Phase 4 | Pending |
+| API-04 | Phase 4 | Complete |
+| API-05 | Phase 4 | Complete |
+| API-06 | Phase 4 | Complete |
+| API-07 | Phase 4 | Complete |
+| API-08 | Phase 4 | Complete |
 | API-09 | Phase 3 | Complete |
 | API-10 | Phase 3 | Complete |
 | API-11 | Phase 3 | Complete |
@@ -207,7 +207,7 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | BENCH-07 | Phase 7 | Pending |
 | DOC-01 | Phase 7 | Pending |
 | DOC-02 | Phase 1 | Complete |
-| DOC-03 | Phase 3 (partial) + Phase 4 (complete) | Pending |
+| DOC-03 | Phase 3 (partial) + Phase 4 (complete) | Complete |
 | DOC-04 | Phase 3 | Complete |
 | DOC-05 | Phase 5 | Pending |
 | DOC-06 | Phase 7 | Pending |

@@ -10,13 +10,13 @@ use std::{
     slice,
 };
 
-/// Stable packed ABI version for the Phase 1 contract.
+/// Stable packed ABI version for the ABI v0.1 contract.
 ///
 /// This constant is part of the public C header and stays numerically pinned alongside
 /// `pure_simdjson_get_abi_version`.
 pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0000;
 
-/// Public error codes for the stable Phase 1 ABI.
+/// Public error codes for the stable ABI v0.1 surface.
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum pure_simdjson_error_code_t {
@@ -91,9 +91,9 @@ pub struct pure_simdjson_value_view_t {
 
 /// Stateful array iterator tied to a live document handle.
 ///
-/// `state0`, `state1`, and `tag` are implementation-owned. `index` stays `u32` because the
-/// Phase 1 contract only admits documents below the 4 GiB simdjson ceiling. `reserved` stays
-/// pinned for future contract growth and callers must leave it untouched.
+/// `state0`, `state1`, `index`, and `tag` are implementation-owned. `index` stays `u32`
+/// because the ABI v0.1 layout only admits documents below the 4 GiB simdjson ceiling.
+/// `reserved` stays pinned for future contract growth and callers must leave it untouched.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct pure_simdjson_array_iter_t {
@@ -107,9 +107,9 @@ pub struct pure_simdjson_array_iter_t {
 
 /// Stateful object iterator tied to a live document handle.
 ///
-/// `state0`, `state1`, and `tag` are implementation-owned. `index` stays `u32` because the
-/// Phase 1 contract only admits documents below the 4 GiB simdjson ceiling. `reserved` stays
-/// pinned for future contract growth and callers must leave it untouched.
+/// `state0`, `state1`, `index`, and `tag` are implementation-owned. `index` stays `u32`
+/// because the ABI v0.1 layout only admits documents below the 4 GiB simdjson ceiling.
+/// `reserved` stays pinned for future contract growth and callers must leave it untouched.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct pure_simdjson_object_iter_t {
@@ -140,12 +140,6 @@ const fn err_buffer_too_small() -> pure_simdjson_error_code_t {
 #[inline]
 const fn err_cpu_unsupported() -> pure_simdjson_error_code_t {
     pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_CPU_UNSUPPORTED
-}
-
-#[inline]
-#[cfg_attr(debug_assertions, allow(dead_code))]
-const fn err_internal() -> pure_simdjson_error_code_t {
-    pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INTERNAL
 }
 
 #[inline]
@@ -224,21 +218,6 @@ unsafe fn copy_out_bytes(
     }
 
     err_ok()
-}
-
-#[inline]
-fn unimplemented_stub(function_name: &'static str) -> pure_simdjson_error_code_t {
-    #[cfg(debug_assertions)]
-    {
-        eprintln!("unimplemented shim export reached: {}", function_name);
-        std::process::abort();
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        let _ = function_name;
-        err_internal()
-    }
 }
 
 #[inline]
@@ -352,7 +331,9 @@ pub unsafe extern "C" fn pure_simdjson_parser_new(
 pub unsafe extern "C" fn pure_simdjson_parser_free(
     parser: pure_simdjson_parser_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_parser_free", || runtime::registry::parser_free(parser))
+    ffi_wrap("pure_simdjson_parser_free", || {
+        runtime::registry::parser_free(parser)
+    })
 }
 
 /// Parse one JSON buffer into a new document handle.
@@ -466,7 +447,9 @@ pub unsafe extern "C" fn pure_simdjson_parser_get_last_error_offset(
 pub unsafe extern "C" fn pure_simdjson_doc_free(
     doc: pure_simdjson_doc_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_doc_free", || runtime::registry::doc_free(doc))
+    ffi_wrap("pure_simdjson_doc_free", || {
+        runtime::registry::doc_free(doc)
+    })
 }
 
 /// Resolve the root value view for a live document handle.
@@ -532,8 +515,8 @@ pub unsafe extern "C" fn pure_simdjson_element_get_int64(
 
 /// Decode the referenced value as `uint64_t`.
 ///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
+/// Negative integers return `PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE`; non-uint64 kinds return
+/// `PURE_SIMDJSON_ERR_WRONG_TYPE`.
 ///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -543,16 +526,18 @@ pub unsafe extern "C" fn pure_simdjson_element_get_uint64(
     view: *const pure_simdjson_value_view_t,
     out_value: *mut u64,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_element_get_uint64", || {
-        let _ = (view, out_value);
-        unimplemented_stub("pure_simdjson_element_get_uint64")
+    ffi_wrap("pure_simdjson_element_get_uint64", || unsafe {
+        match runtime::registry::element_get_uint64(view) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
     })
 }
 
 /// Decode the referenced value as `double`.
 ///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
+/// Integral values that cannot be represented exactly as `double` return
+/// `PURE_SIMDJSON_ERR_PRECISION_LOSS`; non-numeric kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
 ///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -562,9 +547,11 @@ pub unsafe extern "C" fn pure_simdjson_element_get_float64(
     view: *const pure_simdjson_value_view_t,
     out_value: *mut f64,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_element_get_float64", || {
-        let _ = (view, out_value);
-        unimplemented_stub("pure_simdjson_element_get_float64")
+    ffi_wrap("pure_simdjson_element_get_float64", || unsafe {
+        match runtime::registry::element_get_float64(view) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -572,9 +559,6 @@ pub unsafe extern "C" fn pure_simdjson_element_get_float64(
 ///
 /// The caller receives `*out_ptr` plus `*out_len` and must release that allocation with
 /// `pure_simdjson_bytes_free`. Borrowed string views are intentionally excluded from `v0.1`.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
 ///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
@@ -585,16 +569,24 @@ pub unsafe extern "C" fn pure_simdjson_element_get_string(
     out_ptr: *mut *mut u8,
     out_len: *mut usize,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_element_get_string", || {
-        let _ = (view, out_ptr, out_len);
-        unimplemented_stub("pure_simdjson_element_get_string")
+    ffi_wrap("pure_simdjson_element_get_string", || unsafe {
+        if out_ptr.is_null() || out_len.is_null() {
+            return err_invalid_argument();
+        }
+
+        match runtime::registry::element_get_string(view) {
+            Ok((ptr_value, len)) => {
+                ptr::write(out_ptr, ptr_value);
+                ptr::write(out_len, len);
+                err_ok()
+            }
+            Err(rc) => rc,
+        }
     })
 }
 
 /// Release memory previously returned by `pure_simdjson_element_get_string`.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
+/// The empty-string sentinel is `ptr == NULL && len == 0`.
 ///
 /// # Safety
 /// `ptr` and `len` must describe an allocation previously returned by
@@ -605,15 +597,11 @@ pub unsafe extern "C" fn pure_simdjson_bytes_free(
     len: usize,
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_bytes_free", || {
-        let _ = (ptr, len);
-        unimplemented_stub("pure_simdjson_bytes_free")
+        runtime::registry::bytes_free(ptr, len)
     })
 }
 
 /// Decode the referenced value as a C `uint8_t` boolean.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
 ///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -623,16 +611,15 @@ pub unsafe extern "C" fn pure_simdjson_element_get_bool(
     view: *const pure_simdjson_value_view_t,
     out_value: *mut u8,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_element_get_bool", || {
-        let _ = (view, out_value);
-        unimplemented_stub("pure_simdjson_element_get_bool")
+    ffi_wrap("pure_simdjson_element_get_bool", || unsafe {
+        match runtime::registry::element_get_bool(view) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
     })
 }
 
 /// Report whether the referenced value is JSON `null`.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
 ///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -642,16 +629,15 @@ pub unsafe extern "C" fn pure_simdjson_element_is_null(
     view: *const pure_simdjson_value_view_t,
     out_is_null: *mut u8,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_element_is_null", || {
-        let _ = (view, out_is_null);
-        unimplemented_stub("pure_simdjson_element_is_null")
+    ffi_wrap("pure_simdjson_element_is_null", || unsafe {
+        match runtime::registry::element_is_null(view) {
+            Ok(value) => write_out(out_is_null, value),
+            Err(rc) => rc,
+        }
     })
 }
 
 /// Initialize array iterator state from an array-valued view.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
 ///
 /// # Safety
 /// `array_view` must point to a readable array-valued `pure_simdjson_value_view_t` derived from a
@@ -661,16 +647,15 @@ pub unsafe extern "C" fn pure_simdjson_array_iter_new(
     array_view: *const pure_simdjson_value_view_t,
     out_iter: *mut pure_simdjson_array_iter_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_array_iter_new", || {
-        let _ = (array_view, out_iter);
-        unimplemented_stub("pure_simdjson_array_iter_new")
+    ffi_wrap("pure_simdjson_array_iter_new", || unsafe {
+        match runtime::registry::array_iter_new(array_view) {
+            Ok(iter) => write_out(out_iter, iter),
+            Err(rc) => rc,
+        }
     })
 }
 
 /// Advance an array iterator and return the next value view plus a done flag.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
 ///
 /// # Safety
 /// `iter` must point to readable and writable iterator state created by this library. `out_value`
@@ -681,16 +666,24 @@ pub unsafe extern "C" fn pure_simdjson_array_iter_next(
     out_value: *mut pure_simdjson_value_view_t,
     out_done: *mut u8,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_array_iter_next", || {
-        let _ = (iter, out_value, out_done);
-        unimplemented_stub("pure_simdjson_array_iter_next")
+    ffi_wrap("pure_simdjson_array_iter_next", || unsafe {
+        if iter.is_null() || out_value.is_null() || out_done.is_null() {
+            return err_invalid_argument();
+        }
+
+        match runtime::registry::array_iter_next(iter) {
+            Ok(step) => {
+                ptr::write(iter, step.iter);
+                ptr::write(out_value, step.value);
+                ptr::write(out_done, step.done);
+                err_ok()
+            }
+            Err(rc) => rc,
+        }
     })
 }
 
 /// Initialize object iterator state from an object-valued view.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
 ///
 /// # Safety
 /// `object_view` must point to a readable object-valued `pure_simdjson_value_view_t` derived from
@@ -700,16 +693,15 @@ pub unsafe extern "C" fn pure_simdjson_object_iter_new(
     object_view: *const pure_simdjson_value_view_t,
     out_iter: *mut pure_simdjson_object_iter_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_object_iter_new", || {
-        let _ = (object_view, out_iter);
-        unimplemented_stub("pure_simdjson_object_iter_new")
+    ffi_wrap("pure_simdjson_object_iter_new", || unsafe {
+        match runtime::registry::object_iter_new(object_view) {
+            Ok(iter) => write_out(out_iter, iter),
+            Err(rc) => rc,
+        }
     })
 }
 
 /// Advance an object iterator and return the next key/value pair plus a done flag.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
 ///
 /// # Safety
 /// `iter` must point to readable and writable iterator state created by this library. `out_key`,
@@ -721,16 +713,25 @@ pub unsafe extern "C" fn pure_simdjson_object_iter_next(
     out_value: *mut pure_simdjson_value_view_t,
     out_done: *mut u8,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_object_iter_next", || {
-        let _ = (iter, out_key, out_value, out_done);
-        unimplemented_stub("pure_simdjson_object_iter_next")
+    ffi_wrap("pure_simdjson_object_iter_next", || unsafe {
+        if iter.is_null() || out_key.is_null() || out_value.is_null() || out_done.is_null() {
+            return err_invalid_argument();
+        }
+
+        match runtime::registry::object_iter_next(iter) {
+            Ok(step) => {
+                ptr::write(iter, step.iter);
+                ptr::write(out_key, step.key);
+                ptr::write(out_value, step.value);
+                ptr::write(out_done, step.done);
+                err_ok()
+            }
+            Err(rc) => rc,
+        }
     })
 }
 
 /// Look up one object field by key and return its value view through `out_value`.
-///
-/// Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
-/// currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
 ///
 /// # Safety
 /// `object_view` must point to a readable object-valued `pure_simdjson_value_view_t` derived from
@@ -743,9 +744,24 @@ pub unsafe extern "C" fn pure_simdjson_object_get_field(
     key_len: usize,
     out_value: *mut pure_simdjson_value_view_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_object_get_field", || {
-        let _ = (object_view, key_ptr, key_len, out_value);
-        unimplemented_stub("pure_simdjson_object_get_field")
+    ffi_wrap("pure_simdjson_object_get_field", || unsafe {
+        if out_value.is_null() {
+            return err_invalid_argument();
+        }
+        if key_len != 0 && key_ptr.is_null() {
+            return err_invalid_argument();
+        }
+
+        let key = if key_len == 0 {
+            &[][..]
+        } else {
+            slice::from_raw_parts(key_ptr, key_len)
+        };
+
+        match runtime::registry::object_get_field(object_view, key) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -921,43 +937,18 @@ mod tests {
     }
 
     #[test]
-    fn retained_stub_hits_debug_tripwire() {
-        if env::var_os("PURE_SIMDJSON_TRIGGER_STUB").is_some() {
-            let _ = unsafe { pure_simdjson_element_get_uint64(ptr::null(), ptr::null_mut()) };
-            return;
-        }
-
-        if !cfg!(debug_assertions) {
-            return;
-        }
-
-        let output = Command::new(env::current_exe().expect("test binary path"))
-            .env("PURE_SIMDJSON_TRIGGER_STUB", "1")
-            .arg("--exact")
-            .arg("tests::retained_stub_hits_debug_tripwire")
-            .arg("--nocapture")
-            .output()
-            .expect("spawn stub tripwire subprocess");
-
-        assert_subprocess_ran_exactly_one_test(&output);
-        assert!(
-            !output.status.success(),
-            "retained Phase 4 stubs should fail fast in debug builds"
-        );
-
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            stderr.contains("unimplemented shim export reached: pure_simdjson_element_get_uint64"),
-            "debug stub tripwire should emit the stub marker before aborting: {stderr}",
+    fn bytes_free_rejects_null_pointer_with_nonzero_length() {
+        assert_eq!(
+            unsafe { pure_simdjson_bytes_free(ptr::null_mut(), 1) },
+            pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INVALID_ARGUMENT
         );
     }
 
-    #[cfg(not(debug_assertions))]
     #[test]
-    fn retained_stub_returns_err_internal_in_release_builds() {
+    fn bytes_free_accepts_empty_string_sentinel() {
         assert_eq!(
-            unsafe { pure_simdjson_element_get_uint64(ptr::null(), ptr::null_mut()) },
-            pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INTERNAL
+            unsafe { pure_simdjson_bytes_free(ptr::null_mut(), 0) },
+            pure_simdjson_error_code_t::PURE_SIMDJSON_OK
         );
     }
 }
