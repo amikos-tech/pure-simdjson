@@ -227,21 +227,6 @@ unsafe fn copy_out_bytes(
 }
 
 #[inline]
-fn unimplemented_stub(function_name: &'static str) -> pure_simdjson_error_code_t {
-    #[cfg(debug_assertions)]
-    {
-        eprintln!("unimplemented shim export reached: {}", function_name);
-        std::process::abort();
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        let _ = function_name;
-        err_internal()
-    }
-}
-
-#[inline]
 fn reject_fallback_implementation() -> Result<(), pure_simdjson_error_code_t> {
     let implementation_name = runtime::selected_implementation_name_for_parser_new()?;
     if implementation_name.as_slice() == b"fallback" && !runtime::fallback_allowed_for_tests() {
@@ -682,9 +667,11 @@ pub unsafe extern "C" fn pure_simdjson_array_iter_new(
     array_view: *const pure_simdjson_value_view_t,
     out_iter: *mut pure_simdjson_array_iter_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_array_iter_new", || {
-        let _ = (array_view, out_iter);
-        unimplemented_stub("pure_simdjson_array_iter_new")
+    ffi_wrap("pure_simdjson_array_iter_new", || unsafe {
+        match runtime::registry::array_iter_new(array_view) {
+            Ok(iter) => write_out(out_iter, iter),
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -702,9 +689,20 @@ pub unsafe extern "C" fn pure_simdjson_array_iter_next(
     out_value: *mut pure_simdjson_value_view_t,
     out_done: *mut u8,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_array_iter_next", || {
-        let _ = (iter, out_value, out_done);
-        unimplemented_stub("pure_simdjson_array_iter_next")
+    ffi_wrap("pure_simdjson_array_iter_next", || unsafe {
+        if iter.is_null() || out_value.is_null() || out_done.is_null() {
+            return err_invalid_argument();
+        }
+
+        match runtime::registry::array_iter_next(iter) {
+            Ok(step) => {
+                ptr::write(iter, step.iter);
+                ptr::write(out_value, step.value);
+                ptr::write(out_done, step.done);
+                err_ok()
+            }
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -721,9 +719,11 @@ pub unsafe extern "C" fn pure_simdjson_object_iter_new(
     object_view: *const pure_simdjson_value_view_t,
     out_iter: *mut pure_simdjson_object_iter_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_object_iter_new", || {
-        let _ = (object_view, out_iter);
-        unimplemented_stub("pure_simdjson_object_iter_new")
+    ffi_wrap("pure_simdjson_object_iter_new", || unsafe {
+        match runtime::registry::object_iter_new(object_view) {
+            Ok(iter) => write_out(out_iter, iter),
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -742,9 +742,21 @@ pub unsafe extern "C" fn pure_simdjson_object_iter_next(
     out_value: *mut pure_simdjson_value_view_t,
     out_done: *mut u8,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_object_iter_next", || {
-        let _ = (iter, out_key, out_value, out_done);
-        unimplemented_stub("pure_simdjson_object_iter_next")
+    ffi_wrap("pure_simdjson_object_iter_next", || unsafe {
+        if iter.is_null() || out_key.is_null() || out_value.is_null() || out_done.is_null() {
+            return err_invalid_argument();
+        }
+
+        match runtime::registry::object_iter_next(iter) {
+            Ok(step) => {
+                ptr::write(iter, step.iter);
+                ptr::write(out_key, step.key);
+                ptr::write(out_value, step.value);
+                ptr::write(out_done, step.done);
+                err_ok()
+            }
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -764,9 +776,24 @@ pub unsafe extern "C" fn pure_simdjson_object_get_field(
     key_len: usize,
     out_value: *mut pure_simdjson_value_view_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_object_get_field", || {
-        let _ = (object_view, key_ptr, key_len, out_value);
-        unimplemented_stub("pure_simdjson_object_get_field")
+    ffi_wrap("pure_simdjson_object_get_field", || unsafe {
+        if out_value.is_null() {
+            return err_invalid_argument();
+        }
+        if key_len != 0 && key_ptr.is_null() {
+            return err_invalid_argument();
+        }
+
+        let key = if key_len == 0 {
+            &[][..]
+        } else {
+            slice::from_raw_parts(key_ptr, key_len)
+        };
+
+        match runtime::registry::object_get_field(object_view, key) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
     })
 }
 

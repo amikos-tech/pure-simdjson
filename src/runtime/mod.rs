@@ -15,6 +15,10 @@ pub(crate) const UNKNOWN_ERROR_OFFSET: u64 = u64::MAX;
 pub(crate) const ROOT_VIEW_TAG: u64 = u64::from_le_bytes(*b"PSDJROOT");
 /// Marker stored in `pure_simdjson_value_view_t.state1` for descendant views returned by this runtime.
 pub(crate) const DESC_VIEW_TAG: u64 = u64::from_le_bytes(*b"PSDJDESC");
+/// Marker stored in `pure_simdjson_array_iter_t.tag` for array iterators returned by this runtime.
+pub(crate) const ARRAY_ITER_TAG: u16 = u16::from_le_bytes(*b"AR");
+/// Marker stored in `pure_simdjson_object_iter_t.tag` for object iterators returned by this runtime.
+pub(crate) const OBJECT_ITER_TAG: u16 = u16::from_le_bytes(*b"OB");
 static FORCED_IMPLEMENTATION_NAME: OnceLock<Option<Vec<u8>>> = OnceLock::new();
 static FALLBACK_ALLOWED: OnceLock<bool> = OnceLock::new();
 static TEST_FORCED_IMPLEMENTATION_OVERRIDE: OnceLock<Mutex<Option<Vec<u8>>>> = OnceLock::new();
@@ -111,6 +115,30 @@ unsafe extern "C" {
         doc: *const psimdjson_doc,
         json_index: u64,
         out_is_null: *mut u8,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_after_index(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_after_json_index: *mut u64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_array_iter_bounds(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_state0: *mut u64,
+        out_state1: *mut u64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_object_iter_bounds(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_state0: *mut u64,
+        out_state1: *mut u64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_object_get_field_index(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        key_ptr: *const u8,
+        key_len: usize,
+        out_value_json_index: *mut u64,
     ) -> pure_simdjson_error_code_t;
 
     fn psimdjson_test_force_cpp_exception() -> pure_simdjson_error_code_t;
@@ -414,6 +442,102 @@ pub(crate) fn native_element_is_null_at(
     } else {
         Err(rc)
     }
+}
+
+pub(crate) fn native_element_after_index(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<u64, pure_simdjson_error_code_t> {
+    let mut after_json_index = 0_u64;
+    let rc = unsafe {
+        psimdjson_element_after_index(
+            doc_ptr as *const psimdjson_doc,
+            json_index,
+            &mut after_json_index,
+        )
+    };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    if after_json_index == 0 {
+        return Err(err_internal());
+    }
+    Ok(after_json_index)
+}
+
+pub(crate) fn native_array_iter_bounds(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<(u64, u64), pure_simdjson_error_code_t> {
+    let mut state0 = 0_u64;
+    let mut state1 = 0_u64;
+    let rc = unsafe {
+        psimdjson_array_iter_bounds(
+            doc_ptr as *const psimdjson_doc,
+            json_index,
+            &mut state0,
+            &mut state1,
+        )
+    };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    if state0 == 0 || state1 == 0 || state0 > state1 {
+        return Err(err_internal());
+    }
+    Ok((state0, state1))
+}
+
+pub(crate) fn native_object_iter_bounds(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<(u64, u64), pure_simdjson_error_code_t> {
+    let mut state0 = 0_u64;
+    let mut state1 = 0_u64;
+    let rc = unsafe {
+        psimdjson_object_iter_bounds(
+            doc_ptr as *const psimdjson_doc,
+            json_index,
+            &mut state0,
+            &mut state1,
+        )
+    };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    if state0 == 0 || state1 == 0 || state0 > state1 {
+        return Err(err_internal());
+    }
+    Ok((state0, state1))
+}
+
+pub(crate) fn native_object_get_field_index(
+    doc_ptr: usize,
+    json_index: u64,
+    key: &[u8],
+) -> Result<u64, pure_simdjson_error_code_t> {
+    let key_ptr = if key.is_empty() {
+        ptr::null()
+    } else {
+        key.as_ptr()
+    };
+    let mut value_json_index = 0_u64;
+    let rc = unsafe {
+        psimdjson_object_get_field_index(
+            doc_ptr as *const psimdjson_doc,
+            json_index,
+            key_ptr,
+            key.len(),
+            &mut value_json_index,
+        )
+    };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    if value_json_index == 0 {
+        return Err(err_internal());
+    }
+    Ok(value_json_index)
 }
 
 pub(crate) fn selected_implementation_name_for_parser_new(

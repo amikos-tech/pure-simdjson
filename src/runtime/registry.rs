@@ -5,11 +5,12 @@ use std::{
 };
 
 use crate::{
-    pure_simdjson_doc_t, pure_simdjson_error_code_t, pure_simdjson_parser_t,
+    pure_simdjson_array_iter_t, pure_simdjson_doc_t, pure_simdjson_error_code_t,
+    pure_simdjson_object_iter_t, pure_simdjson_parser_t, pure_simdjson_value_kind_t,
     pure_simdjson_value_view_t,
 };
 
-use super::{DESC_VIEW_TAG, ROOT_VIEW_TAG};
+use super::{ARRAY_ITER_TAG, DESC_VIEW_TAG, OBJECT_ITER_TAG, ROOT_VIEW_TAG};
 
 /// Public parser/doc handles share one packed `u64` wire format, so the registry must enforce
 /// these invariants:
@@ -41,6 +42,7 @@ struct DocEntry {
     generation: u32,
     native_ptr: usize,
     root_ptr: usize,
+    root_after_index: u64,
     owner_slot: u32,
     owner_generation: u32,
     input_storage: Vec<u8>,
@@ -91,9 +93,17 @@ fn err_precision_loss() -> pure_simdjson_error_code_t {
     pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PRECISION_LOSS
 }
 
+#[inline]
+fn err_wrong_type() -> pure_simdjson_error_code_t {
+    pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_WRONG_TYPE
+}
+
 /// Coarse value kind sentinel for views whose backing element cannot be classified
 /// (e.g. BIGINT elements, where the canonical error surfaces at `pure_simdjson_element_type`).
 const KIND_HINT_INVALID: u32 = 0;
+const KIND_HINT_STRING: u32 = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_STRING as u32;
+const KIND_HINT_ARRAY: u32 = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_ARRAY as u32;
+const KIND_HINT_OBJECT: u32 = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_OBJECT as u32;
 
 #[inline]
 fn registry() -> &'static Mutex<Registry> {
@@ -183,6 +193,7 @@ impl Registry {
         &mut self,
         native_ptr: usize,
         root_ptr: usize,
+        root_after_index: u64,
         owner_slot: u32,
         owner_generation: u32,
         input: Vec<u8>,
@@ -195,6 +206,7 @@ impl Registry {
                     generation,
                     native_ptr,
                     root_ptr,
+                    root_after_index,
                     owner_slot,
                     owner_generation,
                     input_storage: input,
@@ -213,6 +225,7 @@ impl Registry {
             generation,
             native_ptr,
             root_ptr,
+            root_after_index,
             owner_slot,
             owner_generation,
             input_storage: input,
@@ -320,9 +333,24 @@ pub(crate) fn parser_parse(
     owned_input[..input.len()].copy_from_slice(input);
 
     let parsed = super::native_parser_parse(native_ptr, &owned_input[..], input.len())?;
+    let root_after_index = match super::native_element_after_index(parsed.doc_ptr, ROOT_JSON_INDEX)
+    {
+        Ok(root_after_index) => root_after_index,
+        Err(rc) => {
+            let free_rc = super::native_doc_free(parsed.doc_ptr);
+            if free_rc != err_ok() {
+                eprintln!(
+                    "pure_simdjson cleanup failure in parser_parse/root_after_index: {:?}",
+                    free_rc
+                );
+            }
+            return Err(rc);
+        }
+    };
     let doc_handle = match registry.alloc_doc(
         parsed.doc_ptr,
         parsed.root_ptr,
+        root_after_index,
         slot,
         generation,
         owned_input,
@@ -452,19 +480,24 @@ pub(crate) fn doc_root(
     })
 }
 
+#[inline]
+fn doc_contains_json_index(entry: &DocEntry, json_index: u64) -> bool {
+    json_index >= ROOT_JSON_INDEX && json_index < entry.root_after_index
+}
+
 pub(crate) fn encode_descendant_view(
     handle: pure_simdjson_doc_t,
     json_index: u64,
 ) -> Result<pure_simdjson_value_view_t, pure_simdjson_error_code_t> {
-    if json_index == 0 {
+    let (doc_index, _, doc_generation) = unpack_handle(handle)?;
+    let (native_ptr, root_after_index) = {
+        let registry = registry_guard();
+        let entry = registry.doc_entry(handle)?;
+        (entry.native_ptr, entry.root_after_index)
+    };
+    if json_index == 0 || json_index >= root_after_index {
         return Err(err_invalid_handle());
     }
-
-    let (doc_index, _, doc_generation) = unpack_handle(handle)?;
-    let native_ptr = {
-        let registry = registry_guard();
-        registry.doc_entry(handle)?.native_ptr
-    };
     let kind_hint = match super::native_element_type_at(native_ptr, json_index) {
         Ok(kind) => kind,
         Err(rc) if rc == err_precision_loss() => KIND_HINT_INVALID,
@@ -498,7 +531,10 @@ fn validate_descendant(
     entry: &DocEntry,
 ) -> Result<ResolvedView, pure_simdjson_error_code_t> {
     let json_index = view.state0;
-    if json_index == 0 || !entry.descendant_indices.contains(&json_index) {
+    if json_index == 0
+        || !doc_contains_json_index(entry, json_index)
+        || !entry.descendant_indices.contains(&json_index)
+    {
         return Err(err_invalid_handle());
     }
     Ok(ResolvedView {
@@ -621,4 +657,218 @@ pub(crate) fn element_is_null(
     view: *const pure_simdjson_value_view_t,
 ) -> Result<u8, pure_simdjson_error_code_t> {
     with_resolved_view(view, super::native_element_is_null_at)
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ArrayIterStep {
+    pub(crate) iter: pure_simdjson_array_iter_t,
+    pub(crate) value: pure_simdjson_value_view_t,
+    pub(crate) done: u8,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ObjectIterStep {
+    pub(crate) iter: pure_simdjson_object_iter_t,
+    pub(crate) key: pure_simdjson_value_view_t,
+    pub(crate) value: pure_simdjson_value_view_t,
+    pub(crate) done: u8,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct IterDocState {
+    doc_ptr: usize,
+    root_after_index: u64,
+}
+
+fn validate_iter_doc(doc: pure_simdjson_doc_t) -> Result<IterDocState, pure_simdjson_error_code_t> {
+    let registry = registry_guard();
+    let entry = registry.doc_entry(doc)?;
+    Ok(IterDocState {
+        doc_ptr: entry.native_ptr,
+        root_after_index: entry.root_after_index,
+    })
+}
+
+#[inline]
+fn validate_iter_index(
+    index: u64,
+    root_after_index: u64,
+) -> Result<(), pure_simdjson_error_code_t> {
+    if index == 0 || index >= root_after_index {
+        Err(err_invalid_handle())
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_iter_common(
+    doc: pure_simdjson_doc_t,
+    state0: u64,
+    state1: u64,
+    tag: u16,
+    reserved: u16,
+    expected_tag: u16,
+) -> Result<IterDocState, pure_simdjson_error_code_t> {
+    if reserved != 0 || tag != expected_tag || state0 > state1 {
+        return Err(err_invalid_handle());
+    }
+
+    let doc_state = validate_iter_doc(doc)?;
+    validate_iter_index(state0, doc_state.root_after_index)?;
+    validate_iter_index(state1, doc_state.root_after_index)?;
+    Ok(doc_state)
+}
+
+pub(crate) fn array_iter_new(
+    array_view: *const pure_simdjson_value_view_t,
+) -> Result<pure_simdjson_array_iter_t, pure_simdjson_error_code_t> {
+    let resolved = resolve_view(array_view)?;
+    let kind = super::native_element_type_at(resolved.doc_ptr, resolved.json_index)?;
+    if kind != KIND_HINT_ARRAY {
+        return Err(err_wrong_type());
+    }
+
+    let (state0, state1) = super::native_array_iter_bounds(resolved.doc_ptr, resolved.json_index)?;
+    let view = unsafe { ptr::read_unaligned(array_view) };
+    Ok(pure_simdjson_array_iter_t {
+        doc: view.doc,
+        state0,
+        state1,
+        index: 0,
+        tag: ARRAY_ITER_TAG,
+        reserved: 0,
+    })
+}
+
+pub(crate) fn array_iter_next(
+    iter: *const pure_simdjson_array_iter_t,
+) -> Result<ArrayIterStep, pure_simdjson_error_code_t> {
+    if iter.is_null() {
+        return Err(err_invalid_argument());
+    }
+
+    let iter = unsafe { ptr::read_unaligned(iter) };
+    let doc_state = validate_iter_common(
+        iter.doc,
+        iter.state0,
+        iter.state1,
+        iter.tag,
+        iter.reserved,
+        ARRAY_ITER_TAG,
+    )?;
+    if iter.state0 == iter.state1 {
+        return Ok(ArrayIterStep {
+            iter,
+            value: pure_simdjson_value_view_t::default(),
+            done: 1,
+        });
+    }
+
+    let value = encode_descendant_view(iter.doc, iter.state0)?;
+    let next_state0 = super::native_element_after_index(doc_state.doc_ptr, iter.state0)?;
+    if next_state0 <= iter.state0 || next_state0 > iter.state1 {
+        return Err(err_invalid_handle());
+    }
+
+    Ok(ArrayIterStep {
+        iter: pure_simdjson_array_iter_t {
+            state0: next_state0,
+            index: iter.index.checked_add(1).ok_or_else(err_invalid_handle)?,
+            ..iter
+        },
+        value,
+        done: 0,
+    })
+}
+
+pub(crate) fn object_iter_new(
+    object_view: *const pure_simdjson_value_view_t,
+) -> Result<pure_simdjson_object_iter_t, pure_simdjson_error_code_t> {
+    let resolved = resolve_view(object_view)?;
+    let kind = super::native_element_type_at(resolved.doc_ptr, resolved.json_index)?;
+    if kind != KIND_HINT_OBJECT {
+        return Err(err_wrong_type());
+    }
+
+    let (state0, state1) = super::native_object_iter_bounds(resolved.doc_ptr, resolved.json_index)?;
+    let view = unsafe { ptr::read_unaligned(object_view) };
+    Ok(pure_simdjson_object_iter_t {
+        doc: view.doc,
+        state0,
+        state1,
+        index: 0,
+        tag: OBJECT_ITER_TAG,
+        reserved: 0,
+    })
+}
+
+pub(crate) fn object_iter_next(
+    iter: *const pure_simdjson_object_iter_t,
+) -> Result<ObjectIterStep, pure_simdjson_error_code_t> {
+    if iter.is_null() {
+        return Err(err_invalid_argument());
+    }
+
+    let iter = unsafe { ptr::read_unaligned(iter) };
+    let doc_state = validate_iter_common(
+        iter.doc,
+        iter.state0,
+        iter.state1,
+        iter.tag,
+        iter.reserved,
+        OBJECT_ITER_TAG,
+    )?;
+    if iter.state0 == iter.state1 {
+        return Ok(ObjectIterStep {
+            iter,
+            key: pure_simdjson_value_view_t::default(),
+            value: pure_simdjson_value_view_t::default(),
+            done: 1,
+        });
+    }
+
+    let value_json_index = iter.state0.checked_add(1).ok_or_else(err_invalid_handle)?;
+    if value_json_index >= iter.state1 {
+        return Err(err_invalid_handle());
+    }
+    validate_iter_index(value_json_index, doc_state.root_after_index)?;
+
+    let key_kind = super::native_element_type_at(doc_state.doc_ptr, iter.state0)?;
+    if key_kind != KIND_HINT_STRING {
+        return Err(err_invalid_handle());
+    }
+
+    let key = encode_descendant_view(iter.doc, iter.state0)?;
+    let value = encode_descendant_view(iter.doc, value_json_index)?;
+    let next_state0 = super::native_element_after_index(doc_state.doc_ptr, value_json_index)?;
+    if next_state0 <= value_json_index || next_state0 > iter.state1 {
+        return Err(err_invalid_handle());
+    }
+
+    Ok(ObjectIterStep {
+        iter: pure_simdjson_object_iter_t {
+            state0: next_state0,
+            index: iter.index.checked_add(1).ok_or_else(err_invalid_handle)?,
+            ..iter
+        },
+        key,
+        value,
+        done: 0,
+    })
+}
+
+pub(crate) fn object_get_field(
+    object_view: *const pure_simdjson_value_view_t,
+    key: &[u8],
+) -> Result<pure_simdjson_value_view_t, pure_simdjson_error_code_t> {
+    let resolved = resolve_view(object_view)?;
+    let kind = super::native_element_type_at(resolved.doc_ptr, resolved.json_index)?;
+    if kind != KIND_HINT_OBJECT {
+        return Err(err_wrong_type());
+    }
+
+    let view = unsafe { ptr::read_unaligned(object_view) };
+    let value_json_index =
+        super::native_object_get_field_index(resolved.doc_ptr, resolved.json_index, key)?;
+    encode_descendant_view(view.doc, value_json_index)
 }
