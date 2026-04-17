@@ -40,12 +40,12 @@ const (
 
 // Array wraps an Element verified to represent a JSON array. Construct via
 // Element.AsArray; the unexported field prevents callers from creating an
-// unverified instance. Traversal methods will be added in a later phase.
+// unverified instance.
 type Array struct{ element Element }
 
 // Object wraps an Element verified to represent a JSON object. Construct via
 // Element.AsObject; the unexported field prevents callers from creating an
-// unverified instance. Traversal methods will be added in a later phase.
+// unverified instance.
 type Object struct{ element Element }
 
 // GetInt64 reads the current element as an int64 and returns ErrClosed when the
@@ -222,4 +222,80 @@ func (e Element) AsObject() (Object, error) {
 		return Object{}, ErrWrongType
 	}
 	return Object{element: e}, nil
+}
+
+// Iter returns a scanner-style iterator over the array contents.
+func (a Array) Iter() *ArrayIter {
+	it := &ArrayIter{doc: a.element.doc}
+	if a.element.doc == nil || a.element.doc.isClosed() {
+		it.err = ErrClosed
+		return it
+	}
+	if ffi.ValueKind(a.element.view.KindHint) != ffi.ValueKindArray {
+		it.err = ErrWrongType
+		return it
+	}
+
+	iter, rc := a.element.doc.parser.library.bindings.ArrayIterNew(&a.element.view)
+	runtime.KeepAlive(a.element.doc)
+	if err := normalizeIteratorError(a.element.doc, rc); err != nil {
+		it.err = err
+		return it
+	}
+
+	it.iter = iter
+	return it
+}
+
+// Iter returns a scanner-style iterator over the object fields.
+func (o Object) Iter() *ObjectIter {
+	it := &ObjectIter{doc: o.element.doc}
+	if o.element.doc == nil || o.element.doc.isClosed() {
+		it.err = ErrClosed
+		return it
+	}
+	if ffi.ValueKind(o.element.view.KindHint) != ffi.ValueKindObject {
+		it.err = ErrWrongType
+		return it
+	}
+
+	iter, rc := o.element.doc.parser.library.bindings.ObjectIterNew(&o.element.view)
+	runtime.KeepAlive(o.element.doc)
+	if err := normalizeIteratorError(o.element.doc, rc); err != nil {
+		it.err = err
+		return it
+	}
+
+	it.iter = iter
+	return it
+}
+
+// GetField returns the element for the given object key. Missing fields return
+// ErrElementNotFound, while present null fields return a valid Element whose
+// IsNull method reports true.
+func (o Object) GetField(key string) (Element, error) {
+	if o.element.doc == nil || o.element.doc.isClosed() {
+		return Element{}, ErrClosed
+	}
+	if ffi.ValueKind(o.element.view.KindHint) != ffi.ValueKindObject {
+		return Element{}, ErrWrongType
+	}
+
+	view, rc := o.element.doc.parser.library.bindings.ObjectGetField(&o.element.view, key)
+	runtime.KeepAlive(o.element.doc)
+	if err := normalizeIteratorError(o.element.doc, rc); err != nil {
+		return Element{}, err
+	}
+
+	return Element{doc: o.element.doc, view: view}, nil
+}
+
+// GetStringField returns the named field as a copied Go string using the same
+// semantics as GetField followed by Element.GetString.
+func (o Object) GetStringField(name string) (string, error) {
+	field, err := o.GetField(name)
+	if err != nil {
+		return "", err
+	}
+	return field.GetString()
 }
