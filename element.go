@@ -6,6 +6,8 @@ import (
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
 
+const maxExactFloat64Integer = 1 << 53
+
 // Element is the public value-view wrapper for a document root or child value.
 type Element struct {
 	doc  *Doc
@@ -118,6 +120,29 @@ func (e Element) GetUint64() (uint64, error) {
 func (e Element) GetFloat64() (float64, error) {
 	if e.doc == nil || e.doc.isClosed() {
 		return 0, ErrClosed
+	}
+
+	switch ffi.ValueKind(e.view.KindHint) {
+	case ffi.ValueKindInt64:
+		value, rc := e.doc.parser.library.bindings.ElementGetInt64(&e.view)
+		runtime.KeepAlive(e.doc)
+		if err := wrapStatus(rc); err != nil {
+			return 0, err
+		}
+		if value < -maxExactFloat64Integer || value > maxExactFloat64Integer {
+			return 0, wrapStatus(int32(ffi.ErrPrecisionLoss))
+		}
+		return float64(value), nil
+	case ffi.ValueKindUint64:
+		value, rc := e.doc.parser.library.bindings.ElementGetUint64(&e.view)
+		runtime.KeepAlive(e.doc)
+		if err := wrapStatus(rc); err != nil {
+			return 0, err
+		}
+		if value > maxExactFloat64Integer {
+			return 0, wrapStatus(int32(ffi.ErrPrecisionLoss))
+		}
+		return float64(value), nil
 	}
 
 	value, rc := e.doc.parser.library.bindings.ElementGetFloat64(&e.view)
