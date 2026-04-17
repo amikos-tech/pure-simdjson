@@ -6,7 +6,7 @@ import (
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
 
-// ArrayIter scans array values one element at a time.
+// ArrayIter scans array values one element at a time in document order.
 type ArrayIter struct {
 	doc          *Doc
 	iter         ffi.ArrayIter
@@ -15,7 +15,8 @@ type ArrayIter struct {
 	err          error
 }
 
-// ObjectIter scans object entries one field at a time.
+// ObjectIter scans object entries one field at a time in document order. Keys
+// are exposed as copied Go strings.
 type ObjectIter struct {
 	doc          *Doc
 	iter         ffi.ObjectIter
@@ -25,7 +26,9 @@ type ObjectIter struct {
 	err          error
 }
 
-// Next advances the iterator and reports whether another value is available.
+// Next advances the iterator and reports whether another value is available. It
+// returns false after the iterator is exhausted or when Err reports a terminal
+// failure.
 func (it *ArrayIter) Next() bool {
 	if it == nil || it.done || it.err != nil {
 		return false
@@ -72,7 +75,7 @@ func (it *ArrayIter) Err() error {
 }
 
 // Next advances the iterator and reports whether another object entry is
-// available.
+// available. It caches the current key as a copied Go string for Key.
 func (it *ObjectIter) Next() bool {
 	if it == nil || it.done || it.err != nil {
 		return false

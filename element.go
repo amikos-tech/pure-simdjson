@@ -14,7 +14,8 @@ type Element struct {
 	view ffi.ValueView
 }
 
-// ElementType reports the concrete JSON value kind for an Element.
+// ElementType reports the concrete JSON value kind for an Element, preserving
+// the distinct int64, uint64, and float64 classifications from simdjson's DOM.
 type ElementType uint32
 
 const (
@@ -49,8 +50,9 @@ type Array struct{ element Element }
 type Object struct{ element Element }
 
 // GetInt64 reads the current element as an int64 and returns ErrClosed when the
-// owning document has already been released. Element accessors are not safe for
-// concurrent use with Doc.Close.
+// owning document has already been released. Uint64 values larger than max
+// int64 report ErrNumberOutOfRange, while float-kind values report ErrWrongType.
+// Element accessors are not safe for concurrent use with Doc.Close.
 func (e Element) GetInt64() (int64, error) {
 	if e.doc == nil || e.doc.isClosed() {
 		return 0, ErrClosed
@@ -101,7 +103,8 @@ func (e Element) Type() ElementType {
 }
 
 // GetUint64 reads the current element as a uint64 and returns ErrClosed when
-// the owning document has already been released.
+// the owning document has already been released. Negative integers report
+// ErrNumberOutOfRange and non-uint64 kinds report ErrWrongType.
 func (e Element) GetUint64() (uint64, error) {
 	if e.doc == nil || e.doc.isClosed() {
 		return 0, ErrClosed
@@ -116,7 +119,8 @@ func (e Element) GetUint64() (uint64, error) {
 }
 
 // GetFloat64 reads the current element as a float64 and returns ErrClosed when
-// the owning document has already been released.
+// the owning document has already been released. Large int64 and uint64 values
+// that would lose precision report ErrPrecisionLoss instead of rounding.
 func (e Element) GetFloat64() (float64, error) {
 	if e.doc == nil || e.doc.isClosed() {
 		return 0, ErrClosed
@@ -224,7 +228,8 @@ func (e Element) AsObject() (Object, error) {
 	return Object{element: e}, nil
 }
 
-// Iter returns a scanner-style iterator over the array contents.
+// Iter returns a scanner-style iterator over the array contents in document
+// order.
 func (a Array) Iter() *ArrayIter {
 	it := &ArrayIter{doc: a.element.doc}
 	if a.element.doc == nil || a.element.doc.isClosed() {
@@ -247,7 +252,8 @@ func (a Array) Iter() *ArrayIter {
 	return it
 }
 
-// Iter returns a scanner-style iterator over the object fields.
+// Iter returns a scanner-style iterator over the object fields in document
+// order.
 func (o Object) Iter() *ObjectIter {
 	it := &ObjectIter{doc: o.element.doc}
 	if o.element.doc == nil || o.element.doc.isClosed() {
@@ -291,7 +297,9 @@ func (o Object) GetField(key string) (Element, error) {
 }
 
 // GetStringField returns the named field as a copied Go string using the same
-// semantics as GetField followed by Element.GetString.
+// semantics as GetField followed by Element.GetString, including
+// ErrElementNotFound for missing fields and ErrWrongType for present non-string
+// values.
 func (o Object) GetStringField(name string) (string, error) {
 	field, err := o.GetField(name)
 	if err != nil {
