@@ -10,6 +10,8 @@ func FuzzParseThenGetString(f *testing.F) {
 	f.Add([]byte(`"hello"`))
 	f.Add([]byte(`{"name":"alice","tags":["one","two"]}`))
 	f.Add([]byte(`[1,"two",true,null]`))
+	f.Add([]byte(`9223372036854775807`))
+	f.Add([]byte(`-9223372036854775808`))
 	f.Add([]byte(`9007199254740992`))
 	f.Add([]byte(`9007199254740993`))
 	f.Add([]byte(`-9007199254740992`))

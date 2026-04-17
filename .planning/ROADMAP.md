@@ -381,5 +381,27 @@ Parking lot for ideas not yet scheduled. Promote with `/gsd-review-backlog`.
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
+### Phase 999.2: Unified cleanup-failure reporting surface (BACKLOG)
+
+**Goal:** [Captured for future planning] Replace the ad-hoc cleanup-failure `eprintln!` dispatch in `src/runtime/mod.rs` and `src/runtime/registry.rs` with a deliberate reporting surface that can propagate diagnostics to Go/test callers without forcing unconditional stderr output from the Rust runtime.
+
+**Requirements:** TBD
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.3: Encapsulate exported internal/ffi layout types (BACKLOG)
+
+**Goal:** [Captured for future planning] Reshape the exported `internal/ffi` layout carriers so purego bindings can preserve ABI/layout guarantees without exposing field-level coupling as de facto public API.
+
+**Requirements:** TBD
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
 ---
 *Roadmap created: 2026-04-14 from PROJECT.md, REQUIREMENTS.md, and research/SUMMARY.md*

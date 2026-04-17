@@ -567,7 +567,7 @@ func TestParseInputVariants(t *testing.T) {
 	}
 }
 
-func TestAccessorPathSurvivesGCPressure(t *testing.T) {
+func TestAccessorPathSurvivesInterleavedGCPressure(t *testing.T) {
 	_, doc := mustParseDoc(t, `{"outer":{"label":"ok","values":[1,2,3]}}`)
 
 	rootObject, err := doc.Root().AsObject()
@@ -579,10 +579,7 @@ func TestAccessorPathSurvivesGCPressure(t *testing.T) {
 		t.Fatalf("GetField(\"outer\") error = %v", err)
 	}
 
-	for i := 0; i < 64; i++ {
-		runtime.GC()
-	}
-
+	runtime.GC()
 	outerObject, err := outerField.AsObject()
 	if err != nil {
 		t.Fatalf("outerField.AsObject() error = %v", err)
@@ -606,7 +603,12 @@ func TestAccessorPathSurvivesGCPressure(t *testing.T) {
 
 	iter := values.Iter()
 	sum := int64(0)
-	for iter.Next() {
+	for {
+		runtime.GC()
+		if !iter.Next() {
+			break
+		}
+		runtime.GC()
 		value, err := iter.Value().GetInt64()
 		if err != nil {
 			t.Fatalf("iter.Value().GetInt64() error = %v", err)

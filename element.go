@@ -1,12 +1,11 @@
 package purejson
 
 import (
+	"math/bits"
 	"runtime"
 
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
-
-const maxExactFloat64Integer = 1 << 53
 
 // Element is the public value-view wrapper for a document root or child value.
 type Element struct {
@@ -48,6 +47,22 @@ type Array struct{ element Element }
 // Element.AsObject; the unexported field prevents callers from creating an
 // unverified instance.
 type Object struct{ element Element }
+
+func exactFloat64Uint64(value uint64) bool {
+	if value == 0 {
+		return true
+	}
+	significant := value >> bits.TrailingZeros64(value)
+	return bits.Len64(significant) <= 53
+}
+
+func exactFloat64Int64(value int64) bool {
+	magnitude := uint64(value)
+	if value < 0 {
+		magnitude = uint64(^value) + 1
+	}
+	return exactFloat64Uint64(magnitude)
+}
 
 func (e Element) usableDoc() (*Doc, error) {
 	if e.doc == nil {
@@ -163,7 +178,7 @@ func (e Element) GetFloat64() (float64, error) {
 		if err := wrapStatus(rc); err != nil {
 			return 0, err
 		}
-		if value < -maxExactFloat64Integer || value > maxExactFloat64Integer {
+		if !exactFloat64Int64(value) {
 			return 0, wrapStatus(int32(ffi.ErrPrecisionLoss))
 		}
 		return float64(value), nil
@@ -173,7 +188,7 @@ func (e Element) GetFloat64() (float64, error) {
 		if err := wrapStatus(rc); err != nil {
 			return 0, err
 		}
-		if value > maxExactFloat64Integer {
+		if !exactFloat64Uint64(value) {
 			return 0, wrapStatus(int32(ffi.ErrPrecisionLoss))
 		}
 		return float64(value), nil

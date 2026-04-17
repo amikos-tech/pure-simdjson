@@ -118,7 +118,25 @@ const KIND_HINT_INVALID: u32 = 0;
 const KIND_HINT_STRING: u32 = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_STRING as u32;
 const KIND_HINT_ARRAY: u32 = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_ARRAY as u32;
 const KIND_HINT_OBJECT: u32 = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_OBJECT as u32;
-const MAX_EXACT_FLOAT64_INTEGER: i64 = 1_i64 << 53;
+
+#[inline]
+fn uint64_is_exact_float64(value: u64) -> bool {
+    if value == 0 {
+        return true;
+    }
+    let significant = value >> value.trailing_zeros();
+    (u64::BITS - significant.leading_zeros()) <= 53
+}
+
+#[inline]
+fn int64_is_exact_float64(value: i64) -> bool {
+    let magnitude = if value < 0 {
+        value.wrapping_neg() as u64
+    } else {
+        value as u64
+    };
+    uint64_is_exact_float64(magnitude)
+}
 
 #[inline]
 fn registry() -> &'static Mutex<Registry> {
@@ -683,14 +701,14 @@ pub(crate) fn element_get_float64(
         |entry, json_index, _| match super::native_element_type_at(entry.native_ptr, json_index)? {
             kind if kind == pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_INT64 as u32 => {
                 let value = super::native_element_get_int64_at(entry.native_ptr, json_index)?;
-                if !(-MAX_EXACT_FLOAT64_INTEGER..=MAX_EXACT_FLOAT64_INTEGER).contains(&value) {
+                if !int64_is_exact_float64(value) {
                     return Err(err_precision_loss());
                 }
                 Ok(value as f64)
             }
             kind if kind == pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_UINT64 as u32 => {
                 let value = super::native_element_get_uint64_at(entry.native_ptr, json_index)?;
-                if value > MAX_EXACT_FLOAT64_INTEGER as u64 {
+                if !uint64_is_exact_float64(value) {
                     return Err(err_precision_loss());
                 }
                 Ok(value as f64)
@@ -734,7 +752,9 @@ pub(crate) fn element_get_string(
         .insert(ptr as usize, len)
         .is_some()
     {
-        // SAFETY: the allocation was just produced from `owned` with matching pointer/length/cap.
+        // SAFETY: `ptr`/`len` came from `owned.as_mut_ptr()` and `owned.len()` immediately before
+        // `mem::forget(owned)`, and `debug_assert_eq!(owned.len(), owned.capacity())` established
+        // that reconstructing with `(ptr, len, len)` matches the original allocation.
         unsafe {
             drop(Vec::from_raw_parts(ptr, len, len));
         }
