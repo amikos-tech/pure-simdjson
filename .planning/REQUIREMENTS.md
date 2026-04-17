@@ -20,28 +20,28 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Native Shim (Rust + simdjson)
 
-- [ ] **SHIM-01**: Crate `pure_simdjson` with `crate-type = ["cdylib", "staticlib"]`
-- [ ] **SHIM-02**: `build.rs` compiles vendored simdjson v4.6.1 amalgamation via the `cc` crate (C++17, `-static-libstdc++`, `-static-libgcc`)
-- [ ] **SHIM-03**: simdjson vendored as git submodule at `third_party/simdjson` with pinned commit
-- [ ] **SHIM-04**: Runtime kernel dispatch left to simdjson's auto-detection (icelake / haswell / westmere / arm64 / fallback); no `-march=native`
-- [ ] **SHIM-05**: `get_implementation_name()` exposes the selected kernel for diagnostic use
-- [ ] **SHIM-06**: Exports `parser_new`, `parser_free`, `parser_parse`, `doc_free`, `doc_root`, `element_type`, `element_get_int64`, `element_get_uint64`, `element_get_float64`, `element_get_string`, `element_get_bool`, `element_is_null`, `array_iter_new`, `array_iter_next`, `object_iter_new`, `object_iter_next`, `object_get_field`
-- [ ] **SHIM-07**: Unsupported CPU (`fallback` kernel selected) returns `ERR_CPU_UNSUPPORTED` on `parser_new`; bypass flag available for opt-in testing only
+- [x] **SHIM-01**: Crate `pure_simdjson` with `crate-type = ["cdylib", "staticlib"]`
+- [x] **SHIM-02**: `build.rs` compiles vendored simdjson v4.6.1 amalgamation via the `cc` crate (C++17, `-static-libstdc++`, `-static-libgcc`)
+- [x] **SHIM-03**: simdjson vendored as git submodule at `third_party/simdjson` with pinned commit
+- [x] **SHIM-04**: Runtime kernel dispatch left to simdjson's auto-detection (icelake / haswell / westmere / arm64 / fallback); no `-march=native`
+- [x] **SHIM-05**: `get_implementation_name()` exposes the selected kernel for diagnostic use
+- [x] **SHIM-06**: Exports `parser_new`, `parser_free`, `parser_parse`, `doc_free`, `doc_root`, `element_type`, `element_get_int64`, `element_get_uint64`, `element_get_float64`, `element_get_string`, `element_get_bool`, `element_is_null`, `array_iter_new`, `array_iter_next`, `object_iter_new`, `object_iter_next`, `object_get_field`
+- [x] **SHIM-07**: Unsupported CPU (`fallback` kernel selected) returns `ERR_CPU_UNSUPPORTED` on `parser_new`; bypass flag available for opt-in testing only
 
 ### Go Public API
 
-- [ ] **API-01**: Package `purejson` with `Parser`, `Doc`, `Element`, `Array`, `Object`, `ParserPool` types
-- [ ] **API-02**: `NewParser() (*Parser, error)` allocates a reusable parser
-- [ ] **API-03**: `Parser.Parse(data []byte) (*Doc, error)` parses JSON; returns typed errors; input is copied into Rust-owned arena
+- [x] **API-01**: Package `purejson` with `Parser`, `Doc`, `Element`, `Array`, `Object`, `ParserPool` types
+- [x] **API-02**: `NewParser() (*Parser, error)` allocates a reusable parser
+- [x] **API-03**: `Parser.Parse(data []byte) (*Doc, error)` parses JSON; returns typed errors; input is copied into Rust-owned arena
 - [ ] **API-04**: Distinct typed number accessors on `Element`: `GetInt64() (int64, error)`, `GetUint64() (uint64, error)`, `GetFloat64() (float64, error)`; overflow → `ErrNumberOutOfRange`; precision loss → `ErrPrecisionLoss`
 - [ ] **API-05**: `GetString() (string, error)` returns a Go string copy (zero-copy views deferred to v0.2)
 - [ ] **API-06**: `GetBool() (bool, error)`, `IsNull() bool`, `Type() ElementType`
 - [ ] **API-07**: Cursor/pull iteration: `Array.Iter() *ArrayIter`, `Object.Iter() *ObjectIter`; Go drives with `Next()` / `Value()` / `Key()` — no callbacks into Go
 - [ ] **API-08**: `Object.GetField(key string) (Element, error)` for direct-key lookup
-- [ ] **API-09**: `Parser.Close()` and `Doc.Close()` are idempotent; double-close returns nil error; use-after-close returns `ErrClosed`
-- [ ] **API-10**: `ParserPool` wraps `sync.Pool` with Get/Put and finalization; goroutine-per-parser is the documented concurrency model
-- [ ] **API-11**: `runtime.SetFinalizer` on `Parser`/`Doc` logs a leak warning in test builds; production builds silent (never primary cleanup)
-- [ ] **API-12**: Typed error vars (`ErrInvalidHandle`, `ErrClosed`, `ErrParserBusy`, `ErrNumberOutOfRange`, `ErrPrecisionLoss`, `ErrCPUUnsupported`, `ErrABIVersionMismatch`, `ErrInvalidJSON`, `ErrElementNotFound`, `ErrWrongType`) wrap the FFI error codes
+- [x] **API-09**: `Parser.Close()` and `Doc.Close()` are idempotent; double-close returns nil error; use-after-close returns `ErrClosed`
+- [x] **API-10**: `ParserPool` wraps `sync.Pool` with Get/Put and finalization; goroutine-per-parser is the documented concurrency model
+- [x] **API-11**: `runtime.SetFinalizer` on `Parser`/`Doc` logs a leak warning in test builds; production builds silent (never primary cleanup)
+- [x] **API-12**: Typed error vars (`ErrInvalidHandle`, `ErrClosed`, `ErrParserBusy`, `ErrNumberOutOfRange`, `ErrPrecisionLoss`, `ErrCPUUnsupported`, `ErrABIVersionMismatch`, `ErrInvalidJSON`, `ErrElementNotFound`, `ErrWrongType`) wrap the FFI error codes
 
 ### Platform Support
 
@@ -90,7 +90,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **DOC-01**: `README.md` with installation, quick-start code example, platform matrix, and benchmark snapshot
 - [x] **DOC-02**: `docs/ffi-contract.md` — full FFI contract (from Phase 1); versioned alongside ABI
 - [ ] **DOC-03**: Godoc on every exported type/function in `purejson`
-- [ ] **DOC-04**: `docs/concurrency.md` — per-parser single-doc invariant, `ParserPool` pattern, why not to share a Parser
+- [x] **DOC-04**: `docs/concurrency.md` — per-parser single-doc invariant, `ParserPool` pattern, why not to share a Parser
 - [ ] **DOC-05**: `docs/bootstrap.md` — env vars, mirror setup, air-gapped install flow
 - [ ] **DOC-06**: `CHANGELOG.md` following Keep-a-Changelog format
 - [ ] **DOC-07**: `LICENSE` (MIT) + `NOTICE` for simdjson's Apache-2.0 upstream
@@ -156,25 +156,25 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | FFI-06 | Phase 1 | Complete |
 | FFI-07 | Phase 1 | Complete |
 | FFI-08 | Phase 1 | Complete |
-| SHIM-01 | Phase 2 | Pending |
-| SHIM-02 | Phase 2 | Pending |
-| SHIM-03 | Phase 2 | Pending |
-| SHIM-04 | Phase 2 | Pending |
-| SHIM-05 | Phase 2 | Pending |
-| SHIM-06 | Phase 2 | Pending |
-| SHIM-07 | Phase 2 | Pending |
-| API-01 | Phase 3 | Pending |
-| API-02 | Phase 3 | Pending |
-| API-03 | Phase 3 | Pending |
+| SHIM-01 | Phase 2 | Complete |
+| SHIM-02 | Phase 2 | Complete |
+| SHIM-03 | Phase 2 | Complete |
+| SHIM-04 | Phase 2 | Complete |
+| SHIM-05 | Phase 2 | Complete |
+| SHIM-06 | Phase 2 | Complete |
+| SHIM-07 | Phase 2 | Complete |
+| API-01 | Phase 3 | Complete |
+| API-02 | Phase 3 | Complete |
+| API-03 | Phase 3 | Complete |
 | API-04 | Phase 4 | Pending |
 | API-05 | Phase 4 | Pending |
 | API-06 | Phase 4 | Pending |
 | API-07 | Phase 4 | Pending |
 | API-08 | Phase 4 | Pending |
-| API-09 | Phase 3 | Pending |
-| API-10 | Phase 3 | Pending |
-| API-11 | Phase 3 | Pending |
-| API-12 | Phase 3 | Pending |
+| API-09 | Phase 3 | Complete |
+| API-10 | Phase 3 | Complete |
+| API-11 | Phase 3 | Complete |
+| API-12 | Phase 3 | Complete |
 | PLAT-01 | Phase 6 | Pending |
 | PLAT-02 | Phase 6 | Pending |
 | PLAT-03 | Phase 6 | Pending |
@@ -208,7 +208,7 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | DOC-01 | Phase 7 | Pending |
 | DOC-02 | Phase 1 | Complete |
 | DOC-03 | Phase 3 (partial) + Phase 4 (complete) | Pending |
-| DOC-04 | Phase 3 | Pending |
+| DOC-04 | Phase 3 | Complete |
 | DOC-05 | Phase 5 | Pending |
 | DOC-06 | Phase 7 | Pending |
 | DOC-07 | Phase 7 | Pending |
@@ -220,4 +220,4 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 
 ---
 *Requirements defined: 2026-04-14*
-*Last updated: 2026-04-14 — roadmap traceability finalized by gsd-roadmapper*
+*Last updated: 2026-04-16 — phases 2 and 3 verified and traceability refreshed*
