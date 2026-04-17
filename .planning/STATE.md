@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-04-17T08:27:53.156Z"
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-04-17T08:49:23.791Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 16
-  completed_plans: 13
-  percent: 81
+  completed_plans: 14
+  percent: 88
 ---
 
 # Project State
@@ -26,18 +26,18 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 04 (full-typed-accessor-surface) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-04-17
-Shipping: Phase 04 Plan 02 verified locally
+Shipping: Phase 04 Plan 03 verified locally
 
-Progress: [████████░░] 13/16 plans (81%)
+Progress: [█████████░] 14/16 plans (88%)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 13
+- Total plans completed: 14
 - Average duration: 11.2m
 - Total execution time: 1.1 hours
 
@@ -56,6 +56,7 @@ Progress: [████████░░] 13/16 plans (81%)
 
 | Phase 04 P01 | 16m | 2 tasks | 7 files |
 | Phase 04-full-typed-accessor-surface P02 | 8m | 2 tasks | 2 files |
+| Phase 04 P03 | 4m | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 04-full-typed-accessor-surface]: Public ElementType numerically mirrors ffi.ValueKind so Type() preserves the exact int64/uint64/float64 split.
 - [Phase 04-full-typed-accessor-surface]: GetFloat64 rejects lossy integral conversions in the Go wrapper because native get_double rounds large int64/uint64 values silently.
 - [Phase 04-full-typed-accessor-surface]: Integers larger than uint64 max are locked as parse-time ErrInvalidJSON cases because simdjson rejects them before GetUint64 can run.
+- [Phase 04]: Iterator tags are locked as AR/OB and every iterator call rejects unknown tags or reserved bits before traversal continues.
+- [Phase 04]: Array/object iterator progress stays inline as current and end tape indexes because the public ABI has no iterator free hook.
 
 ### Pending Todos
 
@@ -86,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T08:27:53.144Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-04-17T08:49:23.788Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
