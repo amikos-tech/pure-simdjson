@@ -42,6 +42,32 @@ func TestElementGetStringWarnsOnBytesFreeFailure(t *testing.T) {
 	}
 }
 
+func TestElementGetStringSkipsBytesFreeForEmptyStrings(t *testing.T) {
+	var freed bool
+	b := &Bindings{
+		elementGetString: func(_ *ValueView, outPtr **byte, outLen *uintptr) int32 {
+			*outPtr = nil
+			*outLen = 0
+			return int32(OK)
+		},
+		bytesFree: func(_ *byte, _ uintptr) int32 {
+			freed = true
+			return int32(OK)
+		},
+	}
+
+	value, rc := b.ElementGetString(&ValueView{})
+	if rc != int32(OK) {
+		t.Fatalf("ElementGetString() rc = %d, want %d", rc, OK)
+	}
+	if value != "" {
+		t.Fatalf("ElementGetString() value = %q, want empty string", value)
+	}
+	if freed {
+		t.Fatal("BytesFree() was called for an empty string")
+	}
+}
+
 func captureStderr(t *testing.T, fn func()) string {
 	t.Helper()
 

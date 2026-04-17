@@ -426,6 +426,62 @@ func TestZeroValueIteratorsReportInvalidHandle(t *testing.T) {
 	}
 }
 
+func TestIteratorsRejectBrokenDocChains(t *testing.T) {
+	testCases := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{
+			name: "array iterator nil parser",
+			run: func(t *testing.T) {
+				iter := &ArrayIter{doc: &Doc{}}
+				assertIteratorInvalidHandle(t, "ArrayIter.Next", iter.Next, iter.Err)
+			},
+		},
+		{
+			name: "array iterator nil library",
+			run: func(t *testing.T) {
+				iter := &ArrayIter{doc: &Doc{parser: &Parser{}}}
+				assertIteratorInvalidHandle(t, "ArrayIter.Next", iter.Next, iter.Err)
+			},
+		},
+		{
+			name: "array iterator nil bindings",
+			run: func(t *testing.T) {
+				iter := &ArrayIter{doc: &Doc{parser: &Parser{library: &loadedLibrary{}}}}
+				assertIteratorInvalidHandle(t, "ArrayIter.Next", iter.Next, iter.Err)
+			},
+		},
+		{
+			name: "object iterator nil parser",
+			run: func(t *testing.T) {
+				iter := &ObjectIter{doc: &Doc{}}
+				assertIteratorInvalidHandle(t, "ObjectIter.Next", iter.Next, iter.Err)
+			},
+		},
+		{
+			name: "object iterator nil library",
+			run: func(t *testing.T) {
+				iter := &ObjectIter{doc: &Doc{parser: &Parser{}}}
+				assertIteratorInvalidHandle(t, "ObjectIter.Next", iter.Next, iter.Err)
+			},
+		},
+		{
+			name: "object iterator nil bindings",
+			run: func(t *testing.T) {
+				iter := &ObjectIter{doc: &Doc{parser: &Parser{library: &loadedLibrary{}}}}
+				assertIteratorInvalidHandle(t, "ObjectIter.Next", iter.Next, iter.Err)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.run(t)
+		})
+	}
+}
+
 func TestParseRejectsMalformedUTF8Objects(t *testing.T) {
 	testCases := []struct {
 		name string
@@ -588,5 +644,26 @@ func TestNormalizeIteratorErrorOnlySoftensInvalidHandle(t *testing.T) {
 
 	if err := normalizeIteratorError(doc, int32(ffi.ErrElementNotFound)); !errors.Is(err, ErrElementNotFound) {
 		t.Fatalf("normalizeIteratorError(ErrElementNotFound) = %v, want ErrElementNotFound", err)
+	}
+}
+
+func assertIteratorInvalidHandle(t *testing.T, name string, next func() bool, errFn func() error) {
+	t.Helper()
+
+	var panicValue any
+	got := func() (nextOK bool) {
+		defer func() {
+			panicValue = recover()
+		}()
+		return next()
+	}()
+	if panicValue != nil {
+		t.Fatalf("%s panicked: %v", name, panicValue)
+	}
+	if got {
+		t.Fatalf("%s = true, want false", name)
+	}
+	if err := errFn(); !errors.Is(err, ErrInvalidHandle) {
+		t.Fatalf("%s error = %v, want ErrInvalidHandle", name, err)
 	}
 }

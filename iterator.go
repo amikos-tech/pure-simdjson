@@ -34,14 +34,15 @@ func (it *ArrayIter) Next() bool {
 	if it == nil || it.done || it.err != nil {
 		return false
 	}
-	if it.doc == nil || it.doc.isClosed() {
+	bindings, err := usableIteratorBindings(it.doc)
+	if err != nil {
 		it.currentValue = Element{}
 		it.done = true
-		it.err = ErrClosed
+		it.err = err
 		return false
 	}
 
-	value, done, rc := it.doc.parser.library.bindings.ArrayIterNext(&it.iter)
+	value, done, rc := bindings.ArrayIterNext(&it.iter)
 	runtime.KeepAlive(it.doc)
 	if err := normalizeIteratorError(it.doc, rc); err != nil {
 		it.currentValue = Element{}
@@ -82,15 +83,16 @@ func (it *ObjectIter) Next() bool {
 	if it == nil || it.done || it.err != nil {
 		return false
 	}
-	if it.doc == nil || it.doc.isClosed() {
+	bindings, err := usableIteratorBindings(it.doc)
+	if err != nil {
 		it.currentValue = Element{}
 		it.currentKey = ""
 		it.done = true
-		it.err = ErrClosed
+		it.err = err
 		return false
 	}
 
-	keyView, valueView, done, rc := it.doc.parser.library.bindings.ObjectIterNext(&it.iter)
+	keyView, valueView, done, rc := bindings.ObjectIterNext(&it.iter)
 	runtime.KeepAlive(it.doc)
 	if err := normalizeIteratorError(it.doc, rc); err != nil {
 		it.currentValue = Element{}
@@ -106,7 +108,7 @@ func (it *ObjectIter) Next() bool {
 		return false
 	}
 
-	key, rc := it.doc.parser.library.bindings.ElementGetString(&keyView)
+	key, rc := bindings.ElementGetString(&keyView)
 	runtime.KeepAlive(it.doc)
 	if err := normalizeIteratorError(it.doc, rc); err != nil {
 		it.currentValue = Element{}
@@ -143,6 +145,19 @@ func (it *ObjectIter) Err() error {
 		return nil
 	}
 	return it.err
+}
+
+func usableIteratorBindings(doc *Doc) (*ffi.Bindings, error) {
+	if doc == nil {
+		return nil, ErrInvalidHandle
+	}
+	if doc.parser == nil || doc.parser.library == nil || doc.parser.library.bindings == nil {
+		return nil, ErrInvalidHandle
+	}
+	if doc.isClosed() {
+		return nil, ErrClosed
+	}
+	return doc.parser.library.bindings, nil
 }
 
 func normalizeIteratorError(doc *Doc, code int32) error {

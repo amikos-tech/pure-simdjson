@@ -250,6 +250,9 @@ func (b *Bindings) ElementGetString(view *ValueView) (string, int32) {
 	}
 
 	defer func() {
+		if ptr == nil {
+			return
+		}
 		if freeRC := b.BytesFree(ptr, length); freeRC != int32(OK) && leakWarningsEnabled() {
 			fmt.Fprintf(os.Stderr, "purejson leak: bytes_free rc=%d len=%d\n", freeRC, length)
 		}
