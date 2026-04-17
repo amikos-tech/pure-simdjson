@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     mem, ptr, slice,
     sync::{Mutex, MutexGuard, OnceLock},
 };
@@ -23,6 +23,7 @@ const MAX_SLOT_COUNT: usize = u32::MAX as usize - 1;
 const PARSER_GENERATION_START: u32 = 1;
 const DOC_GENERATION_START: u32 = 2;
 const ROOT_JSON_INDEX: u64 = 1;
+const ITER_LEASE_START: u32 = 1;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ParserState {
@@ -47,6 +48,15 @@ struct DocEntry {
     owner_generation: u32,
     _input_storage: Vec<u8>,
     descendant_indices: HashSet<u64>,
+    iter_leases: HashMap<u32, IteratorLease>,
+    next_iter_lease: u32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct IteratorLease {
+    state0: u64,
+    state1: u64,
+    tag: u16,
 }
 
 #[derive(Clone, Debug)]
@@ -59,6 +69,7 @@ enum Slot<T> {
 struct Registry {
     parsers: Vec<Slot<ParserEntry>>,
     docs: Vec<Slot<DocEntry>>,
+    string_allocations: HashMap<usize, usize>,
 }
 
 static REGISTRY: OnceLock<Mutex<Registry>> = OnceLock::new();
@@ -139,6 +150,16 @@ fn next_doc_generation(current: u32) -> u32 {
 }
 
 #[inline]
+fn next_iter_lease(current: u32) -> u32 {
+    let next = current.wrapping_add(1);
+    if next == 0 {
+        ITER_LEASE_START
+    } else {
+        next
+    }
+}
+
+#[inline]
 fn pack_handle(slot: u32, generation: u32) -> u64 {
     u64::from(slot) | (u64::from(generation) << 32)
 }
@@ -212,6 +233,8 @@ impl Registry {
                     owner_generation,
                     _input_storage: input,
                     descendant_indices: HashSet::new(),
+                    iter_leases: HashMap::new(),
+                    next_iter_lease: ITER_LEASE_START,
                 });
                 return Ok(pack_handle(slot_number, generation));
             }
@@ -231,6 +254,8 @@ impl Registry {
             owner_generation,
             _input_storage: input,
             descendant_indices: HashSet::new(),
+            iter_leases: HashMap::new(),
+            next_iter_lease: ITER_LEASE_START,
         }));
         Ok(pack_handle(self.docs.len() as u32, generation))
     }
@@ -253,6 +278,68 @@ impl Registry {
         let (index, _, generation) = unpack_handle(handle)?;
         match self.docs.get(index) {
             Some(Slot::Occupied(entry)) if entry.generation == generation => Ok(entry),
+            _ => Err(err_invalid_handle()),
+        }
+    }
+}
+
+impl DocEntry {
+    fn alloc_iter_lease(
+        &mut self,
+        tag: u16,
+        state0: u64,
+        state1: u64,
+    ) -> Result<u32, pure_simdjson_error_code_t> {
+        let mut lease_id = if self.next_iter_lease == 0 {
+            ITER_LEASE_START
+        } else {
+            self.next_iter_lease
+        };
+        for _ in 0..u32::MAX {
+            if let std::collections::hash_map::Entry::Vacant(slot) =
+                self.iter_leases.entry(lease_id)
+            {
+                slot.insert(IteratorLease {
+                    state0,
+                    state1,
+                    tag,
+                });
+                self.next_iter_lease = next_iter_lease(lease_id);
+                return Ok(lease_id);
+            }
+            lease_id = next_iter_lease(lease_id);
+        }
+        Err(err_internal())
+    }
+
+    fn validate_iter_lease(
+        &self,
+        lease_id: u32,
+        state0: u64,
+        state1: u64,
+        tag: u16,
+    ) -> Result<(), pure_simdjson_error_code_t> {
+        match self.iter_leases.get(&lease_id) {
+            Some(lease) if lease.state0 == state0 && lease.state1 == state1 && lease.tag == tag => {
+                Ok(())
+            }
+            _ => Err(err_invalid_handle()),
+        }
+    }
+
+    fn update_iter_lease(
+        &mut self,
+        lease_id: u32,
+        state0: u64,
+        state1: u64,
+        tag: u16,
+    ) -> Result<(), pure_simdjson_error_code_t> {
+        match self.iter_leases.get_mut(&lease_id) {
+            Some(lease) if lease.tag == tag => {
+                lease.state0 = state0;
+                lease.state1 = state1;
+                Ok(())
+            }
             _ => Err(err_invalid_handle()),
         }
     }
@@ -611,7 +698,7 @@ pub(crate) fn element_get_float64(
 pub(crate) fn element_get_string(
     view: *const pure_simdjson_value_view_t,
 ) -> Result<(*mut u8, usize), pure_simdjson_error_code_t> {
-    with_resolved_view(view, |entry, json_index, _| {
+    let (ptr, len) = with_resolved_view(view, |entry, json_index, _| {
         let (borrowed_ptr, len) =
             super::native_element_get_string_view(entry.native_ptr, json_index)?;
         if len == 0 {
@@ -628,7 +715,25 @@ pub(crate) fn element_get_string(
         debug_assert_eq!(owned.len(), owned.capacity());
         mem::forget(owned);
         Ok((ptr, len))
-    })
+    })?;
+
+    if ptr.is_null() {
+        return Ok((ptr, len));
+    }
+
+    let mut registry = registry_guard();
+    if registry
+        .string_allocations
+        .insert(ptr as usize, len)
+        .is_some()
+    {
+        unsafe {
+            drop(Vec::from_raw_parts(ptr, len, len));
+        }
+        return Err(err_internal());
+    }
+
+    Ok((ptr, len))
 }
 
 pub(crate) fn bytes_free(ptr: *mut u8, len: usize) -> pure_simdjson_error_code_t {
@@ -641,6 +746,20 @@ pub(crate) fn bytes_free(ptr: *mut u8, len: usize) -> pure_simdjson_error_code_t
     }
     if len == 0 {
         return err_invalid_argument();
+    }
+
+    {
+        let mut registry = registry_guard();
+        match registry.string_allocations.remove(&(ptr as usize)) {
+            Some(registered_len) if registered_len == len => {}
+            Some(registered_len) => {
+                registry
+                    .string_allocations
+                    .insert(ptr as usize, registered_len);
+                return err_invalid_handle();
+            }
+            None => return err_invalid_handle(),
+        }
     }
 
     unsafe {
@@ -696,6 +815,7 @@ fn with_iter_doc<T, F>(
     doc: pure_simdjson_doc_t,
     state0: u64,
     state1: u64,
+    lease_id: u32,
     tag: u16,
     reserved: u16,
     expected_tag: u16,
@@ -714,6 +834,7 @@ where
         Some(Slot::Occupied(entry)) if entry.generation == doc_generation => entry,
         _ => return Err(err_invalid_handle()),
     };
+    entry.validate_iter_lease(lease_id, state0, state1, expected_tag)?;
     validate_iter_index(state0, entry.root_after_index)?;
     validate_iter_index(state1, entry.root_after_index)?;
     action(entry)
@@ -729,11 +850,12 @@ pub(crate) fn array_iter_new(
         }
 
         let (state0, state1) = super::native_array_iter_bounds(entry.native_ptr, json_index)?;
+        let lease_id = entry.alloc_iter_lease(ARRAY_ITER_TAG, state0, state1)?;
         Ok(pure_simdjson_array_iter_t {
             doc,
             state0,
             state1,
-            index: 0,
+            index: lease_id,
             tag: ARRAY_ITER_TAG,
             reserved: 0,
         })
@@ -752,6 +874,7 @@ pub(crate) fn array_iter_next(
         iter.doc,
         iter.state0,
         iter.state1,
+        iter.index,
         iter.tag,
         iter.reserved,
         ARRAY_ITER_TAG,
@@ -769,11 +892,11 @@ pub(crate) fn array_iter_next(
             if next_state0 <= iter.state0 || next_state0 > iter.state1 {
                 return Err(err_invalid_handle());
             }
+            entry.update_iter_lease(iter.index, next_state0, iter.state1, ARRAY_ITER_TAG)?;
 
             Ok(ArrayIterStep {
                 iter: pure_simdjson_array_iter_t {
                     state0: next_state0,
-                    index: iter.index.checked_add(1).ok_or_else(err_invalid_handle)?,
                     ..iter
                 },
                 value,
@@ -793,11 +916,12 @@ pub(crate) fn object_iter_new(
         }
 
         let (state0, state1) = super::native_object_iter_bounds(entry.native_ptr, json_index)?;
+        let lease_id = entry.alloc_iter_lease(OBJECT_ITER_TAG, state0, state1)?;
         Ok(pure_simdjson_object_iter_t {
             doc,
             state0,
             state1,
-            index: 0,
+            index: lease_id,
             tag: OBJECT_ITER_TAG,
             reserved: 0,
         })
@@ -816,6 +940,7 @@ pub(crate) fn object_iter_next(
         iter.doc,
         iter.state0,
         iter.state1,
+        iter.index,
         iter.tag,
         iter.reserved,
         OBJECT_ITER_TAG,
@@ -847,11 +972,11 @@ pub(crate) fn object_iter_next(
             if next_state0 <= value_json_index || next_state0 > iter.state1 {
                 return Err(err_invalid_handle());
             }
+            entry.update_iter_lease(iter.index, next_state0, iter.state1, OBJECT_ITER_TAG)?;
 
             Ok(ObjectIterStep {
                 iter: pure_simdjson_object_iter_t {
                     state0: next_state0,
-                    index: iter.index.checked_add(1).ok_or_else(err_invalid_handle)?,
                     ..iter
                 },
                 key,

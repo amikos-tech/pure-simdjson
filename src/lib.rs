@@ -91,9 +91,9 @@ pub struct pure_simdjson_value_view_t {
 
 /// Stateful array iterator tied to a live document handle.
 ///
-/// `state0`, `state1`, and `tag` are implementation-owned. `index` stays `u32` because the
-/// Phase 1 contract only admits documents below the 4 GiB simdjson ceiling. `reserved` stays
-/// pinned for future contract growth and callers must leave it untouched.
+/// `state0`, `state1`, `index`, and `tag` are implementation-owned. `index` stays `u32`
+/// because the Phase 1 contract only admits documents below the 4 GiB simdjson ceiling.
+/// `reserved` stays pinned for future contract growth and callers must leave it untouched.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct pure_simdjson_array_iter_t {
@@ -107,9 +107,9 @@ pub struct pure_simdjson_array_iter_t {
 
 /// Stateful object iterator tied to a live document handle.
 ///
-/// `state0`, `state1`, and `tag` are implementation-owned. `index` stays `u32` because the
-/// Phase 1 contract only admits documents below the 4 GiB simdjson ceiling. `reserved` stays
-/// pinned for future contract growth and callers must leave it untouched.
+/// `state0`, `state1`, `index`, and `tag` are implementation-owned. `index` stays `u32`
+/// because the Phase 1 contract only admits documents below the 4 GiB simdjson ceiling.
+/// `reserved` stays pinned for future contract growth and callers must leave it untouched.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct pure_simdjson_object_iter_t {

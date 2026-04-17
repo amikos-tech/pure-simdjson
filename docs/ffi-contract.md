@@ -101,7 +101,7 @@ Rules:
 - `kind_hint` uses `pure_simdjson_value_kind_t` and is advisory; callers still check return codes on accessors.
 - `reserved` must be zero. Non-zero reserved bits are rejected as `PURE_SIMDJSON_ERR_INVALID_HANDLE`.
 - `pure_simdjson_array_iter_t` and `pure_simdjson_object_iter_t` are stateful, document-tied iterators driven from Go/C by repeated `*_next` calls.
-- Iterator `tag` is implementation-owned state reserved for runtime kind validation. Iterator `reserved` is pinned for future growth and callers must leave it untouched.
+- Iterator `state0`, `state1`, `index`, and `tag` are implementation-owned state reserved for runtime validation. Iterator `reserved` is pinned for future growth and callers must leave it untouched.
 - `pure_simdjson_doc_root`, `pure_simdjson_object_get_field`, `pure_simdjson_array_iter_next`, and `pure_simdjson_object_iter_next` return new view state through out-params rather than allocating child handles.
 
 Split numeric access is mandatory:

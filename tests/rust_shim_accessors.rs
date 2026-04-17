@@ -1,4 +1,4 @@
-use std::{ptr, slice};
+use std::{mem, ptr, slice};
 
 use pure_simdjson::{
     pure_simdjson_bytes_free, pure_simdjson_doc_free, pure_simdjson_doc_root, pure_simdjson_doc_t,
@@ -191,6 +191,24 @@ fn bytes_free_rejects_null_pointer_with_length() {
         unsafe { pure_simdjson_bytes_free(ptr::null_mut(), 1) },
         PURE_SIMDJSON_ERR_INVALID_ARGUMENT
     );
+}
+
+#[test]
+fn bytes_free_rejects_non_issued_pointer() {
+    let mut bogus = vec![1_u8, 2, 3];
+    let ptr = bogus.as_mut_ptr();
+    let len = bogus.len();
+    debug_assert_eq!(bogus.len(), bogus.capacity());
+    mem::forget(bogus);
+
+    let rc = unsafe { pure_simdjson_bytes_free(ptr, len) };
+    if rc != PURE_SIMDJSON_OK {
+        unsafe {
+            drop(Vec::from_raw_parts(ptr, len, len));
+        }
+    }
+
+    assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_HANDLE);
 }
 
 #[test]

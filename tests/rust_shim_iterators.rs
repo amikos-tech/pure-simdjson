@@ -254,3 +254,61 @@ fn invalid_handle_reserved_and_tag_bits_are_rejected() {
 
     cleanup(parser, doc);
 }
+
+#[test]
+fn stale_array_iterator_copy_is_rejected_after_advance() {
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, br#"[1,2,3]"#);
+    let root = doc_root(doc);
+
+    let mut iter = pure_simdjson_array_iter_t::default();
+    let rc = unsafe { pure_simdjson_array_iter_new(&root, &mut iter) };
+    assert_eq!(rc, PURE_SIMDJSON_OK);
+
+    let mut stale = iter;
+    let mut value = pure_simdjson_value_view_t::default();
+    let mut done = 1_u8;
+
+    let rc = unsafe { pure_simdjson_array_iter_next(&mut iter, &mut value, &mut done) };
+    assert_eq!(rc, PURE_SIMDJSON_OK);
+    assert_eq!(done, 0);
+    assert_eq!(read_int64(&value), 1);
+
+    let rc = unsafe { pure_simdjson_array_iter_next(&mut stale, &mut value, &mut done) };
+    assert_eq!(
+        rc, PURE_SIMDJSON_ERR_INVALID_HANDLE,
+        "stale copied array iterator state must be rejected after the original advances"
+    );
+
+    cleanup(parser, doc);
+}
+
+#[test]
+fn stale_object_iterator_copy_is_rejected_after_advance() {
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, br#"{"a":1,"b":2}"#);
+    let root = doc_root(doc);
+
+    let mut iter = pure_simdjson_object_iter_t::default();
+    let rc = unsafe { pure_simdjson_object_iter_new(&root, &mut iter) };
+    assert_eq!(rc, PURE_SIMDJSON_OK);
+
+    let mut stale = iter;
+    let mut key = pure_simdjson_value_view_t::default();
+    let mut value = pure_simdjson_value_view_t::default();
+    let mut done = 1_u8;
+
+    let rc = unsafe { pure_simdjson_object_iter_next(&mut iter, &mut key, &mut value, &mut done) };
+    assert_eq!(rc, PURE_SIMDJSON_OK);
+    assert_eq!(done, 0);
+    assert_eq!(read_string(&key), "a");
+    assert_eq!(read_int64(&value), 1);
+
+    let rc = unsafe { pure_simdjson_object_iter_next(&mut stale, &mut key, &mut value, &mut done) };
+    assert_eq!(
+        rc, PURE_SIMDJSON_ERR_INVALID_HANDLE,
+        "stale copied object iterator state must be rejected after the original advances"
+    );
+
+    cleanup(parser, doc);
+}
