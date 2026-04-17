@@ -144,6 +144,36 @@ func TestGetUint64(t *testing.T) {
 	})
 }
 
+func TestGetInt64BoundaryContract(t *testing.T) {
+	t.Run("max int64", func(t *testing.T) {
+		_, doc := mustParseDoc(t, "9223372036854775807")
+
+		value, err := doc.Root().GetInt64()
+		if err != nil {
+			t.Fatalf("GetInt64() error = %v", err)
+		}
+		if value != 9223372036854775807 {
+			t.Fatalf("GetInt64() = %d, want %d", value, int64(9223372036854775807))
+		}
+	})
+
+	t.Run("uint64 above int64 max", func(t *testing.T) {
+		_, doc := mustParseDoc(t, "9223372036854775808")
+
+		if _, err := doc.Root().GetInt64(); !errors.Is(err, ErrNumberOutOfRange) {
+			t.Fatalf("GetInt64() error = %v, want ErrNumberOutOfRange", err)
+		}
+	})
+
+	t.Run("float-kind reports wrong type", func(t *testing.T) {
+		_, doc := mustParseDoc(t, "1e20")
+
+		if _, err := doc.Root().GetInt64(); !errors.Is(err, ErrWrongType) {
+			t.Fatalf("GetInt64() error = %v, want ErrWrongType", err)
+		}
+	})
+}
+
 func TestGetFloat64(t *testing.T) {
 	_, doc := mustParseDoc(t, "1.5")
 
@@ -158,6 +188,35 @@ func TestGetFloat64(t *testing.T) {
 	_, doc = mustParseDoc(t, "9007199254740993")
 	if _, err := doc.Root().GetFloat64(); !errors.Is(err, ErrPrecisionLoss) {
 		t.Fatalf("GetFloat64() precision-loss error = %v, want ErrPrecisionLoss", err)
+	}
+}
+
+func TestParseRejectsMalformedUTF8Scalars(t *testing.T) {
+	testCases := []struct {
+		name string
+		data []byte
+	}{
+		{name: "root string", data: []byte{0x22, 0xff, 0x22}},
+		{name: "array string", data: []byte{0x5b, 0x22, 0xff, 0x22, 0x5d}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			parser := mustNewParser(t)
+			t.Cleanup(func() {
+				if err := parser.Close(); err != nil {
+					t.Fatalf("parser.Close() cleanup error = %v", err)
+				}
+			})
+
+			doc, err := parser.Parse(tc.data)
+			if doc != nil {
+				t.Fatalf("Parse(%q) unexpectedly returned a document", tc.data)
+			}
+			if !errors.Is(err, ErrInvalidJSON) {
+				t.Fatalf("Parse(%q) error = %v, want ErrInvalidJSON", tc.data, err)
+			}
+		})
 	}
 }
 

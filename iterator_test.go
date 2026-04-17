@@ -4,6 +4,7 @@ import (
 	"errors"
 	"slices"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestArrayIterOrder(t *testing.T) {
@@ -34,6 +35,9 @@ func TestArrayIterOrder(t *testing.T) {
 			}
 			if got != "two" {
 				t.Fatalf("Value().GetString() = %q, want %q", got, "two")
+			}
+			if !utf8.ValidString(got) {
+				t.Fatalf("Value().GetString() = %q, want valid UTF-8", got)
 			}
 		case 2:
 			if !value.IsNull() {
@@ -90,6 +94,9 @@ func TestObjectIterOrder(t *testing.T) {
 	var keys []string
 	for iter.Next() {
 		keys = append(keys, iter.Key())
+		if !utf8.ValidString(iter.Key()) {
+			t.Fatalf("iter.Key() = %q, want valid UTF-8", iter.Key())
+		}
 
 		value := iter.Value()
 		switch len(keys) - 1 {
@@ -100,6 +107,9 @@ func TestObjectIterOrder(t *testing.T) {
 			}
 			if got != "alpha" {
 				t.Fatalf("Value().GetString() = %q, want %q", got, "alpha")
+			}
+			if !utf8.ValidString(got) {
+				t.Fatalf("Value().GetString() = %q, want valid UTF-8", got)
 			}
 		case 1:
 			got, err := value.GetInt64()
@@ -216,6 +226,35 @@ func TestGetStringFieldNullValue(t *testing.T) {
 
 	if _, err := object.GetStringField("name"); !errors.Is(err, ErrWrongType) {
 		t.Fatalf("GetStringField(\"name\") error = %v, want ErrWrongType", err)
+	}
+}
+
+func TestParseRejectsMalformedUTF8Objects(t *testing.T) {
+	testCases := []struct {
+		name string
+		data []byte
+	}{
+		{name: "invalid key", data: []byte{0x7b, 0x22, 0xff, 0x22, 0x3a, 0x22, 0x6f, 0x6b, 0x22, 0x7d}},
+		{name: "invalid string value", data: []byte{0x7b, 0x22, 0x6b, 0x22, 0x3a, 0x22, 0xff, 0x22, 0x7d}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			parser := mustNewParser(t)
+			t.Cleanup(func() {
+				if err := parser.Close(); err != nil {
+					t.Fatalf("parser.Close() cleanup error = %v", err)
+				}
+			})
+
+			doc, err := parser.Parse(tc.data)
+			if doc != nil {
+				t.Fatalf("Parse(%q) unexpectedly returned a document", tc.data)
+			}
+			if !errors.Is(err, ErrInvalidJSON) {
+				t.Fatalf("Parse(%q) error = %v, want ErrInvalidJSON", tc.data, err)
+			}
+		})
 	}
 }
 
