@@ -170,11 +170,18 @@ Plans:
 **Success Criteria** (what must be TRUE):
 1. Every JSON value type defined by the spec can be extracted from a parsed Doc with a typed Go accessor that returns the precise type
 2. Iterating an array or object of N elements requires no Go callbacks across FFI and produces results in iteration order
-3. Calling `GetInt64()` on a JSON number `1e20` returns `ErrNumberOutOfRange`; calling `GetFloat64()` on `9007199254740993` returns `ErrPrecisionLoss`
+3. Calling `GetInt64()` on `9223372036854775808` returns `ErrNumberOutOfRange`; calling `GetInt64()` on `1e20` returns `ErrWrongType`; calling `GetFloat64()` on `9007199254740993` returns `ErrPrecisionLoss`
 4. Parsing a buffer with invalid UTF-8 in a string value surfaces `ErrInvalidJSON` from the accessor, not a corrupted Go string
 5. Godoc renders cleanly with examples on every exported type
 
-**Plans:** TBD
+**Plans:** 5 plans
+
+Plans:
+- [ ] `04-01-PLAN.md` — Lock descendant-view encoding and activate the native scalar/string/bool/null substrate
+- [ ] `04-02-PLAN.md` — Expose the public scalar/type/string/bool/null API and semantic tests
+- [ ] `04-03-PLAN.md` — Implement inline-only native iterator/object-lookup transport and hidden Go mirrors
+- [ ] `04-04-PLAN.md` — Expose the public scanner-style array/object traversal and field helpers
+- [ ] `04-05-PLAN.md` — Close Phase 4 with DOC-03, examples, fuzz entrypoint, and full semantic verification
 
 **UI hint:** no
 
