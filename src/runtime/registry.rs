@@ -1,5 +1,6 @@
 use std::{
-    ptr,
+    collections::HashSet,
+    mem, ptr, slice,
     sync::{Mutex, MutexGuard, OnceLock},
 };
 
@@ -8,17 +9,19 @@ use crate::{
     pure_simdjson_value_view_t,
 };
 
-use super::ROOT_VIEW_TAG;
+use super::{DESC_VIEW_TAG, ROOT_VIEW_TAG};
 
 /// Public parser/doc handles share one packed `u64` wire format, so the registry must enforce
 /// these invariants:
 /// - slot `0` is never returned;
 /// - parser/doc generations never collide numerically for the same slot;
 /// - parser busy state is cleared only by the matching document free path;
-/// - root views are tagged with [`ROOT_VIEW_TAG`] and reject non-zero reserved bits.
+/// - root views are tagged with [`ROOT_VIEW_TAG`], descendants with [`DESC_VIEW_TAG`], and both
+///   reject non-zero reserved bits.
 const MAX_SLOT_COUNT: usize = u32::MAX as usize - 1;
 const PARSER_GENERATION_START: u32 = 1;
 const DOC_GENERATION_START: u32 = 2;
+const ROOT_JSON_INDEX: u64 = 1;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ParserState {
@@ -41,6 +44,7 @@ struct DocEntry {
     owner_slot: u32,
     owner_generation: u32,
     input_storage: Vec<u8>,
+    descendant_indices: HashSet<u64>,
 }
 
 #[derive(Clone, Debug)]
@@ -194,6 +198,7 @@ impl Registry {
                     owner_slot,
                     owner_generation,
                     input_storage: input,
+                    descendant_indices: HashSet::new(),
                 });
                 return Ok(pack_handle(slot_number, generation));
             }
@@ -211,11 +216,15 @@ impl Registry {
             owner_slot,
             owner_generation,
             input_storage: input,
+            descendant_indices: HashSet::new(),
         }));
         Ok(pack_handle(self.docs.len() as u32, generation))
     }
 
-    fn parser_entry(&self, handle: pure_simdjson_parser_t) -> Result<&ParserEntry, pure_simdjson_error_code_t> {
+    fn parser_entry(
+        &self,
+        handle: pure_simdjson_parser_t,
+    ) -> Result<&ParserEntry, pure_simdjson_error_code_t> {
         let (index, _, generation) = unpack_handle(handle)?;
         match self.parsers.get(index) {
             Some(Slot::Occupied(entry)) if entry.generation == generation => Ok(entry),
@@ -223,7 +232,10 @@ impl Registry {
         }
     }
 
-    fn doc_entry(&self, handle: pure_simdjson_doc_t) -> Result<&DocEntry, pure_simdjson_error_code_t> {
+    fn doc_entry(
+        &self,
+        handle: pure_simdjson_doc_t,
+    ) -> Result<&DocEntry, pure_simdjson_error_code_t> {
         let (index, _, generation) = unpack_handle(handle)?;
         match self.docs.get(index) {
             Some(Slot::Occupied(entry)) if entry.generation == generation => Ok(entry),
@@ -378,11 +390,9 @@ pub(crate) fn doc_free(handle: pure_simdjson_doc_t) -> pure_simdjson_error_code_
     };
 
     let (native_ptr, owner_slot, owner_generation) = match registry.docs.get(doc_index) {
-        Some(Slot::Occupied(entry)) if entry.generation == doc_generation => (
-            entry.native_ptr,
-            entry.owner_slot,
-            entry.owner_generation,
-        ),
+        Some(Slot::Occupied(entry)) if entry.generation == doc_generation => {
+            (entry.native_ptr, entry.owner_slot, entry.owner_generation)
+        }
         _ => return err_invalid_handle(),
     };
 
@@ -442,43 +452,173 @@ pub(crate) fn doc_root(
     })
 }
 
-fn with_validated_view<T, F>(
+pub(crate) fn encode_descendant_view(
+    handle: pure_simdjson_doc_t,
+    json_index: u64,
+) -> Result<pure_simdjson_value_view_t, pure_simdjson_error_code_t> {
+    if json_index == 0 {
+        return Err(err_invalid_handle());
+    }
+
+    let (doc_index, _, doc_generation) = unpack_handle(handle)?;
+    let native_ptr = {
+        let registry = registry_guard();
+        registry.doc_entry(handle)?.native_ptr
+    };
+    let kind_hint = match super::native_element_type_at(native_ptr, json_index) {
+        Ok(kind) => kind,
+        Err(rc) if rc == err_precision_loss() => KIND_HINT_INVALID,
+        Err(rc) => return Err(rc),
+    };
+
+    let mut registry = registry_guard();
+    let doc_entry = match registry.docs.get_mut(doc_index) {
+        Some(Slot::Occupied(entry)) if entry.generation == doc_generation => entry,
+        _ => return Err(err_invalid_handle()),
+    };
+    doc_entry.descendant_indices.insert(json_index);
+
+    Ok(pure_simdjson_value_view_t {
+        doc: handle,
+        state0: json_index,
+        state1: DESC_VIEW_TAG,
+        kind_hint,
+        reserved: 0,
+    })
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ResolvedView {
+    doc_ptr: usize,
+    json_index: u64,
+}
+
+fn validate_descendant(
+    view: &pure_simdjson_value_view_t,
+    entry: &DocEntry,
+) -> Result<ResolvedView, pure_simdjson_error_code_t> {
+    let json_index = view.state0;
+    if json_index == 0 || !entry.descendant_indices.contains(&json_index) {
+        return Err(err_invalid_handle());
+    }
+    Ok(ResolvedView {
+        doc_ptr: entry.native_ptr,
+        json_index,
+    })
+}
+
+fn resolve_view(
     view: *const pure_simdjson_value_view_t,
-    action: F,
-) -> Result<T, pure_simdjson_error_code_t>
-where
-    F: FnOnce(usize) -> Result<T, pure_simdjson_error_code_t>,
-{
+) -> Result<ResolvedView, pure_simdjson_error_code_t> {
     if view.is_null() {
         return Err(err_invalid_argument());
     }
 
     let view = unsafe { ptr::read_unaligned(view) };
-    if view.state1 != ROOT_VIEW_TAG || view.state0 == 0 || view.reserved != 0 {
+    if view.state0 == 0 || view.reserved != 0 {
         return Err(err_invalid_handle());
     }
 
     let registry = registry_guard();
     let entry = registry.doc_entry(view.doc)?;
-    if entry.root_ptr != view.state0 as usize {
-        return Err(err_invalid_handle());
+    match view.state1 {
+        ROOT_VIEW_TAG => {
+            if entry.root_ptr != view.state0 as usize {
+                return Err(err_invalid_handle());
+            }
+            Ok(ResolvedView {
+                doc_ptr: entry.native_ptr,
+                json_index: ROOT_JSON_INDEX,
+            })
+        }
+        DESC_VIEW_TAG => validate_descendant(&view, entry),
+        _ => Err(err_invalid_handle()),
     }
+}
 
-    let root_ptr = entry.root_ptr;
-    // Safe: thread-affinity contract prevents concurrent doc_free, so the raw
-    // root_ptr remains valid across the native call without holding the lock.
-    drop(registry);
-    action(root_ptr)
+fn with_resolved_view<T, F>(
+    view: *const pure_simdjson_value_view_t,
+    action: F,
+) -> Result<T, pure_simdjson_error_code_t>
+where
+    F: FnOnce(usize, u64) -> Result<T, pure_simdjson_error_code_t>,
+{
+    let resolved = resolve_view(view)?;
+    action(resolved.doc_ptr, resolved.json_index)
 }
 
 pub(crate) fn element_type(
     view: *const pure_simdjson_value_view_t,
 ) -> Result<u32, pure_simdjson_error_code_t> {
-    with_validated_view(view, super::native_element_type)
+    with_resolved_view(view, super::native_element_type_at)
 }
 
 pub(crate) fn element_get_int64(
     view: *const pure_simdjson_value_view_t,
 ) -> Result<i64, pure_simdjson_error_code_t> {
-    with_validated_view(view, super::native_element_get_int64)
+    with_resolved_view(view, super::native_element_get_int64_at)
+}
+
+pub(crate) fn element_get_uint64(
+    view: *const pure_simdjson_value_view_t,
+) -> Result<u64, pure_simdjson_error_code_t> {
+    with_resolved_view(view, super::native_element_get_uint64_at)
+}
+
+pub(crate) fn element_get_float64(
+    view: *const pure_simdjson_value_view_t,
+) -> Result<f64, pure_simdjson_error_code_t> {
+    with_resolved_view(view, super::native_element_get_float64_at)
+}
+
+pub(crate) fn element_get_string(
+    view: *const pure_simdjson_value_view_t,
+) -> Result<(*mut u8, usize), pure_simdjson_error_code_t> {
+    with_resolved_view(view, |doc_ptr, json_index| {
+        let (borrowed_ptr, len) = super::native_element_get_string_view(doc_ptr, json_index)?;
+        if len == 0 {
+            return Ok((ptr::null_mut(), 0));
+        }
+        if borrowed_ptr == 0 {
+            return Err(err_internal());
+        }
+
+        let bytes = unsafe { slice::from_raw_parts(borrowed_ptr as *const u8, len) };
+        let mut owned = bytes.to_vec().into_boxed_slice().into_vec();
+        let ptr = owned.as_mut_ptr();
+        let len = owned.len();
+        debug_assert_eq!(owned.len(), owned.capacity());
+        mem::forget(owned);
+        Ok((ptr, len))
+    })
+}
+
+pub(crate) fn bytes_free(ptr: *mut u8, len: usize) -> pure_simdjson_error_code_t {
+    if ptr.is_null() {
+        return if len == 0 {
+            err_ok()
+        } else {
+            err_invalid_argument()
+        };
+    }
+    if len == 0 {
+        return err_invalid_argument();
+    }
+
+    unsafe {
+        drop(Vec::from_raw_parts(ptr, len, len));
+    }
+    err_ok()
+}
+
+pub(crate) fn element_get_bool(
+    view: *const pure_simdjson_value_view_t,
+) -> Result<u8, pure_simdjson_error_code_t> {
+    with_resolved_view(view, super::native_element_get_bool_at)
+}
+
+pub(crate) fn element_is_null(
+    view: *const pure_simdjson_value_view_t,
+) -> Result<u8, pure_simdjson_error_code_t> {
+    with_resolved_view(view, super::native_element_is_null_at)
 }

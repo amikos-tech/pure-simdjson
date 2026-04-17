@@ -13,6 +13,8 @@ pub(crate) use registry::ParserState;
 pub(crate) const UNKNOWN_ERROR_OFFSET: u64 = u64::MAX;
 /// Marker stored in `pure_simdjson_value_view_t.state1` for root views returned by this runtime.
 pub(crate) const ROOT_VIEW_TAG: u64 = u64::from_le_bytes(*b"PSDJROOT");
+/// Marker stored in `pure_simdjson_value_view_t.state1` for descendant views returned by this runtime.
+pub(crate) const DESC_VIEW_TAG: u64 = u64::from_le_bytes(*b"PSDJDESC");
 static FORCED_IMPLEMENTATION_NAME: OnceLock<Option<Vec<u8>>> = OnceLock::new();
 static FALLBACK_ALLOWED: OnceLock<bool> = OnceLock::new();
 static TEST_FORCED_IMPLEMENTATION_OVERRIDE: OnceLock<Mutex<Option<Vec<u8>>>> = OnceLock::new();
@@ -42,9 +44,7 @@ unsafe extern "C" {
     ) -> pure_simdjson_error_code_t;
     fn psimdjson_padding_bytes() -> usize;
 
-    fn psimdjson_parser_new(
-        out_parser: *mut *mut psimdjson_parser,
-    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_parser_new(out_parser: *mut *mut psimdjson_parser) -> pure_simdjson_error_code_t;
     fn psimdjson_parser_free(parser: *mut psimdjson_parser) -> pure_simdjson_error_code_t;
     fn psimdjson_parser_parse(
         parser: *mut psimdjson_parser,
@@ -76,9 +76,41 @@ unsafe extern "C" {
         element: *const psimdjson_element,
         out_kind: *mut pure_simdjson_value_kind_t,
     ) -> pure_simdjson_error_code_t;
-    fn psimdjson_element_get_int64(
-        element: *const psimdjson_element,
+    fn psimdjson_element_type_at(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_kind: *mut pure_simdjson_value_kind_t,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_get_int64_at(
+        doc: *const psimdjson_doc,
+        json_index: u64,
         out_value: *mut i64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_get_uint64_at(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_value: *mut u64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_get_float64_at(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_value: *mut f64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_get_string_view(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_ptr: *mut *const u8,
+        out_len: *mut usize,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_get_bool_at(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_value: *mut u8,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_is_null_at(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_is_null: *mut u8,
     ) -> pure_simdjson_error_code_t;
 
     fn psimdjson_test_force_cpp_exception() -> pure_simdjson_error_code_t;
@@ -250,10 +282,7 @@ pub(crate) fn native_parser_get_last_error_offset(
 ) -> Result<u64, pure_simdjson_error_code_t> {
     let mut offset = UNKNOWN_ERROR_OFFSET;
     let rc = unsafe {
-        psimdjson_parser_get_last_error_offset(
-            parser_ptr as *const psimdjson_parser,
-            &mut offset,
-        )
+        psimdjson_parser_get_last_error_offset(parser_ptr as *const psimdjson_parser, &mut offset)
     };
     if rc == err_ok() {
         Ok(offset)
@@ -266,15 +295,23 @@ pub(crate) fn native_doc_free(doc_ptr: usize) -> pure_simdjson_error_code_t {
     unsafe { psimdjson_doc_free(doc_ptr as *mut psimdjson_doc) }
 }
 
-pub(crate) fn native_element_type(
-    element_ptr: usize,
+pub(crate) fn native_element_type(element_ptr: usize) -> Result<u32, pure_simdjson_error_code_t> {
+    let mut kind = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_INVALID;
+    let rc = unsafe { psimdjson_element_type(element_ptr as *const psimdjson_element, &mut kind) };
+    if rc == err_ok() {
+        Ok(kind as u32)
+    } else {
+        Err(rc)
+    }
+}
+
+pub(crate) fn native_element_type_at(
+    doc_ptr: usize,
+    json_index: u64,
 ) -> Result<u32, pure_simdjson_error_code_t> {
     let mut kind = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_INVALID;
     let rc = unsafe {
-        psimdjson_element_type(
-            element_ptr as *const psimdjson_element,
-            &mut kind,
-        )
+        psimdjson_element_type_at(doc_ptr as *const psimdjson_doc, json_index, &mut kind)
     };
     if rc == err_ok() {
         Ok(kind as u32)
@@ -283,15 +320,94 @@ pub(crate) fn native_element_type(
     }
 }
 
-pub(crate) fn native_element_get_int64(
-    element_ptr: usize,
+pub(crate) fn native_element_get_int64_at(
+    doc_ptr: usize,
+    json_index: u64,
 ) -> Result<i64, pure_simdjson_error_code_t> {
     let mut value = 0_i64;
     let rc = unsafe {
-        psimdjson_element_get_int64(
-            element_ptr as *const psimdjson_element,
-            &mut value,
+        psimdjson_element_get_int64_at(doc_ptr as *const psimdjson_doc, json_index, &mut value)
+    };
+    if rc == err_ok() {
+        Ok(value)
+    } else {
+        Err(rc)
+    }
+}
+
+pub(crate) fn native_element_get_uint64_at(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<u64, pure_simdjson_error_code_t> {
+    let mut value = 0_u64;
+    let rc = unsafe {
+        psimdjson_element_get_uint64_at(doc_ptr as *const psimdjson_doc, json_index, &mut value)
+    };
+    if rc == err_ok() {
+        Ok(value)
+    } else {
+        Err(rc)
+    }
+}
+
+pub(crate) fn native_element_get_float64_at(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<f64, pure_simdjson_error_code_t> {
+    let mut value = 0_f64;
+    let rc = unsafe {
+        psimdjson_element_get_float64_at(doc_ptr as *const psimdjson_doc, json_index, &mut value)
+    };
+    if rc == err_ok() {
+        Ok(value)
+    } else {
+        Err(rc)
+    }
+}
+
+pub(crate) fn native_element_get_string_view(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<(usize, usize), pure_simdjson_error_code_t> {
+    let mut ptr = ptr::null();
+    let mut len = 0_usize;
+    let rc = unsafe {
+        psimdjson_element_get_string_view(
+            doc_ptr as *const psimdjson_doc,
+            json_index,
+            &mut ptr,
+            &mut len,
         )
+    };
+    if rc == err_ok() {
+        Ok((ptr as usize, len))
+    } else {
+        Err(rc)
+    }
+}
+
+pub(crate) fn native_element_get_bool_at(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<u8, pure_simdjson_error_code_t> {
+    let mut value = 0_u8;
+    let rc = unsafe {
+        psimdjson_element_get_bool_at(doc_ptr as *const psimdjson_doc, json_index, &mut value)
+    };
+    if rc == err_ok() {
+        Ok(value)
+    } else {
+        Err(rc)
+    }
+}
+
+pub(crate) fn native_element_is_null_at(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<u8, pure_simdjson_error_code_t> {
+    let mut value = 0_u8;
+    let rc = unsafe {
+        psimdjson_element_is_null_at(doc_ptr as *const psimdjson_doc, json_index, &mut value)
     };
     if rc == err_ok() {
         Ok(value)

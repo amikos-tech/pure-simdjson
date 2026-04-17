@@ -352,7 +352,9 @@ pub unsafe extern "C" fn pure_simdjson_parser_new(
 pub unsafe extern "C" fn pure_simdjson_parser_free(
     parser: pure_simdjson_parser_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_parser_free", || runtime::registry::parser_free(parser))
+    ffi_wrap("pure_simdjson_parser_free", || {
+        runtime::registry::parser_free(parser)
+    })
 }
 
 /// Parse one JSON buffer into a new document handle.
@@ -466,7 +468,9 @@ pub unsafe extern "C" fn pure_simdjson_parser_get_last_error_offset(
 pub unsafe extern "C" fn pure_simdjson_doc_free(
     doc: pure_simdjson_doc_t,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_doc_free", || runtime::registry::doc_free(doc))
+    ffi_wrap("pure_simdjson_doc_free", || {
+        runtime::registry::doc_free(doc)
+    })
 }
 
 /// Resolve the root value view for a live document handle.
@@ -543,9 +547,11 @@ pub unsafe extern "C" fn pure_simdjson_element_get_uint64(
     view: *const pure_simdjson_value_view_t,
     out_value: *mut u64,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_element_get_uint64", || {
-        let _ = (view, out_value);
-        unimplemented_stub("pure_simdjson_element_get_uint64")
+    ffi_wrap("pure_simdjson_element_get_uint64", || unsafe {
+        match runtime::registry::element_get_uint64(view) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -562,9 +568,11 @@ pub unsafe extern "C" fn pure_simdjson_element_get_float64(
     view: *const pure_simdjson_value_view_t,
     out_value: *mut f64,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_element_get_float64", || {
-        let _ = (view, out_value);
-        unimplemented_stub("pure_simdjson_element_get_float64")
+    ffi_wrap("pure_simdjson_element_get_float64", || unsafe {
+        match runtime::registry::element_get_float64(view) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -585,9 +593,19 @@ pub unsafe extern "C" fn pure_simdjson_element_get_string(
     out_ptr: *mut *mut u8,
     out_len: *mut usize,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_element_get_string", || {
-        let _ = (view, out_ptr, out_len);
-        unimplemented_stub("pure_simdjson_element_get_string")
+    ffi_wrap("pure_simdjson_element_get_string", || unsafe {
+        if out_ptr.is_null() || out_len.is_null() {
+            return err_invalid_argument();
+        }
+
+        match runtime::registry::element_get_string(view) {
+            Ok((ptr_value, len)) => {
+                ptr::write(out_ptr, ptr_value);
+                ptr::write(out_len, len);
+                err_ok()
+            }
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -605,8 +623,7 @@ pub unsafe extern "C" fn pure_simdjson_bytes_free(
     len: usize,
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_bytes_free", || {
-        let _ = (ptr, len);
-        unimplemented_stub("pure_simdjson_bytes_free")
+        runtime::registry::bytes_free(ptr, len)
     })
 }
 
@@ -623,9 +640,11 @@ pub unsafe extern "C" fn pure_simdjson_element_get_bool(
     view: *const pure_simdjson_value_view_t,
     out_value: *mut u8,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_element_get_bool", || {
-        let _ = (view, out_value);
-        unimplemented_stub("pure_simdjson_element_get_bool")
+    ffi_wrap("pure_simdjson_element_get_bool", || unsafe {
+        match runtime::registry::element_get_bool(view) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -642,9 +661,11 @@ pub unsafe extern "C" fn pure_simdjson_element_is_null(
     view: *const pure_simdjson_value_view_t,
     out_is_null: *mut u8,
 ) -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_element_is_null", || {
-        let _ = (view, out_is_null);
-        unimplemented_stub("pure_simdjson_element_is_null")
+    ffi_wrap("pure_simdjson_element_is_null", || unsafe {
+        match runtime::registry::element_is_null(view) {
+            Ok(value) => write_out(out_is_null, value),
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -921,43 +942,18 @@ mod tests {
     }
 
     #[test]
-    fn retained_stub_hits_debug_tripwire() {
-        if env::var_os("PURE_SIMDJSON_TRIGGER_STUB").is_some() {
-            let _ = unsafe { pure_simdjson_element_get_uint64(ptr::null(), ptr::null_mut()) };
-            return;
-        }
-
-        if !cfg!(debug_assertions) {
-            return;
-        }
-
-        let output = Command::new(env::current_exe().expect("test binary path"))
-            .env("PURE_SIMDJSON_TRIGGER_STUB", "1")
-            .arg("--exact")
-            .arg("tests::retained_stub_hits_debug_tripwire")
-            .arg("--nocapture")
-            .output()
-            .expect("spawn stub tripwire subprocess");
-
-        assert_subprocess_ran_exactly_one_test(&output);
-        assert!(
-            !output.status.success(),
-            "retained Phase 4 stubs should fail fast in debug builds"
-        );
-
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            stderr.contains("unimplemented shim export reached: pure_simdjson_element_get_uint64"),
-            "debug stub tripwire should emit the stub marker before aborting: {stderr}",
+    fn bytes_free_rejects_null_pointer_with_nonzero_length() {
+        assert_eq!(
+            unsafe { pure_simdjson_bytes_free(ptr::null_mut(), 1) },
+            pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INVALID_ARGUMENT
         );
     }
 
-    #[cfg(not(debug_assertions))]
     #[test]
-    fn retained_stub_returns_err_internal_in_release_builds() {
+    fn bytes_free_accepts_empty_string_sentinel() {
         assert_eq!(
-            unsafe { pure_simdjson_element_get_uint64(ptr::null(), ptr::null_mut()) },
-            pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INTERNAL
+            unsafe { pure_simdjson_bytes_free(ptr::null_mut(), 0) },
+            pure_simdjson_error_code_t::PURE_SIMDJSON_OK
         );
     }
 }

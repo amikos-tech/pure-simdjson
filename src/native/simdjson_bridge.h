@@ -59,6 +59,42 @@ pure_simdjson_error_code_t psimdjson_element_get_int64(
     const psimdjson_element *element,
     int64_t *out_value
 ) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_element_type_at(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    pure_simdjson_value_kind_t *out_kind
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_element_get_int64_at(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    int64_t *out_value
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_element_get_uint64_at(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t *out_value
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_element_get_float64_at(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    double *out_value
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_element_get_string_view(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t **out_ptr,
+    size_t *out_len
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_element_get_bool_at(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint8_t *out_value
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_element_is_null_at(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint8_t *out_is_null
+) PSIMDJSON_NOEXCEPT;
 
 pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(void) PSIMDJSON_NOEXCEPT;
 

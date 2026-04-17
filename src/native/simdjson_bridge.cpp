@@ -4,6 +4,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 
 struct psimdjson_element {
   simdjson::dom::element value{};
@@ -166,6 +167,22 @@ void capture_parser_exception(psimdjson_parser *parser) noexcept {
 
 std::string implementation_name() {
   return simdjson::get_active_implementation()->name();
+}
+
+simdjson::dom::element element_at(const psimdjson_doc *doc, uint64_t json_index) noexcept {
+  static_assert(
+      sizeof(simdjson::dom::element) == sizeof(simdjson::internal::tape_ref),
+      "dom::element layout must stay tape_ref-sized for descendant reconstruction"
+  );
+  static_assert(
+      std::is_trivially_copyable_v<simdjson::internal::tape_ref>,
+      "tape_ref must remain trivially copyable for descendant reconstruction"
+  );
+
+  simdjson::dom::element element;
+  auto *tape = reinterpret_cast<simdjson::internal::tape_ref *>(&element);
+  *tape = simdjson::internal::tape_ref(&doc->document, size_t(json_index));
+  return element;
 }
 
 }  // namespace
@@ -412,6 +429,172 @@ pure_simdjson_error_code_t psimdjson_element_get_int64(
 
     const auto error = element->value.get_int64().get(*out_value);
     return map_error(error);
+  } catch (const std::bad_alloc &error) {
+    return map_cpp_exception(error);
+  } catch (const std::exception &error) {
+    return map_cpp_exception(error);
+  } catch (...) {
+    return map_cpp_exception();
+  }
+}
+
+pure_simdjson_error_code_t psimdjson_element_type_at(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    pure_simdjson_value_kind_t *out_kind
+) noexcept {
+  try {
+    if (doc == nullptr || out_kind == nullptr) {
+      return invalid_argument();
+    }
+
+    const auto type = element_at(doc, json_index).type();
+    if (type == simdjson::dom::element_type::BIGINT) {
+      return PURE_SIMDJSON_ERR_PRECISION_LOSS;
+    }
+
+    *out_kind = map_element_type(type);
+    return PURE_SIMDJSON_OK;
+  } catch (const std::bad_alloc &error) {
+    return map_cpp_exception(error);
+  } catch (const std::exception &error) {
+    return map_cpp_exception(error);
+  } catch (...) {
+    return map_cpp_exception();
+  }
+}
+
+pure_simdjson_error_code_t psimdjson_element_get_int64_at(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    int64_t *out_value
+) noexcept {
+  try {
+    if (doc == nullptr || out_value == nullptr) {
+      return invalid_argument();
+    }
+
+    const auto error = element_at(doc, json_index).get_int64().get(*out_value);
+    return map_error(error);
+  } catch (const std::bad_alloc &error) {
+    return map_cpp_exception(error);
+  } catch (const std::exception &error) {
+    return map_cpp_exception(error);
+  } catch (...) {
+    return map_cpp_exception();
+  }
+}
+
+pure_simdjson_error_code_t psimdjson_element_get_uint64_at(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t *out_value
+) noexcept {
+  try {
+    if (doc == nullptr || out_value == nullptr) {
+      return invalid_argument();
+    }
+
+    const auto error = element_at(doc, json_index).get_uint64().get(*out_value);
+    return map_error(error);
+  } catch (const std::bad_alloc &error) {
+    return map_cpp_exception(error);
+  } catch (const std::exception &error) {
+    return map_cpp_exception(error);
+  } catch (...) {
+    return map_cpp_exception();
+  }
+}
+
+pure_simdjson_error_code_t psimdjson_element_get_float64_at(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    double *out_value
+) noexcept {
+  try {
+    if (doc == nullptr || out_value == nullptr) {
+      return invalid_argument();
+    }
+
+    const auto error = element_at(doc, json_index).get_double().get(*out_value);
+    return map_error(error);
+  } catch (const std::bad_alloc &error) {
+    return map_cpp_exception(error);
+  } catch (const std::exception &error) {
+    return map_cpp_exception(error);
+  } catch (...) {
+    return map_cpp_exception();
+  }
+}
+
+pure_simdjson_error_code_t psimdjson_element_get_string_view(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t **out_ptr,
+    size_t *out_len
+) noexcept {
+  try {
+    if (doc == nullptr || out_ptr == nullptr || out_len == nullptr) {
+      return invalid_argument();
+    }
+
+    std::string_view value;
+    const auto error = element_at(doc, json_index).get_string().get(value);
+    if (error != simdjson::SUCCESS) {
+      return map_error(error);
+    }
+
+    *out_len = value.size();
+    *out_ptr = value.empty() ? nullptr : reinterpret_cast<const uint8_t *>(value.data());
+    return PURE_SIMDJSON_OK;
+  } catch (const std::bad_alloc &error) {
+    return map_cpp_exception(error);
+  } catch (const std::exception &error) {
+    return map_cpp_exception(error);
+  } catch (...) {
+    return map_cpp_exception();
+  }
+}
+
+pure_simdjson_error_code_t psimdjson_element_get_bool_at(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint8_t *out_value
+) noexcept {
+  try {
+    if (doc == nullptr || out_value == nullptr) {
+      return invalid_argument();
+    }
+
+    bool value = false;
+    const auto error = element_at(doc, json_index).get_bool().get(value);
+    if (error != simdjson::SUCCESS) {
+      return map_error(error);
+    }
+
+    *out_value = value ? 1 : 0;
+    return PURE_SIMDJSON_OK;
+  } catch (const std::bad_alloc &error) {
+    return map_cpp_exception(error);
+  } catch (const std::exception &error) {
+    return map_cpp_exception(error);
+  } catch (...) {
+    return map_cpp_exception();
+  }
+}
+
+pure_simdjson_error_code_t psimdjson_element_is_null_at(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint8_t *out_is_null
+) noexcept {
+  try {
+    if (doc == nullptr || out_is_null == nullptr) {
+      return invalid_argument();
+    }
+
+    *out_is_null = element_at(doc, json_index).is_null() ? 1 : 0;
+    return PURE_SIMDJSON_OK;
   } catch (const std::bad_alloc &error) {
     return map_cpp_exception(error);
   } catch (const std::exception &error) {
