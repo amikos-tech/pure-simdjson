@@ -15,7 +15,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 - [x] **Phase 1: FFI Contract Design** — Lock the C ABI, error-code space, handle format, and ownership rules in a committed contract document before any code is written
 - [x] **Phase 2: Rust Shim + Minimal Parse Path** — Build the Rust cdylib with vendored simdjson and the smallest end-to-end parse path (parser_new -> parse -> doc_root -> get_int64)
 - [x] **Phase 3: Go Public API + purego Happy Path** — Wire Go's `purejson` package to the shim with handle lifecycle, ParserPool, typed errors, and one accessor as smoke test
-- [ ] **Phase 4: Full Typed Accessor Surface** — Complete the DOM accessor surface (uint64/float64/string/bool/null) and cursor-pull iteration over arrays and objects
+- [x] **Phase 4: Full Typed Accessor Surface** — Complete the DOM accessor surface (uint64/float64/string/bool/null) and cursor-pull iteration over arrays and objects
 - [ ] **Phase 5: Bootstrap + Distribution** — Implement R2 download with GitHub fallback, SHA-256 verification, OS cache, env overrides, and the bootstrap CLI
 - [ ] **Phase 6: CI Release Matrix + Platform Coverage** — Build, sign, and publish artifacts for all five targets plus Alpine smoke-test, with cosign and ad-hoc macOS codesign
 - [ ] **Phase 7: Benchmarks + v0.1 Release** — Three-tier benchmark harness vs `encoding/json`, `simdjson-go`, `sonic`, `goccy/go-json`; correctness oracle; documentation; v0.1 tag
@@ -181,7 +181,7 @@ Plans:
 - [x] `04-02-PLAN.md` — Expose the public scalar/type/string/bool/null API and semantic tests
 - [x] `04-03-PLAN.md` — Implement inline-only native iterator/object-lookup transport and hidden Go mirrors
 - [x] `04-04-PLAN.md` — Expose the public scanner-style array/object traversal and field helpers
-- [ ] `04-05-PLAN.md` — Close Phase 4 with DOC-03, examples, fuzz entrypoint, and full semantic verification
+- [x] `04-05-PLAN.md` — Close Phase 4 with DOC-03, examples, fuzz entrypoint, and full semantic verification
 
 **UI hint:** no
 
@@ -357,9 +357,9 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. FFI Contract Design | 3/3 | Complete | 2026-04-14 |
-| 2. Rust Shim + Minimal Parse | 0/? | Not started | — |
-| 3. Go API + purego Happy Path | 0/? | Not started | — |
-| 4. Full Typed Accessor Surface | 0/? | Not started | — |
+| 2. Rust Shim + Minimal Parse | 3/3 | Complete | 2026-04-15 |
+| 3. Go API + purego Happy Path | 5/5 | Complete | 2026-04-16 |
+| 4. Full Typed Accessor Surface | 5/5 | Complete | 2026-04-17 |
 | 5. Bootstrap + Distribution | 0/? | Not started | — |
 | 6. CI Release Matrix | 0/? | Not started | — |
 | 7. Benchmarks + v0.1 Release | 0/? | Not started | — |

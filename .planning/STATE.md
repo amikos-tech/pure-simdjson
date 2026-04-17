@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
-status: executing
-stopped_at: Completed 04-04-PLAN.md
-last_updated: "2026-04-17T09:00:11.102Z"
+status: verifying
+stopped_at: Completed 04-05-PLAN.md
+last_updated: "2026-04-17T09:12:16.244Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 8
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 16
-  completed_plans: 15
-  percent: 94
+  completed_plans: 16
+  percent: 100
 ---
 
 # Project State
@@ -25,21 +25,21 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 
 ## Current Position
 
-Phase: 04 (full-typed-accessor-surface) — EXECUTING
+Phase: 04 (full-typed-accessor-surface) — VERIFYING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-17
-Shipping: Phase 04 Plan 04 verified locally
+Shipping: Phase 04 fully verified locally
 
-Progress: [█████████░] 15/16 plans (94%)
+Progress: [██████████] 16/16 plans (100%)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 15
+- Total plans completed: 16
 - Average duration: 11.2m
-- Total execution time: 1.1 hours
+- Total execution time: 1.3 hours
 
 **By Phase:**
 
@@ -51,13 +51,14 @@ Progress: [█████████░] 15/16 plans (94%)
 
 **Recent Trend:**
 
-- Last 5 plans: 03-05, 04-01, 04-02, 04-03, 04-04
+- Last 5 plans: 04-01, 04-02, 04-03, 04-04, 04-05
 - Trend: Stable
 
 | Phase 04 P01 | 16m | 2 tasks | 7 files |
 | Phase 04-full-typed-accessor-surface P02 | 8m | 2 tasks | 2 files |
 | Phase 04 P03 | 4m | 2 tasks | 8 files |
 | Phase 04-full-typed-accessor-surface P04 | 8m | 2 tasks | 3 files |
+| Phase 04-full-typed-accessor-surface P05 | 11m | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 04]: Array/object iterator progress stays inline as current and end tape indexes because the public ABI has no iterator free hook.
 - [Phase 04-full-typed-accessor-surface]: ObjectIter.Next decodes key views through ElementGetString so Key only returns copied Go strings.
 - [Phase 04-full-typed-accessor-surface]: Object.GetStringField stays as GetField plus GetString composition to preserve primitive missing/null/wrong-type semantics without new ABI.
+- [Phase 04]: Document the final v0.1 purejson surface only in package docs and examples; do not preview bootstrap or On-Demand behavior.
+- [Phase 04]: Lock the numeric boundary contract explicitly: max-int64+1 -> ErrNumberOutOfRange, 1e20 -> ErrWrongType, 9007199254740993 -> ErrPrecisionLoss.
+- [Phase 04]: Use a recursive FuzzParseThenGetString DOM walk to validate copied Go strings across successful object and array paths.
 
 ### Pending Todos
 
@@ -92,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T09:00:10.864Z
-Stopped at: Completed 04-04-PLAN.md
+Last session: 2026-04-17T09:12:16.241Z
+Stopped at: Completed 04-05-PLAN.md
 Resume file: None

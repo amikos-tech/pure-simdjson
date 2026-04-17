@@ -89,7 +89,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **DOC-01**: `README.md` with installation, quick-start code example, platform matrix, and benchmark snapshot
 - [x] **DOC-02**: `docs/ffi-contract.md` — full FFI contract (from Phase 1); versioned alongside ABI
-- [ ] **DOC-03**: Godoc on every exported type/function in `purejson`
+- [x] **DOC-03**: Godoc on every exported type/function in `purejson`
 - [x] **DOC-04**: `docs/concurrency.md` — per-parser single-doc invariant, `ParserPool` pattern, why not to share a Parser
 - [ ] **DOC-05**: `docs/bootstrap.md` — env vars, mirror setup, air-gapped install flow
 - [ ] **DOC-06**: `CHANGELOG.md` following Keep-a-Changelog format
@@ -207,7 +207,7 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | BENCH-07 | Phase 7 | Pending |
 | DOC-01 | Phase 7 | Pending |
 | DOC-02 | Phase 1 | Complete |
-| DOC-03 | Phase 3 (partial) + Phase 4 (complete) | Pending |
+| DOC-03 | Phase 3 (partial) + Phase 4 (complete) | Complete |
 | DOC-04 | Phase 3 | Complete |
 | DOC-05 | Phase 5 | Pending |
 | DOC-06 | Phase 7 | Pending |
