@@ -297,8 +297,8 @@ pure_simdjson_error_code_t pure_simdjson_element_get_int64(const struct pure_sim
 /**
  * Decode the referenced value as `uint64_t`.
  *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
+ * Negative integers return `PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE`; non-uint64 kinds return
+ * `PURE_SIMDJSON_ERR_WRONG_TYPE`.
  *
  * # Safety
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -310,8 +310,8 @@ pure_simdjson_error_code_t pure_simdjson_element_get_uint64(const struct pure_si
 /**
  * Decode the referenced value as `double`.
  *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
+ * Integral values that cannot be represented exactly as `double` return
+ * `PURE_SIMDJSON_ERR_PRECISION_LOSS`; non-numeric kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
  *
  * # Safety
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -326,9 +326,6 @@ pure_simdjson_error_code_t pure_simdjson_element_get_float64(const struct pure_s
  * The caller receives `*out_ptr` plus `*out_len` and must release that allocation with
  * `pure_simdjson_bytes_free`. Borrowed string views are intentionally excluded from `v0.1`.
  *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
- *
  * # Safety
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
  * `out_ptr` and `out_len` must point to writable storage owned by the caller.
@@ -339,9 +336,7 @@ pure_simdjson_error_code_t pure_simdjson_element_get_string(const struct pure_si
 
 /**
  * Release memory previously returned by `pure_simdjson_element_get_string`.
- *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
+ * The empty-string sentinel is `ptr == NULL && len == 0`.
  *
  * # Safety
  * `ptr` and `len` must describe an allocation previously returned by
@@ -351,9 +346,6 @@ pure_simdjson_error_code_t pure_simdjson_bytes_free(uint8_t *ptr, size_t len);
 
 /**
  * Decode the referenced value as a C `uint8_t` boolean.
- *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
  *
  * # Safety
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -365,9 +357,6 @@ pure_simdjson_error_code_t pure_simdjson_element_get_bool(const struct pure_simd
 /**
  * Report whether the referenced value is JSON `null`.
  *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
- *
  * # Safety
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
  * `out_is_null` must point to writable `u8` storage.
@@ -378,9 +367,6 @@ pure_simdjson_error_code_t pure_simdjson_element_is_null(const struct pure_simdj
 /**
  * Initialize array iterator state from an array-valued view.
  *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
- *
  * # Safety
  * `array_view` must point to a readable array-valued `pure_simdjson_value_view_t` derived from a
  * live document. `out_iter` must point to writable iterator storage.
@@ -390,9 +376,6 @@ pure_simdjson_error_code_t pure_simdjson_array_iter_new(const struct pure_simdjs
 
 /**
  * Advance an array iterator and return the next value view plus a done flag.
- *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
  *
  * # Safety
  * `iter` must point to readable and writable iterator state created by this library. `out_value`
@@ -405,9 +388,6 @@ pure_simdjson_error_code_t pure_simdjson_array_iter_next(struct pure_simdjson_ar
 /**
  * Initialize object iterator state from an object-valued view.
  *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
- *
  * # Safety
  * `object_view` must point to a readable object-valued `pure_simdjson_value_view_t` derived from
  * a live document. `out_iter` must point to writable iterator storage.
@@ -417,9 +397,6 @@ pure_simdjson_error_code_t pure_simdjson_object_iter_new(const struct pure_simdj
 
 /**
  * Advance an object iterator and return the next key/value pair plus a done flag.
- *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
  *
  * # Safety
  * `iter` must point to readable and writable iterator state created by this library. `out_key`,
@@ -432,9 +409,6 @@ pure_simdjson_error_code_t pure_simdjson_object_iter_next(struct pure_simdjson_o
 
 /**
  * Look up one object field by key and return its value view through `out_value`.
- *
- * Phase 1 status: contract-only stub. This export is present to lock the ABI surface and
- * currently returns `PURE_SIMDJSON_ERR_INTERNAL`.
  *
  * # Safety
  * `object_view` must point to a readable object-valued `pure_simdjson_value_view_t` derived from

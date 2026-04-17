@@ -1,9 +1,7 @@
 use std::sync::Mutex;
 
 use pure_simdjson::{
-    pure_simdjson_error_code_t::{
-        PURE_SIMDJSON_ERR_CPU_UNSUPPORTED, PURE_SIMDJSON_OK,
-    },
+    pure_simdjson_error_code_t::{PURE_SIMDJSON_ERR_CPU_UNSUPPORTED, PURE_SIMDJSON_OK},
     pure_simdjson_parser_free, pure_simdjson_parser_new,
     pure_simdjson_test_set_allow_fallback_for_tests,
     pure_simdjson_test_set_forced_implementation_for_tests,
@@ -57,5 +55,8 @@ fn parser_new_allows_fallback_with_hidden_bypass() {
 
     assert_eq!(rc, PURE_SIMDJSON_OK);
     assert_ne!(parser, 0);
-    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+    assert_eq!(
+        unsafe { pure_simdjson_parser_free(parser) },
+        PURE_SIMDJSON_OK
+    );
 }

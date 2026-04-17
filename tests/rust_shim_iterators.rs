@@ -150,7 +150,7 @@ fn empty_array_and_empty_object_return_done_immediately() {
 #[test]
 fn object_iteration_and_field_lookup_distinguish_missing_and_null() {
     let parser = parser_new();
-    let doc = parser_parse_literal(parser, br#"{"a":1,"b":null}"#);
+    let doc = parser_parse_literal(parser, br#"{"":7,"a":1,"b":null}"#);
     let root = doc_root(doc);
 
     let mut iter = pure_simdjson_object_iter_t::default();
@@ -161,6 +161,12 @@ fn object_iteration_and_field_lookup_distinguish_missing_and_null() {
     let mut key = pure_simdjson_value_view_t::default();
     let mut value = pure_simdjson_value_view_t::default();
     let mut done = 1_u8;
+    let rc = unsafe { pure_simdjson_object_iter_next(&mut iter, &mut key, &mut value, &mut done) };
+    assert_eq!(rc, PURE_SIMDJSON_OK);
+    assert_eq!(done, 0);
+    assert_eq!(read_string(&key), "");
+    assert_eq!(read_int64(&value), 7);
+
     let rc = unsafe { pure_simdjson_object_iter_next(&mut iter, &mut key, &mut value, &mut done) };
     assert_eq!(rc, PURE_SIMDJSON_OK);
     assert_eq!(done, 0);
@@ -181,6 +187,10 @@ fn object_iteration_and_field_lookup_distinguish_missing_and_null() {
     assert_eq!(done, 1);
 
     let mut field = pure_simdjson_value_view_t::default();
+    let rc = unsafe { pure_simdjson_object_get_field(&root, b"".as_ptr(), 0, &mut field) };
+    assert_eq!(rc, PURE_SIMDJSON_OK);
+    assert_eq!(read_int64(&field), 7);
+
     let rc = unsafe { pure_simdjson_object_get_field(&root, b"b".as_ptr(), 1, &mut field) };
     assert_eq!(rc, PURE_SIMDJSON_OK);
     let rc = unsafe { pure_simdjson_element_is_null(&field, &mut is_null) };

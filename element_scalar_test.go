@@ -111,6 +111,27 @@ func TestTypeInvalidOnTamperedView(t *testing.T) {
 	}
 }
 
+func TestZeroValueDocRootSemantics(t *testing.T) {
+	var doc Doc
+	root := doc.Root()
+
+	if got := root.Type(); got != TypeInvalid {
+		t.Fatalf("zero-value Doc Root().Type() = %v, want %v", got, TypeInvalid)
+	}
+	if root.IsNull() {
+		t.Fatal("zero-value Doc Root().IsNull() = true, want false")
+	}
+	if _, err := root.GetInt64(); !errors.Is(err, ErrInvalidHandle) {
+		t.Fatalf("zero-value Doc Root().GetInt64() error = %v, want ErrInvalidHandle", err)
+	}
+	if _, err := root.AsArray(); !errors.Is(err, ErrInvalidHandle) {
+		t.Fatalf("zero-value Doc Root().AsArray() error = %v, want ErrInvalidHandle", err)
+	}
+	if _, err := root.AsObject(); !errors.Is(err, ErrInvalidHandle) {
+		t.Fatalf("zero-value Doc Root().AsObject() error = %v, want ErrInvalidHandle", err)
+	}
+}
+
 func TestGetUint64(t *testing.T) {
 	_, doc := mustParseDoc(t, "18446744073709551615")
 

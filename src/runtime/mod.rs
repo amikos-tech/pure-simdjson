@@ -516,11 +516,7 @@ pub(crate) fn native_object_get_field_index(
     json_index: u64,
     key: &[u8],
 ) -> Result<u64, pure_simdjson_error_code_t> {
-    let key_ptr = if key.is_empty() {
-        ptr::null()
-    } else {
-        key.as_ptr()
-    };
+    let key_ptr = key.as_ptr();
     let mut value_json_index = 0_u64;
     let rc = unsafe {
         psimdjson_object_get_field_index(

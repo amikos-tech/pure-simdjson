@@ -229,6 +229,69 @@ func TestGetStringFieldNullValue(t *testing.T) {
 	}
 }
 
+func TestObjectGetFieldEmptyKey(t *testing.T) {
+	_, doc := mustParseDoc(t, `{"":1,"name":"alice"}`)
+
+	object, err := doc.Root().AsObject()
+	if err != nil {
+		t.Fatalf("AsObject() error = %v", err)
+	}
+
+	field, err := object.GetField("")
+	if err != nil {
+		t.Fatalf("GetField(\"\") error = %v", err)
+	}
+
+	value, err := field.GetInt64()
+	if err != nil {
+		t.Fatalf("GetField(\"\").GetInt64() error = %v", err)
+	}
+	if value != 1 {
+		t.Fatalf("GetField(\"\").GetInt64() = %d, want 1", value)
+	}
+
+	got, err := object.GetStringField("name")
+	if err != nil {
+		t.Fatalf("GetStringField(\"name\") error = %v", err)
+	}
+	if got != "alice" {
+		t.Fatalf("GetStringField(\"name\") = %q, want %q", got, "alice")
+	}
+}
+
+func TestZeroValueIteratorsReportInvalidHandle(t *testing.T) {
+	var array Array
+	arrayIter := array.Iter()
+	if arrayIter == nil {
+		t.Fatal("zero-value Array.Iter() = nil, want iterator")
+	}
+	if !errors.Is(arrayIter.Err(), ErrInvalidHandle) {
+		t.Fatalf("zero-value Array.Iter().Err() = %v, want ErrInvalidHandle", arrayIter.Err())
+	}
+	if arrayIter.Next() {
+		t.Fatal("zero-value Array.Iter().Next() = true, want false")
+	}
+
+	var object Object
+	objectIter := object.Iter()
+	if objectIter == nil {
+		t.Fatal("zero-value Object.Iter() = nil, want iterator")
+	}
+	if !errors.Is(objectIter.Err(), ErrInvalidHandle) {
+		t.Fatalf("zero-value Object.Iter().Err() = %v, want ErrInvalidHandle", objectIter.Err())
+	}
+	if objectIter.Next() {
+		t.Fatal("zero-value Object.Iter().Next() = true, want false")
+	}
+
+	if _, err := object.GetField("name"); !errors.Is(err, ErrInvalidHandle) {
+		t.Fatalf("zero-value Object.GetField() error = %v, want ErrInvalidHandle", err)
+	}
+	if _, err := object.GetStringField("name"); !errors.Is(err, ErrInvalidHandle) {
+		t.Fatalf("zero-value Object.GetStringField() error = %v, want ErrInvalidHandle", err)
+	}
+}
+
 func TestParseRejectsMalformedUTF8Objects(t *testing.T) {
 	testCases := []struct {
 		name string

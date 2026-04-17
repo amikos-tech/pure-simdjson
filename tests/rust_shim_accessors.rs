@@ -7,7 +7,7 @@ use pure_simdjson::{
     pure_simdjson_element_is_null, pure_simdjson_element_type,
     pure_simdjson_error_code_t::{
         PURE_SIMDJSON_ERR_INVALID_ARGUMENT, PURE_SIMDJSON_ERR_INVALID_HANDLE,
-        PURE_SIMDJSON_ERR_WRONG_TYPE, PURE_SIMDJSON_OK,
+        PURE_SIMDJSON_ERR_PRECISION_LOSS, PURE_SIMDJSON_ERR_WRONG_TYPE, PURE_SIMDJSON_OK,
     },
     pure_simdjson_parser_free, pure_simdjson_parser_new, pure_simdjson_parser_parse,
     pure_simdjson_parser_t,
@@ -161,6 +161,27 @@ fn typed_getters_report_wrong_type_for_null_and_other_values() {
     let mut uint_value = 0_u64;
     let rc = unsafe { pure_simdjson_element_get_uint64(&root, &mut uint_value) };
     assert_eq!(rc, PURE_SIMDJSON_ERR_WRONG_TYPE);
+    cleanup(parser, doc);
+}
+
+#[test]
+fn float64_accessor_reports_precision_loss_for_large_integers() {
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, b"9007199254740993");
+    let root = doc_root(doc);
+
+    let mut value = 0_f64;
+    let rc = unsafe { pure_simdjson_element_get_float64(&root, &mut value) };
+    assert_eq!(rc, PURE_SIMDJSON_ERR_PRECISION_LOSS);
+    cleanup(parser, doc);
+
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, b"18446744073709551615");
+    let root = doc_root(doc);
+
+    let mut value = 0_f64;
+    let rc = unsafe { pure_simdjson_element_get_float64(&root, &mut value) };
+    assert_eq!(rc, PURE_SIMDJSON_ERR_PRECISION_LOSS);
     cleanup(parser, doc);
 }
 

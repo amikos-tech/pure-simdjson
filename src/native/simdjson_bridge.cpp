@@ -728,7 +728,9 @@ pure_simdjson_error_code_t psimdjson_object_get_field_index(
       return map_error(object_error);
     }
 
-    const auto key = std::string_view(reinterpret_cast<const char *>(key_ptr), key_len);
+    const auto key = key_len == 0
+        ? std::string_view{}
+        : std::string_view(reinterpret_cast<const char *>(key_ptr), key_len);
     simdjson::dom::element value;
     const auto field_error = object.at_key(key).get(value);
     if (field_error != simdjson::SUCCESS) {

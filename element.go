@@ -49,17 +49,31 @@ type Array struct{ element Element }
 // unverified instance.
 type Object struct{ element Element }
 
+func (e Element) usableDoc() (*Doc, error) {
+	if e.doc == nil {
+		return nil, ErrInvalidHandle
+	}
+	if e.doc.parser == nil || e.doc.parser.library == nil || e.doc.parser.library.bindings == nil {
+		return nil, ErrInvalidHandle
+	}
+	if e.doc.isClosed() {
+		return nil, ErrClosed
+	}
+	return e.doc, nil
+}
+
 // GetInt64 reads the current element as an int64 and returns ErrClosed when the
 // owning document has already been released. Uint64 values larger than max
 // int64 report ErrNumberOutOfRange, while float-kind values report ErrWrongType.
 // Element accessors are not safe for concurrent use with Doc.Close.
 func (e Element) GetInt64() (int64, error) {
-	if e.doc == nil || e.doc.isClosed() {
-		return 0, ErrClosed
+	doc, err := e.usableDoc()
+	if err != nil {
+		return 0, err
 	}
 
-	value, rc := e.doc.parser.library.bindings.ElementGetInt64(&e.view)
-	runtime.KeepAlive(e.doc)
+	value, rc := doc.parser.library.bindings.ElementGetInt64(&e.view)
+	runtime.KeepAlive(doc)
 	if err := wrapStatus(rc); err != nil {
 		return 0, err
 	}
@@ -70,12 +84,13 @@ func (e Element) GetInt64() (int64, error) {
 // invalid, or tampered views collapse to TypeInvalid instead of returning an
 // error.
 func (e Element) Type() ElementType {
-	if e.doc == nil || e.doc.isClosed() {
+	doc, err := e.usableDoc()
+	if err != nil {
 		return TypeInvalid
 	}
 
-	kind, rc := e.doc.parser.library.bindings.ElementType(&e.view)
-	runtime.KeepAlive(e.doc)
+	kind, rc := doc.parser.library.bindings.ElementType(&e.view)
+	runtime.KeepAlive(doc)
 	if rc != int32(ffi.OK) {
 		return TypeInvalid
 	}
@@ -106,12 +121,13 @@ func (e Element) Type() ElementType {
 // the owning document has already been released. Negative integers report
 // ErrNumberOutOfRange and non-uint64 kinds report ErrWrongType.
 func (e Element) GetUint64() (uint64, error) {
-	if e.doc == nil || e.doc.isClosed() {
-		return 0, ErrClosed
+	doc, err := e.usableDoc()
+	if err != nil {
+		return 0, err
 	}
 
-	value, rc := e.doc.parser.library.bindings.ElementGetUint64(&e.view)
-	runtime.KeepAlive(e.doc)
+	value, rc := doc.parser.library.bindings.ElementGetUint64(&e.view)
+	runtime.KeepAlive(doc)
 	if err := wrapStatus(rc); err != nil {
 		return 0, err
 	}
@@ -122,14 +138,15 @@ func (e Element) GetUint64() (uint64, error) {
 // the owning document has already been released. Large int64 and uint64 values
 // that would lose precision report ErrPrecisionLoss instead of rounding.
 func (e Element) GetFloat64() (float64, error) {
-	if e.doc == nil || e.doc.isClosed() {
-		return 0, ErrClosed
+	doc, err := e.usableDoc()
+	if err != nil {
+		return 0, err
 	}
 
 	switch ffi.ValueKind(e.view.KindHint) {
 	case ffi.ValueKindInt64:
-		value, rc := e.doc.parser.library.bindings.ElementGetInt64(&e.view)
-		runtime.KeepAlive(e.doc)
+		value, rc := doc.parser.library.bindings.ElementGetInt64(&e.view)
+		runtime.KeepAlive(doc)
 		if err := wrapStatus(rc); err != nil {
 			return 0, err
 		}
@@ -138,8 +155,8 @@ func (e Element) GetFloat64() (float64, error) {
 		}
 		return float64(value), nil
 	case ffi.ValueKindUint64:
-		value, rc := e.doc.parser.library.bindings.ElementGetUint64(&e.view)
-		runtime.KeepAlive(e.doc)
+		value, rc := doc.parser.library.bindings.ElementGetUint64(&e.view)
+		runtime.KeepAlive(doc)
 		if err := wrapStatus(rc); err != nil {
 			return 0, err
 		}
@@ -149,8 +166,8 @@ func (e Element) GetFloat64() (float64, error) {
 		return float64(value), nil
 	}
 
-	value, rc := e.doc.parser.library.bindings.ElementGetFloat64(&e.view)
-	runtime.KeepAlive(e.doc)
+	value, rc := doc.parser.library.bindings.ElementGetFloat64(&e.view)
+	runtime.KeepAlive(doc)
 	if err := wrapStatus(rc); err != nil {
 		return 0, err
 	}
@@ -160,12 +177,13 @@ func (e Element) GetFloat64() (float64, error) {
 // GetString reads the current element as a copied Go string and returns
 // ErrClosed when the owning document has already been released.
 func (e Element) GetString() (string, error) {
-	if e.doc == nil || e.doc.isClosed() {
-		return "", ErrClosed
+	doc, err := e.usableDoc()
+	if err != nil {
+		return "", err
 	}
 
-	value, rc := e.doc.parser.library.bindings.ElementGetString(&e.view)
-	runtime.KeepAlive(e.doc)
+	value, rc := doc.parser.library.bindings.ElementGetString(&e.view)
+	runtime.KeepAlive(doc)
 	if err := wrapStatus(rc); err != nil {
 		return "", err
 	}
@@ -175,12 +193,13 @@ func (e Element) GetString() (string, error) {
 // GetBool reads the current element as a bool and returns ErrClosed when the
 // owning document has already been released.
 func (e Element) GetBool() (bool, error) {
-	if e.doc == nil || e.doc.isClosed() {
-		return false, ErrClosed
+	doc, err := e.usableDoc()
+	if err != nil {
+		return false, err
 	}
 
-	value, rc := e.doc.parser.library.bindings.ElementGetBool(&e.view)
-	runtime.KeepAlive(e.doc)
+	value, rc := doc.parser.library.bindings.ElementGetBool(&e.view)
+	runtime.KeepAlive(doc)
 	if err := wrapStatus(rc); err != nil {
 		return false, err
 	}
@@ -190,12 +209,13 @@ func (e Element) GetBool() (bool, error) {
 // IsNull reports whether the current element is a JSON null value. Closed,
 // invalid, or tampered views return false.
 func (e Element) IsNull() bool {
-	if e.doc == nil || e.doc.isClosed() {
+	doc, err := e.usableDoc()
+	if err != nil {
 		return false
 	}
 
-	value, rc := e.doc.parser.library.bindings.ElementIsNull(&e.view)
-	runtime.KeepAlive(e.doc)
+	value, rc := doc.parser.library.bindings.ElementIsNull(&e.view)
+	runtime.KeepAlive(doc)
 	if rc != int32(ffi.OK) {
 		return false
 	}
@@ -206,8 +226,8 @@ func (e Element) IsNull() bool {
 // Returns ErrClosed when the owning document is released and ErrWrongType when
 // the underlying value kind is not an array.
 func (e Element) AsArray() (Array, error) {
-	if e.doc == nil || e.doc.isClosed() {
-		return Array{}, ErrClosed
+	if _, err := e.usableDoc(); err != nil {
+		return Array{}, err
 	}
 	if ffi.ValueKind(e.view.KindHint) != ffi.ValueKindArray {
 		return Array{}, ErrWrongType
@@ -219,8 +239,8 @@ func (e Element) AsArray() (Array, error) {
 // object. Returns ErrClosed when the owning document is released and
 // ErrWrongType when the underlying value kind is not an object.
 func (e Element) AsObject() (Object, error) {
-	if e.doc == nil || e.doc.isClosed() {
-		return Object{}, ErrClosed
+	if _, err := e.usableDoc(); err != nil {
+		return Object{}, err
 	}
 	if ffi.ValueKind(e.view.KindHint) != ffi.ValueKindObject {
 		return Object{}, ErrWrongType
@@ -232,8 +252,9 @@ func (e Element) AsObject() (Object, error) {
 // order.
 func (a Array) Iter() *ArrayIter {
 	it := &ArrayIter{doc: a.element.doc}
-	if a.element.doc == nil || a.element.doc.isClosed() {
-		it.err = ErrClosed
+	doc, err := a.element.usableDoc()
+	if err != nil {
+		it.err = err
 		return it
 	}
 	if ffi.ValueKind(a.element.view.KindHint) != ffi.ValueKindArray {
@@ -241,14 +262,15 @@ func (a Array) Iter() *ArrayIter {
 		return it
 	}
 
-	iter, rc := a.element.doc.parser.library.bindings.ArrayIterNew(&a.element.view)
-	runtime.KeepAlive(a.element.doc)
-	if err := normalizeIteratorError(a.element.doc, rc); err != nil {
+	iter, rc := doc.parser.library.bindings.ArrayIterNew(&a.element.view)
+	runtime.KeepAlive(doc)
+	if err := normalizeIteratorError(doc, rc); err != nil {
 		it.err = err
 		return it
 	}
 
 	it.iter = iter
+	it.doc = doc
 	return it
 }
 
@@ -256,8 +278,9 @@ func (a Array) Iter() *ArrayIter {
 // order.
 func (o Object) Iter() *ObjectIter {
 	it := &ObjectIter{doc: o.element.doc}
-	if o.element.doc == nil || o.element.doc.isClosed() {
-		it.err = ErrClosed
+	doc, err := o.element.usableDoc()
+	if err != nil {
+		it.err = err
 		return it
 	}
 	if ffi.ValueKind(o.element.view.KindHint) != ffi.ValueKindObject {
@@ -265,14 +288,15 @@ func (o Object) Iter() *ObjectIter {
 		return it
 	}
 
-	iter, rc := o.element.doc.parser.library.bindings.ObjectIterNew(&o.element.view)
-	runtime.KeepAlive(o.element.doc)
-	if err := normalizeIteratorError(o.element.doc, rc); err != nil {
+	iter, rc := doc.parser.library.bindings.ObjectIterNew(&o.element.view)
+	runtime.KeepAlive(doc)
+	if err := normalizeIteratorError(doc, rc); err != nil {
 		it.err = err
 		return it
 	}
 
 	it.iter = iter
+	it.doc = doc
 	return it
 }
 
@@ -280,20 +304,21 @@ func (o Object) Iter() *ObjectIter {
 // ErrElementNotFound, while present null fields return a valid Element whose
 // IsNull method reports true.
 func (o Object) GetField(key string) (Element, error) {
-	if o.element.doc == nil || o.element.doc.isClosed() {
-		return Element{}, ErrClosed
+	doc, err := o.element.usableDoc()
+	if err != nil {
+		return Element{}, err
 	}
 	if ffi.ValueKind(o.element.view.KindHint) != ffi.ValueKindObject {
 		return Element{}, ErrWrongType
 	}
 
-	view, rc := o.element.doc.parser.library.bindings.ObjectGetField(&o.element.view, key)
-	runtime.KeepAlive(o.element.doc)
-	if err := normalizeIteratorError(o.element.doc, rc); err != nil {
+	view, rc := doc.parser.library.bindings.ObjectGetField(&o.element.view, key)
+	runtime.KeepAlive(doc)
+	if err := normalizeIteratorError(doc, rc); err != nil {
 		return Element{}, err
 	}
 
-	return Element{doc: o.element.doc, view: view}, nil
+	return Element{doc: doc, view: view}, nil
 }
 
 // GetStringField returns the named field as a copied Go string using the same

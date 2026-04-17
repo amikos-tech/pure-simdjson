@@ -34,7 +34,18 @@ exclude = [
   "psimdjson_doc_free",
   "psimdjson_doc_root",
   "psimdjson_element_type",
+  "psimdjson_element_type_at",
   "psimdjson_element_get_int64",
+  "psimdjson_element_get_int64_at",
+  "psimdjson_element_get_uint64_at",
+  "psimdjson_element_get_float64_at",
+  "psimdjson_element_get_string_view",
+  "psimdjson_element_get_bool_at",
+  "psimdjson_element_is_null_at",
+  "psimdjson_element_after_index",
+  "psimdjson_array_iter_bounds",
+  "psimdjson_object_iter_bounds",
+  "psimdjson_object_get_field_index",
   "psimdjson_test_force_cpp_exception",
 ]
 item_types = ["functions", "globals", "typedefs", "opaque", "structs", "enums"]
