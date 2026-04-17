@@ -3,7 +3,11 @@ package purejson
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"math/rand"
+	"strconv"
 	"testing"
+	"testing/quick"
 )
 
 var descendantViewTag = binary.LittleEndian.Uint64([]byte("PSDJDESC"))
@@ -283,8 +287,13 @@ func TestGetFloat64PrecisionBoundaries(t *testing.T) {
 		want    float64
 		wantErr error
 	}{
+		{name: "zero", json: "0", want: 0},
+		{name: "one", json: "1", want: 1},
+		{name: "minus one", json: "-1", want: -1},
+		{name: "positive just below exact boundary", json: "9007199254740991", want: 9007199254740991},
 		{name: "positive exact boundary", json: "9007199254740992", want: 9007199254740992},
 		{name: "positive precision loss", json: "9007199254740993", wantErr: ErrPrecisionLoss},
+		{name: "negative just above exact boundary", json: "-9007199254740991", want: -9007199254740991},
 		{name: "positive mid-range exact at 2^60", json: "1152921504606846976", want: 1152921504606846976},
 		{name: "positive mid-range precision loss at 2^60+1", json: "1152921504606846977", wantErr: ErrPrecisionLoss},
 		{name: "negative exact boundary", json: "-9007199254740992", want: -9007199254740992},
@@ -315,6 +324,100 @@ func TestGetFloat64PrecisionBoundaries(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetFloat64ExactnessProperty(t *testing.T) {
+	parser := mustNewParser(t)
+	t.Cleanup(func() {
+		if err := parser.Close(); err != nil {
+			t.Fatalf("parser.Close() cleanup error = %v", err)
+		}
+	})
+
+	t.Run("int64", func(t *testing.T) {
+		config := &quick.Config{
+			MaxCount: 128,
+			Rand:     rand.New(rand.NewSource(1)),
+		}
+		var contractErr error
+		err := quick.Check(func(value int64) bool {
+			contractErr = checkGetFloat64Int64Contract(parser, value)
+			return contractErr == nil
+		}, config)
+		if err != nil {
+			if contractErr != nil {
+				t.Fatal(contractErr)
+			}
+			t.Fatalf("quick.Check(int64) error = %v", err)
+		}
+	})
+
+	t.Run("uint64", func(t *testing.T) {
+		config := &quick.Config{
+			MaxCount: 128,
+			Rand:     rand.New(rand.NewSource(2)),
+		}
+		var contractErr error
+		err := quick.Check(func(value uint64) bool {
+			contractErr = checkGetFloat64Uint64Contract(parser, value)
+			return contractErr == nil
+		}, config)
+		if err != nil {
+			if contractErr != nil {
+				t.Fatal(contractErr)
+			}
+			t.Fatalf("quick.Check(uint64) error = %v", err)
+		}
+	})
+}
+
+func checkGetFloat64Int64Contract(parser *Parser, value int64) error {
+	json := strconv.FormatInt(value, 10)
+	got, err := parseRootFloat64(parser, json)
+	if exactFloat64Int64(value) {
+		if err != nil {
+			return fmt.Errorf("GetFloat64(%s) error = %v, want nil", json, err)
+		}
+		if got != float64(value) {
+			return fmt.Errorf("GetFloat64(%s) = %.0f, want %.0f", json, got, float64(value))
+		}
+		return nil
+	}
+	if !errors.Is(err, ErrPrecisionLoss) {
+		return fmt.Errorf("GetFloat64(%s) error = %v, want ErrPrecisionLoss", json, err)
+	}
+	return nil
+}
+
+func checkGetFloat64Uint64Contract(parser *Parser, value uint64) error {
+	json := strconv.FormatUint(value, 10)
+	got, err := parseRootFloat64(parser, json)
+	if exactFloat64Uint64(value) {
+		if err != nil {
+			return fmt.Errorf("GetFloat64(%s) error = %v, want nil", json, err)
+		}
+		if got != float64(value) {
+			return fmt.Errorf("GetFloat64(%s) = %.0f, want %.0f", json, got, float64(value))
+		}
+		return nil
+	}
+	if !errors.Is(err, ErrPrecisionLoss) {
+		return fmt.Errorf("GetFloat64(%s) error = %v, want ErrPrecisionLoss", json, err)
+	}
+	return nil
+}
+
+func parseRootFloat64(parser *Parser, json string) (float64, error) {
+	doc, err := parser.Parse([]byte(json))
+	if err != nil {
+		return 0, fmt.Errorf("Parse(%q): %w", json, err)
+	}
+
+	value, getErr := doc.Root().GetFloat64()
+	if closeErr := doc.Close(); closeErr != nil {
+		return 0, fmt.Errorf("doc.Close(%q): %w", json, closeErr)
+	}
+	return value, getErr
 }
 
 func TestParseRejectsMalformedUTF8Scalars(t *testing.T) {

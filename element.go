@@ -171,6 +171,10 @@ func (e Element) GetFloat64() (float64, error) {
 		return 0, err
 	}
 
+	// Int64/Uint64 hints stay on the integer accessors so Go can enforce the
+	// exact-float64 contract without routing integer-backed values through the
+	// native float accessor. Invalid hints still fall through to Rust, which
+	// re-checks the native kind before applying the same precision-loss rule.
 	switch ffi.ValueKind(e.view.KindHint) {
 	case ffi.ValueKindInt64:
 		value, rc := doc.parser.library.bindings.ElementGetInt64(&e.view)

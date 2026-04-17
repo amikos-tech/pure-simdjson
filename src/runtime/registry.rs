@@ -854,6 +854,8 @@ fn with_iter_doc<T, F>(
 where
     F: FnOnce(&mut DocEntry) -> Result<T, pure_simdjson_error_code_t>,
 {
+    // `state0 == state1` is the exhausted sentinel; callers handle that case
+    // explicitly and still need the lease/tag checks below to run first.
     if reserved != 0 || tag != expected_tag || state0 > state1 {
         return Err(err_invalid_handle());
     }
