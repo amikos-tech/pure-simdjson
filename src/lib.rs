@@ -143,12 +143,6 @@ const fn err_cpu_unsupported() -> pure_simdjson_error_code_t {
 }
 
 #[inline]
-#[cfg_attr(debug_assertions, allow(dead_code))]
-const fn err_internal() -> pure_simdjson_error_code_t {
-    pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INTERNAL
-}
-
-#[inline]
 const fn err_panic() -> pure_simdjson_error_code_t {
     pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PANIC
 }
