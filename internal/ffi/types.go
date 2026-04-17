@@ -55,3 +55,21 @@ type ValueView struct {
 	KindHint uint32
 	Reserved uint32
 }
+
+type ArrayIter struct {
+	Doc      DocHandle
+	State0   uint64
+	State1   uint64
+	Index    uint32
+	Tag      uint16
+	Reserved uint16
+}
+
+type ObjectIter struct {
+	Doc      DocHandle
+	State0   uint64
+	State1   uint64
+	Index    uint32
+	Tag      uint16
+	Reserved uint16
+}
