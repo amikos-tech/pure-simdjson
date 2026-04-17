@@ -9,7 +9,7 @@ import (
 )
 
 func loadLibrary(path string) (uintptr, error) {
-	handle, err := purego.Dlopen(path, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+	handle, err := purego.Dlopen(path, purego.RTLD_NOW|purego.RTLD_LOCAL)
 	if err != nil {
 		return 0, fmt.Errorf("load %s: %w", path, err)
 	}
