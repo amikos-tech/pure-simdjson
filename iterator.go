@@ -1,6 +1,7 @@
 package purejson
 
 import (
+	"errors"
 	"runtime"
 
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
@@ -75,7 +76,8 @@ func (it *ArrayIter) Err() error {
 }
 
 // Next advances the iterator and reports whether another object entry is
-// available. It caches the current key as a copied Go string for Key.
+// available. It caches the current key as a copied Go string for Key and the
+// current value view for Value.
 func (it *ObjectIter) Next() bool {
 	if it == nil || it.done || it.err != nil {
 		return false
@@ -148,7 +150,7 @@ func normalizeIteratorError(doc *Doc, code int32) error {
 	if err == nil {
 		return nil
 	}
-	if doc != nil && doc.isClosed() {
+	if doc != nil && doc.isClosed() && errors.Is(err, ErrInvalidHandle) {
 		return ErrClosed
 	}
 	return err

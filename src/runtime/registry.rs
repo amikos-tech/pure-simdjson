@@ -46,7 +46,10 @@ struct DocEntry {
     root_after_index: u64,
     owner_slot: u32,
     owner_generation: u32,
-    _input_storage: Vec<u8>,
+    #[allow(dead_code)]
+    // Pinned: simdjson's parsed tape and borrowed string views remain tied to this owned buffer
+    // for the lifetime of the document entry, even though Rust never reads the field directly.
+    input_storage: Vec<u8>,
     descendant_indices: HashSet<u64>,
     iter_leases: HashMap<u32, IteratorLease>,
     next_iter_lease: u32,
@@ -177,7 +180,7 @@ fn unpack_handle(handle: u64) -> Result<(usize, u32, u32), pure_simdjson_error_c
 }
 
 impl Registry {
-    // Linear scan acceptable at Phase 02 scope (few parsers, short lifetimes).
+    // Linear scan acceptable at the current ABI v0.1 scope (few parsers, short lifetimes).
     // Switch to a free-list of vacant indices if parser churn grows.
     fn alloc_parser(
         &mut self,
@@ -209,7 +212,7 @@ impl Registry {
         Ok(pack_handle(self.parsers.len() as u32, generation))
     }
 
-    // Linear scan acceptable at Phase 02 scope (few docs, short lifetimes).
+    // Linear scan acceptable at the current ABI v0.1 scope (few docs, short lifetimes).
     // Switch to a free-list of vacant indices if doc churn grows.
     fn alloc_doc(
         &mut self,
@@ -231,7 +234,7 @@ impl Registry {
                     root_after_index,
                     owner_slot,
                     owner_generation,
-                    _input_storage: input,
+                    input_storage: input,
                     descendant_indices: HashSet::new(),
                     iter_leases: HashMap::new(),
                     next_iter_lease: ITER_LEASE_START,
@@ -252,7 +255,7 @@ impl Registry {
             root_after_index,
             owner_slot,
             owner_generation,
-            _input_storage: input,
+            input_storage: input,
             descendant_indices: HashSet::new(),
             iter_leases: HashMap::new(),
             next_iter_lease: ITER_LEASE_START,
@@ -398,7 +401,7 @@ pub(crate) fn parser_parse(
     // The registry mutex is held across `native_parser_parse` deliberately: the parser slot's
     // Idle->Busy transition must be atomic with the doc allocation that owns the busy state, and
     // simdjson parsers are thread-compatible (one parser per thread). Multi-parser throughput is
-    // not a Phase 02 goal; revisit if cross-parser contention becomes a measured bottleneck.
+    // not an ABI v0.1 throughput goal; revisit if cross-parser contention becomes a measured bottleneck.
     let mut registry = registry_guard();
     let (index, slot, generation) = unpack_handle(handle)?;
 
@@ -598,6 +601,8 @@ where
         return Err(err_invalid_argument());
     }
 
+    // SAFETY: `view` was checked for null above, and the ABI permits callers to provide an
+    // unaligned pointer to a `pure_simdjson_value_view_t`.
     let view = unsafe { ptr::read_unaligned(view) };
     if view.state0 == 0 || view.reserved != 0 {
         return Err(err_invalid_handle());
@@ -708,6 +713,8 @@ pub(crate) fn element_get_string(
             return Err(err_internal());
         }
 
+        // SAFETY: the native bridge returned a non-null pointer for a non-empty string view, and
+        // the accompanying `len` bounds the borrowed bytes for the duration of this copy.
         let bytes = unsafe { slice::from_raw_parts(borrowed_ptr as *const u8, len) };
         let mut owned = bytes.to_vec().into_boxed_slice().into_vec();
         let ptr = owned.as_mut_ptr();
@@ -727,6 +734,7 @@ pub(crate) fn element_get_string(
         .insert(ptr as usize, len)
         .is_some()
     {
+        // SAFETY: the allocation was just produced from `owned` with matching pointer/length/cap.
         unsafe {
             drop(Vec::from_raw_parts(ptr, len, len));
         }
@@ -762,6 +770,8 @@ pub(crate) fn bytes_free(ptr: *mut u8, len: usize) -> pure_simdjson_error_code_t
         }
     }
 
+    // SAFETY: successful allocations are registered with exact pointer/length pairs, so this
+    // reconstructs the original Vec allocation exactly once after removing its registry entry.
     unsafe {
         drop(Vec::from_raw_parts(ptr, len, len));
     }
@@ -869,6 +879,8 @@ pub(crate) fn array_iter_next(
         return Err(err_invalid_argument());
     }
 
+    // SAFETY: `iter` was checked for null above, and the ABI permits callers to provide an
+    // unaligned pointer to a `pure_simdjson_array_iter_t`.
     let iter = unsafe { ptr::read_unaligned(iter) };
     with_iter_doc(
         iter.doc,
@@ -935,6 +947,8 @@ pub(crate) fn object_iter_next(
         return Err(err_invalid_argument());
     }
 
+    // SAFETY: `iter` was checked for null above, and the ABI permits callers to provide an
+    // unaligned pointer to a `pure_simdjson_object_iter_t`.
     let iter = unsafe { ptr::read_unaligned(iter) };
     with_iter_doc(
         iter.doc,

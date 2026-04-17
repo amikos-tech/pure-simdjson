@@ -10,7 +10,9 @@ import (
 var (
 	// ErrInvalidHandle reports that a parser, document, or element handle was not valid.
 	ErrInvalidHandle = errors.New("invalid handle")
-	// ErrClosed reports use of a parser or document after Close succeeded.
+	// ErrClosed reports use of a parser, document, or document-tied
+	// element/iterator after the underlying parser/doc has been closed or
+	// released.
 	ErrClosed = errors.New("closed")
 	// ErrParserBusy reports that a parser still owns a live document.
 	ErrParserBusy = errors.New("parser busy")
@@ -22,6 +24,10 @@ var (
 	ErrCPUUnsupported = errors.New("cpu unsupported")
 	// ErrABIVersionMismatch reports that the Go wrapper and native library expose different ABI versions.
 	ErrABIVersionMismatch = errors.New("abi version mismatch")
+	// ErrPanic reports that the native library trapped a Rust panic at the FFI boundary.
+	ErrPanic = errors.New("panic")
+	// ErrCPPException reports that the native library trapped a C++ exception before it crossed the FFI boundary.
+	ErrCPPException = errors.New("cpp exception")
 	// ErrInvalidJSON reports invalid JSON input.
 	ErrInvalidJSON = errors.New("invalid json")
 	// ErrElementNotFound reports lookup of a missing element.
@@ -191,6 +197,10 @@ func sentinelForStatus(code int32) error {
 		return ErrCPUUnsupported
 	case ffi.ErrABIMismatch:
 		return ErrABIVersionMismatch
+	case ffi.ErrPanic:
+		return ErrPanic
+	case ffi.ErrCPPException:
+		return ErrCPPException
 	default:
 		// ErrInvalidArg and ErrBufferTooSmall indicate a bug in the Go wrapper,
 		// not user error; they intentionally map to ErrInternal.

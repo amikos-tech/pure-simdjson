@@ -10,13 +10,13 @@ use std::{
     slice,
 };
 
-/// Stable packed ABI version for the Phase 1 contract.
+/// Stable packed ABI version for the ABI v0.1 contract.
 ///
 /// This constant is part of the public C header and stays numerically pinned alongside
 /// `pure_simdjson_get_abi_version`.
 pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0000;
 
-/// Public error codes for the stable Phase 1 ABI.
+/// Public error codes for the stable ABI v0.1 surface.
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum pure_simdjson_error_code_t {
@@ -92,7 +92,7 @@ pub struct pure_simdjson_value_view_t {
 /// Stateful array iterator tied to a live document handle.
 ///
 /// `state0`, `state1`, `index`, and `tag` are implementation-owned. `index` stays `u32`
-/// because the Phase 1 contract only admits documents below the 4 GiB simdjson ceiling.
+/// because the ABI v0.1 layout only admits documents below the 4 GiB simdjson ceiling.
 /// `reserved` stays pinned for future contract growth and callers must leave it untouched.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
@@ -108,7 +108,7 @@ pub struct pure_simdjson_array_iter_t {
 /// Stateful object iterator tied to a live document handle.
 ///
 /// `state0`, `state1`, `index`, and `tag` are implementation-owned. `index` stays `u32`
-/// because the Phase 1 contract only admits documents below the 4 GiB simdjson ceiling.
+/// because the ABI v0.1 layout only admits documents below the 4 GiB simdjson ceiling.
 /// `reserved` stays pinned for future contract growth and callers must leave it untouched.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]

@@ -1,6 +1,6 @@
-# Phase 2 Native Smoke Harness
+# ABI v0.1 Native Smoke Harness
 
-The Phase 2 smoke harness compiles a native C executable against the committed public header and the built library, then exercises the minimal ABI proof path:
+The ABI v0.1 smoke harness compiles a native C executable against the committed public header and the built library, then exercises a minimal end-to-end proof path:
 
 - `pure_simdjson_get_abi_version`
 - `pure_simdjson_parser_new`

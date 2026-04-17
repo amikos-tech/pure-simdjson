@@ -5,6 +5,8 @@ import (
 	"slices"
 	"testing"
 	"unicode/utf8"
+
+	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
 
 func TestArrayIterOrder(t *testing.T) {
@@ -195,6 +197,138 @@ func TestObjectGetFieldMissingVsNull(t *testing.T) {
 	}
 }
 
+func TestNestedTraversalDescendants(t *testing.T) {
+	_, doc := mustParseDoc(t, `{"meta":{"active":true},"items":[{"id":1},null,["x",2]]}`)
+
+	rootObject, err := doc.Root().AsObject()
+	if err != nil {
+		t.Fatalf("AsObject() error = %v", err)
+	}
+
+	metaField, err := rootObject.GetField("meta")
+	if err != nil {
+		t.Fatalf("GetField(\"meta\") error = %v", err)
+	}
+	metaObject, err := metaField.AsObject()
+	if err != nil {
+		t.Fatalf("meta.AsObject() error = %v", err)
+	}
+	activeField, err := metaObject.GetField("active")
+	if err != nil {
+		t.Fatalf("GetField(\"active\") error = %v", err)
+	}
+	active, err := activeField.GetBool()
+	if err != nil {
+		t.Fatalf("active.GetBool() error = %v", err)
+	}
+	if !active {
+		t.Fatal("active.GetBool() = false, want true")
+	}
+
+	itemsField, err := rootObject.GetField("items")
+	if err != nil {
+		t.Fatalf("GetField(\"items\") error = %v", err)
+	}
+	items, err := itemsField.AsArray()
+	if err != nil {
+		t.Fatalf("items.AsArray() error = %v", err)
+	}
+
+	iter := items.Iter()
+	if !iter.Next() {
+		t.Fatalf("first iter.Next() = false, want true (err=%v)", iter.Err())
+	}
+	firstObject, err := iter.Value().AsObject()
+	if err != nil {
+		t.Fatalf("first element AsObject() error = %v", err)
+	}
+	idField, err := firstObject.GetField("id")
+	if err != nil {
+		t.Fatalf("GetField(\"id\") error = %v", err)
+	}
+	id, err := idField.GetInt64()
+	if err != nil {
+		t.Fatalf("id.GetInt64() error = %v", err)
+	}
+	if id != 1 {
+		t.Fatalf("id.GetInt64() = %d, want 1", id)
+	}
+
+	if !iter.Next() {
+		t.Fatalf("second iter.Next() = false, want true (err=%v)", iter.Err())
+	}
+	isNull, err := iter.Value().IsNullErr()
+	if err != nil {
+		t.Fatalf("second element IsNullErr() error = %v", err)
+	}
+	if !isNull {
+		t.Fatal("second element IsNullErr() = false, want true")
+	}
+
+	if !iter.Next() {
+		t.Fatalf("third iter.Next() = false, want true (err=%v)", iter.Err())
+	}
+	innerArray, err := iter.Value().AsArray()
+	if err != nil {
+		t.Fatalf("third element AsArray() error = %v", err)
+	}
+	innerIter := innerArray.Iter()
+	if !innerIter.Next() {
+		t.Fatalf("inner first iter.Next() = false, want true (err=%v)", innerIter.Err())
+	}
+	label, err := innerIter.Value().GetString()
+	if err != nil {
+		t.Fatalf("inner first GetString() error = %v", err)
+	}
+	if label != "x" {
+		t.Fatalf("inner first GetString() = %q, want %q", label, "x")
+	}
+	if !innerIter.Next() {
+		t.Fatalf("inner second iter.Next() = false, want true (err=%v)", innerIter.Err())
+	}
+	number, err := innerIter.Value().GetInt64()
+	if err != nil {
+		t.Fatalf("inner second GetInt64() error = %v", err)
+	}
+	if number != 2 {
+		t.Fatalf("inner second GetInt64() = %d, want 2", number)
+	}
+	if innerIter.Next() {
+		t.Fatal("inner third iter.Next() = true, want false")
+	}
+	if err := innerIter.Err(); err != nil {
+		t.Fatalf("innerIter.Err() = %v, want nil", err)
+	}
+
+	if iter.Next() {
+		t.Fatal("fourth iter.Next() = true, want false")
+	}
+	if err := iter.Err(); err != nil {
+		t.Fatalf("iter.Err() = %v, want nil", err)
+	}
+}
+
+func TestObjectGetFieldDuplicateKeySemantics(t *testing.T) {
+	_, doc := mustParseDoc(t, `{"dup":1,"dup":2}`)
+
+	object, err := doc.Root().AsObject()
+	if err != nil {
+		t.Fatalf("AsObject() error = %v", err)
+	}
+
+	field, err := object.GetField("dup")
+	if err != nil {
+		t.Fatalf("GetField(\"dup\") error = %v", err)
+	}
+	value, err := field.GetInt64()
+	if err != nil {
+		t.Fatalf("GetInt64() error = %v", err)
+	}
+	if value != 1 {
+		t.Fatalf("GetField(\"dup\").GetInt64() = %d, want first duplicate field", value)
+	}
+}
+
 func TestGetStringField(t *testing.T) {
 	_, doc := mustParseDoc(t, `{"name":"alice"}`)
 
@@ -357,6 +491,38 @@ func TestIteratorNextAfterDone(t *testing.T) {
 	}
 }
 
+func TestIteratorValueLifetimeAcrossAdvance(t *testing.T) {
+	_, doc := mustParseDoc(t, `[1,2]`)
+
+	array, err := doc.Root().AsArray()
+	if err != nil {
+		t.Fatalf("AsArray() error = %v", err)
+	}
+
+	iter := array.Iter()
+	if !iter.Next() {
+		t.Fatalf("first iter.Next() = false, want true (err=%v)", iter.Err())
+	}
+	first := iter.Value()
+
+	if !iter.Next() {
+		t.Fatalf("second iter.Next() = false, want true (err=%v)", iter.Err())
+	}
+	second := iter.Value()
+
+	if got, err := first.GetInt64(); err != nil {
+		t.Fatalf("first.GetInt64() error = %v", err)
+	} else if got != 1 {
+		t.Fatalf("first.GetInt64() = %d, want 1", got)
+	}
+
+	if got, err := second.GetInt64(); err != nil {
+		t.Fatalf("second.GetInt64() error = %v", err)
+	} else if got != 2 {
+		t.Fatalf("second.GetInt64() = %d, want 2", got)
+	}
+}
+
 func TestIteratorAfterDocClose(t *testing.T) {
 	t.Run("before-first-next", func(t *testing.T) {
 		_, doc := mustParseDoc(t, `[1,2]`)
@@ -404,4 +570,23 @@ func TestIteratorAfterDocClose(t *testing.T) {
 			t.Fatalf("iter.Err() after doc.Close() = %v, want ErrClosed", iter.Err())
 		}
 	})
+}
+
+func TestNormalizeIteratorErrorOnlySoftensInvalidHandle(t *testing.T) {
+	_, doc := mustParseDoc(t, "null")
+	if err := doc.Close(); err != nil {
+		t.Fatalf("doc.Close() error = %v", err)
+	}
+
+	if err := normalizeIteratorError(doc, int32(ffi.ErrInvalidHandle)); !errors.Is(err, ErrClosed) {
+		t.Fatalf("normalizeIteratorError(ErrInvalidHandle) = %v, want ErrClosed", err)
+	}
+
+	if err := normalizeIteratorError(doc, int32(ffi.ErrPrecisionLoss)); !errors.Is(err, ErrPrecisionLoss) {
+		t.Fatalf("normalizeIteratorError(ErrPrecisionLoss) = %v, want ErrPrecisionLoss", err)
+	}
+
+	if err := normalizeIteratorError(doc, int32(ffi.ErrElementNotFound)); !errors.Is(err, ErrElementNotFound) {
+		t.Fatalf("normalizeIteratorError(ErrElementNotFound) = %v, want ErrElementNotFound", err)
+	}
 }

@@ -566,3 +566,152 @@ func TestParseInputVariants(t *testing.T) {
 		})
 	}
 }
+
+func TestAccessorPathSurvivesGCPressure(t *testing.T) {
+	_, doc := mustParseDoc(t, `{"outer":{"label":"ok","values":[1,2,3]}}`)
+
+	rootObject, err := doc.Root().AsObject()
+	if err != nil {
+		t.Fatalf("AsObject() error = %v", err)
+	}
+	outerField, err := rootObject.GetField("outer")
+	if err != nil {
+		t.Fatalf("GetField(\"outer\") error = %v", err)
+	}
+
+	for i := 0; i < 64; i++ {
+		runtime.GC()
+	}
+
+	outerObject, err := outerField.AsObject()
+	if err != nil {
+		t.Fatalf("outerField.AsObject() error = %v", err)
+	}
+	label, err := outerObject.GetStringField("label")
+	if err != nil {
+		t.Fatalf("GetStringField(\"label\") error = %v", err)
+	}
+	if label != "ok" {
+		t.Fatalf("GetStringField(\"label\") = %q, want %q", label, "ok")
+	}
+
+	valuesField, err := outerObject.GetField("values")
+	if err != nil {
+		t.Fatalf("GetField(\"values\") error = %v", err)
+	}
+	values, err := valuesField.AsArray()
+	if err != nil {
+		t.Fatalf("values.AsArray() error = %v", err)
+	}
+
+	iter := values.Iter()
+	sum := int64(0)
+	for iter.Next() {
+		value, err := iter.Value().GetInt64()
+		if err != nil {
+			t.Fatalf("iter.Value().GetInt64() error = %v", err)
+		}
+		sum += value
+	}
+	if err := iter.Err(); err != nil {
+		t.Fatalf("iter.Err() = %v, want nil", err)
+	}
+	if sum != 6 {
+		t.Fatalf("sum = %d, want 6", sum)
+	}
+}
+
+func TestConcurrentReadersSingleDoc(t *testing.T) {
+	_, doc := mustParseDoc(t, `{"name":"alice","items":[1,2,3],"nested":{"ok":true}}`)
+
+	const goroutines = 8
+	const iterations = 50
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, goroutines)
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				rootObject, err := doc.Root().AsObject()
+				if err != nil {
+					errCh <- fmt.Errorf("AsObject: %w", err)
+					return
+				}
+
+				name, err := rootObject.GetStringField("name")
+				if err != nil {
+					errCh <- fmt.Errorf("GetStringField(name): %w", err)
+					return
+				}
+				if name != "alice" {
+					errCh <- fmt.Errorf("GetStringField(name) = %q, want %q", name, "alice")
+					return
+				}
+
+				nestedField, err := rootObject.GetField("nested")
+				if err != nil {
+					errCh <- fmt.Errorf("GetField(nested): %w", err)
+					return
+				}
+				nestedObject, err := nestedField.AsObject()
+				if err != nil {
+					errCh <- fmt.Errorf("nested.AsObject: %w", err)
+					return
+				}
+				okField, err := nestedObject.GetField("ok")
+				if err != nil {
+					errCh <- fmt.Errorf("GetField(ok): %w", err)
+					return
+				}
+				okValue, err := okField.GetBool()
+				if err != nil {
+					errCh <- fmt.Errorf("GetBool(ok): %w", err)
+					return
+				}
+				if !okValue {
+					errCh <- errors.New("GetBool(ok) = false, want true")
+					return
+				}
+
+				itemsField, err := rootObject.GetField("items")
+				if err != nil {
+					errCh <- fmt.Errorf("GetField(items): %w", err)
+					return
+				}
+				items, err := itemsField.AsArray()
+				if err != nil {
+					errCh <- fmt.Errorf("items.AsArray: %w", err)
+					return
+				}
+				iter := items.Iter()
+				sum := int64(0)
+				for iter.Next() {
+					value, err := iter.Value().GetInt64()
+					if err != nil {
+						errCh <- fmt.Errorf("iter.Value().GetInt64: %w", err)
+						return
+					}
+					sum += value
+				}
+				if err := iter.Err(); err != nil {
+					errCh <- fmt.Errorf("iter.Err: %w", err)
+					return
+				}
+				if sum != 6 {
+					errCh <- fmt.Errorf("sum = %d, want 6", sum)
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}

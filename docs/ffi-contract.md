@@ -6,7 +6,7 @@ This document is the normative FFI contract for `pure-simdjson` ABI `v0.1`. It d
 
 The generated header is authoritative for exact symbol names, field names, and C types. This document is authoritative for lifecycle, ownership, diagnostics, panic/exception policy, and compatibility rules. Go-side consumers must enforce ABI compatibility against `^0.1.x`.
 
-The current Phase 2 shim fully implements the metadata helpers plus the minimal parse path: `pure_simdjson_get_abi_version`, `pure_simdjson_get_implementation_name_len`, `pure_simdjson_copy_implementation_name`, `pure_simdjson_parser_new`, `pure_simdjson_parser_free`, `pure_simdjson_parser_parse`, `pure_simdjson_parser_get_last_error_len`, `pure_simdjson_parser_copy_last_error`, `pure_simdjson_parser_get_last_error_offset`, `pure_simdjson_doc_free`, `pure_simdjson_doc_root`, `pure_simdjson_element_type`, and `pure_simdjson_element_get_int64`. The remaining exports stay contract-only stubs until later phases implement the rest of the DOM surface.
+The current ABI v0.1 implementation exposes the typed DOM accessor surface end to end: metadata helpers, parser/document lifecycle, root resolution, `pure_simdjson_element_type`, the split numeric/string/bool/null accessors, array/object iterators, and `pure_simdjson_object_get_field`. The generated header and implementation currently match; later work may extend the ABI, but this document describes the full surface shipped today.
 
 # ABI invariants
 
@@ -103,6 +103,7 @@ Rules:
 - `pure_simdjson_array_iter_t` and `pure_simdjson_object_iter_t` are stateful, document-tied iterators driven from Go/C by repeated `*_next` calls.
 - Iterator `state0`, `state1`, `index`, and `tag` are implementation-owned state reserved for runtime validation. Iterator `reserved` is pinned for future growth and callers must leave it untouched.
 - `pure_simdjson_doc_root`, `pure_simdjson_object_get_field`, `pure_simdjson_array_iter_next`, and `pure_simdjson_object_iter_next` return new view state through out-params rather than allocating child handles.
+- `pure_simdjson_object_get_field` returns the first matching field when duplicate keys are present, matching simdjson DOM `object::at_key` semantics.
 
 Split numeric access is mandatory:
 
@@ -193,7 +194,7 @@ Rules:
 
 - `ffi_wrap` is mandatory for every public export.
 - `catch_unwind` is required when unwinding is enabled so Rust panics do not cross the C ABI boundary.
-- Phase 1 pins `panic = "abort"` in the dev and release Cargo profiles. Cargo ignores that setting for the `test` profile, so unwind-enabled test builds still require the `ffi_wrap`/`catch_unwind` boundary above to convert internal panics into `PURE_SIMDJSON_ERR_PANIC`.
+- The ABI v0.1 build policy pins `panic = "abort"` in the dev and release Cargo profiles. Cargo ignores that setting for the `test` profile, so unwind-enabled test builds still require the `ffi_wrap`/`catch_unwind` boundary above to convert internal panics into `PURE_SIMDJSON_ERR_PANIC`.
 - The Rust/C++ seam must use non-throwing simdjson access patterns such as `.get(err)`.
 - C++ exceptions must be trapped before re-entering Rust and converted into `PURE_SIMDJSON_ERR_CPP_EXCEPTION`.
 - No foreign exception or Rust unwind may cross into Go or C callers.

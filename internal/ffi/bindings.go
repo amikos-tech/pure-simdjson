@@ -2,6 +2,7 @@ package ffi
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"unsafe"
 
@@ -248,7 +249,11 @@ func (b *Bindings) ElementGetString(view *ValueView) (string, int32) {
 		return "", rc
 	}
 
-	defer b.BytesFree(ptr, length)
+	defer func() {
+		if freeRC := b.BytesFree(ptr, length); freeRC != int32(OK) && leakWarningsEnabled() {
+			fmt.Fprintf(os.Stderr, "purejson leak: bytes_free rc=%d len=%d\n", freeRC, length)
+		}
+	}()
 
 	if ptr == nil && length == 0 {
 		return "", int32(OK)

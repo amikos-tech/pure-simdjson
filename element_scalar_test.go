@@ -78,6 +78,70 @@ func TestElementTypeClassification(t *testing.T) {
 	}
 }
 
+func TestElementTypeErrClassification(t *testing.T) {
+	testCases := []struct {
+		name string
+		json string
+		want ElementType
+	}{
+		{name: "int64", json: "42", want: TypeInt64},
+		{name: "uint64", json: "18446744073709551615", want: TypeUint64},
+		{name: "float64", json: "3.25", want: TypeFloat64},
+		{name: "string", json: `"hello"`, want: TypeString},
+		{name: "bool", json: "true", want: TypeBool},
+		{name: "null", json: "null", want: TypeNull},
+		{name: "array", json: "[]", want: TypeArray},
+		{name: "object", json: "{}", want: TypeObject},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, doc := mustParseDoc(t, tc.json)
+
+			got, err := doc.Root().TypeErr()
+			if err != nil {
+				t.Fatalf("TypeErr() error = %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("TypeErr() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestElementTypeErrPreservesErrors(t *testing.T) {
+	t.Run("after close", func(t *testing.T) {
+		_, doc := mustParseDoc(t, "42")
+		root := doc.Root()
+		if err := doc.Close(); err != nil {
+			t.Fatalf("doc.Close() error = %v", err)
+		}
+
+		got, err := root.TypeErr()
+		if got != TypeInvalid {
+			t.Fatalf("TypeErr() type = %v, want %v", got, TypeInvalid)
+		}
+		if !errors.Is(err, ErrClosed) {
+			t.Fatalf("TypeErr() error = %v, want ErrClosed", err)
+		}
+	})
+
+	t.Run("tampered view", func(t *testing.T) {
+		_, doc := mustParseDoc(t, "42")
+		root := doc.Root()
+		root.view.State0 = 1
+		root.view.State1 = descendantViewTag
+
+		got, err := root.TypeErr()
+		if got != TypeInvalid {
+			t.Fatalf("TypeErr() type = %v, want %v", got, TypeInvalid)
+		}
+		if !errors.Is(err, ErrInvalidHandle) {
+			t.Fatalf("TypeErr() error = %v, want ErrInvalidHandle", err)
+		}
+	})
+}
+
 func TestTypeInvalidOnTamperedView(t *testing.T) {
 	testCases := []struct {
 		name   string
@@ -212,6 +276,41 @@ func TestGetFloat64(t *testing.T) {
 	}
 }
 
+func TestGetFloat64PrecisionBoundaries(t *testing.T) {
+	testCases := []struct {
+		name    string
+		json    string
+		want    float64
+		wantErr error
+	}{
+		{name: "positive exact boundary", json: "9007199254740992", want: 9007199254740992},
+		{name: "positive precision loss", json: "9007199254740993", wantErr: ErrPrecisionLoss},
+		{name: "negative exact boundary", json: "-9007199254740992", want: -9007199254740992},
+		{name: "negative precision loss", json: "-9007199254740993", wantErr: ErrPrecisionLoss},
+		{name: "max uint64 precision loss", json: "18446744073709551615", wantErr: ErrPrecisionLoss},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, doc := mustParseDoc(t, tc.json)
+
+			got, err := doc.Root().GetFloat64()
+			if tc.wantErr != nil {
+				if !errors.Is(err, tc.wantErr) {
+					t.Fatalf("GetFloat64() error = %v, want %v", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("GetFloat64() error = %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("GetFloat64() = %.0f, want %.0f", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestParseRejectsMalformedUTF8Scalars(t *testing.T) {
 	testCases := []struct {
 		name string
@@ -312,4 +411,61 @@ func TestIsNull(t *testing.T) {
 	if closed.IsNull() {
 		t.Fatal("IsNull() after Close = true, want false")
 	}
+}
+
+func TestIsNullErr(t *testing.T) {
+	t.Run("null", func(t *testing.T) {
+		_, doc := mustParseDoc(t, "null")
+
+		got, err := doc.Root().IsNullErr()
+		if err != nil {
+			t.Fatalf("IsNullErr() error = %v", err)
+		}
+		if !got {
+			t.Fatal("IsNullErr() = false, want true")
+		}
+	})
+
+	t.Run("bool", func(t *testing.T) {
+		_, doc := mustParseDoc(t, "false")
+
+		got, err := doc.Root().IsNullErr()
+		if err != nil {
+			t.Fatalf("IsNullErr() error = %v", err)
+		}
+		if got {
+			t.Fatal("IsNullErr() on bool = true, want false")
+		}
+	})
+
+	t.Run("tampered view", func(t *testing.T) {
+		_, doc := mustParseDoc(t, "null")
+		tampered := doc.Root()
+		tampered.view.State0 = 1
+		tampered.view.State1 = descendantViewTag
+
+		got, err := tampered.IsNullErr()
+		if got {
+			t.Fatal("IsNullErr() on tampered view = true, want false")
+		}
+		if !errors.Is(err, ErrInvalidHandle) {
+			t.Fatalf("IsNullErr() error = %v, want ErrInvalidHandle", err)
+		}
+	})
+
+	t.Run("after close", func(t *testing.T) {
+		_, doc := mustParseDoc(t, "null")
+		root := doc.Root()
+		if err := doc.Close(); err != nil {
+			t.Fatalf("doc.Close() error = %v", err)
+		}
+
+		got, err := root.IsNullErr()
+		if got {
+			t.Fatal("IsNullErr() after Close = true, want false")
+		}
+		if !errors.Is(err, ErrClosed) {
+			t.Fatalf("IsNullErr() error = %v, want ErrClosed", err)
+		}
+	})
 }

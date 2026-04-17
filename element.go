@@ -64,8 +64,9 @@ func (e Element) usableDoc() (*Doc, error) {
 
 // GetInt64 reads the current element as an int64 and returns ErrClosed when the
 // owning document has already been released. Uint64 values larger than max
-// int64 report ErrNumberOutOfRange, while float-kind values report ErrWrongType.
-// Element accessors are not safe for concurrent use with Doc.Close.
+// int64 report ErrNumberOutOfRange, float-kind values report ErrWrongType, and
+// native BIGINT classifications report ErrPrecisionLoss. Element accessors are
+// not safe for concurrent use with Doc.Close.
 func (e Element) GetInt64() (int64, error) {
 	doc, err := e.usableDoc()
 	if err != nil {
@@ -84,42 +85,54 @@ func (e Element) GetInt64() (int64, error) {
 // invalid, or tampered views collapse to TypeInvalid instead of returning an
 // error.
 func (e Element) Type() ElementType {
-	doc, err := e.usableDoc()
+	kind, err := e.TypeErr()
 	if err != nil {
 		return TypeInvalid
+	}
+	return kind
+}
+
+// TypeErr reports the concrete JSON value kind for the current element while
+// preserving native failures such as ErrClosed, ErrInvalidHandle,
+// ErrPrecisionLoss, or ErrPanic.
+func (e Element) TypeErr() (ElementType, error) {
+	doc, err := e.usableDoc()
+	if err != nil {
+		return TypeInvalid, err
 	}
 
 	kind, rc := doc.parser.library.bindings.ElementType(&e.view)
 	runtime.KeepAlive(doc)
-	if rc != int32(ffi.OK) {
-		return TypeInvalid
+	if err := wrapStatus(rc); err != nil {
+		return TypeInvalid, err
 	}
 
 	switch ffi.ValueKind(kind) {
 	case ffi.ValueKindNull:
-		return TypeNull
+		return TypeNull, nil
 	case ffi.ValueKindBool:
-		return TypeBool
+		return TypeBool, nil
 	case ffi.ValueKindInt64:
-		return TypeInt64
+		return TypeInt64, nil
 	case ffi.ValueKindUint64:
-		return TypeUint64
+		return TypeUint64, nil
 	case ffi.ValueKindFloat64:
-		return TypeFloat64
+		return TypeFloat64, nil
 	case ffi.ValueKindString:
-		return TypeString
+		return TypeString, nil
 	case ffi.ValueKindArray:
-		return TypeArray
+		return TypeArray, nil
 	case ffi.ValueKindObject:
-		return TypeObject
+		return TypeObject, nil
 	default:
-		return TypeInvalid
+		return TypeInvalid, nil
 	}
 }
 
 // GetUint64 reads the current element as a uint64 and returns ErrClosed when
 // the owning document has already been released. Negative integers report
-// ErrNumberOutOfRange and non-uint64 kinds report ErrWrongType.
+// ErrNumberOutOfRange, non-uint64 kinds report ErrWrongType, and native BIGINT
+// classifications report ErrPrecisionLoss.
 func (e Element) GetUint64() (uint64, error) {
 	doc, err := e.usableDoc()
 	if err != nil {
@@ -209,17 +222,27 @@ func (e Element) GetBool() (bool, error) {
 // IsNull reports whether the current element is a JSON null value. Closed,
 // invalid, or tampered views return false.
 func (e Element) IsNull() bool {
-	doc, err := e.usableDoc()
+	value, err := e.IsNullErr()
 	if err != nil {
 		return false
+	}
+	return value
+}
+
+// IsNullErr reports whether the current element is a JSON null value while
+// preserving native failures such as ErrClosed or ErrInvalidHandle.
+func (e Element) IsNullErr() (bool, error) {
+	doc, err := e.usableDoc()
+	if err != nil {
+		return false, err
 	}
 
 	value, rc := doc.parser.library.bindings.ElementIsNull(&e.view)
 	runtime.KeepAlive(doc)
-	if rc != int32(ffi.OK) {
-		return false
+	if err := wrapStatus(rc); err != nil {
+		return false, err
 	}
-	return value
+	return value, nil
 }
 
 // AsArray returns a typed Array view when the element represents a JSON array.
@@ -249,7 +272,8 @@ func (e Element) AsObject() (Object, error) {
 }
 
 // Iter returns a scanner-style iterator over the array contents in document
-// order.
+// order. Successful descendant traversal records document-tied bookkeeping in
+// the native registry that is released when Doc.Close runs.
 func (a Array) Iter() *ArrayIter {
 	it := &ArrayIter{doc: a.element.doc}
 	doc, err := a.element.usableDoc()
@@ -275,7 +299,8 @@ func (a Array) Iter() *ArrayIter {
 }
 
 // Iter returns a scanner-style iterator over the object fields in document
-// order.
+// order. Successful descendant traversal records document-tied bookkeeping in
+// the native registry that is released when Doc.Close runs.
 func (o Object) Iter() *ObjectIter {
 	it := &ObjectIter{doc: o.element.doc}
 	doc, err := o.element.usableDoc()
@@ -302,7 +327,10 @@ func (o Object) Iter() *ObjectIter {
 
 // GetField returns the element for the given object key. Missing fields return
 // ErrElementNotFound, while present null fields return a valid Element whose
-// IsNull method reports true.
+// IsNull method reports true. When duplicate keys are present, GetField returns
+// the first matching field. Successful lookups also record document-tied
+// descendant bookkeeping in the native registry that is released when
+// Doc.Close runs.
 func (o Object) GetField(key string) (Element, error) {
 	doc, err := o.element.usableDoc()
 	if err != nil {
