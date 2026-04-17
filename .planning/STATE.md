@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-04-17T08:15:54.694Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-04-17T08:27:53.156Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 16
-  completed_plans: 12
-  percent: 75
+  completed_plans: 13
+  percent: 81
 ---
 
 # Project State
@@ -26,18 +26,18 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 04 (full-typed-accessor-surface) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-04-17
-Shipping: Phase 03 verified locally and remotely
+Shipping: Phase 04 Plan 02 verified locally
 
-Progress: [████████████████████] 11/11 plans (100%)
+Progress: [████████░░] 13/16 plans (81%)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 11
+- Total plans completed: 13
 - Average duration: 11.2m
 - Total execution time: 1.1 hours
 
@@ -55,6 +55,7 @@ Progress: [████████████████████] 11/11 p
 - Trend: Stable
 
 | Phase 04 P01 | 16m | 2 tasks | 7 files |
+| Phase 04-full-typed-accessor-surface P02 | 8m | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 04]: Lock descendant views to PSDJROOT/PSDJDESC with doc+json_index transport and registry validation.
 - [Phase 04]: Keep string copy-out ownership in Rust and free only through pure_simdjson_bytes_free.
 - [Phase 04]: Use defer-safe purego string cleanup via BytesFree immediately after successful native reads.
+- [Phase 04-full-typed-accessor-surface]: Public ElementType numerically mirrors ffi.ValueKind so Type() preserves the exact int64/uint64/float64 split.
+- [Phase 04-full-typed-accessor-surface]: GetFloat64 rejects lossy integral conversions in the Go wrapper because native get_double rounds large int64/uint64 values silently.
+- [Phase 04-full-typed-accessor-surface]: Integers larger than uint64 max are locked as parse-time ErrInvalidJSON cases because simdjson rejects them before GetUint64 can run.
 
 ### Pending Todos
 
@@ -82,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T08:15:54.687Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-04-17T08:27:53.144Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
