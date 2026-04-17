@@ -1,6 +1,6 @@
 # ABI Verification Rules
 
-This directory provides the static gates for the Phase 1 FFI contract. `make verify-contract && make verify-docs` is the required automated check for Plan `01-03`.
+This directory provides the static gates for the ABI v0.1 FFI contract. `make verify-contract && make verify-docs` remains the required automated check whenever the public surface or normative contract changes.
 
 | Check | Files / Command | Requirements Covered | Purpose |
 | --- | --- | --- | --- |
@@ -17,7 +17,7 @@ This directory provides the static gates for the Phase 1 FFI contract. `make ver
 
 ## Rule Summary
 
-- `required-symbols`: ensures the committed Phase 1 symbol set is exact, with no missing or unexpected `pure_simdjson_*` exports.
+- `required-symbols`: ensures the committed ABI v0.1 symbol set is exact, with no missing or unexpected `pure_simdjson_*` exports.
 - `error-code-outparams`: ensures exported functions keep the typed `pure_simdjson_error_code_t` status return and continue to transport ABI structs by pointer.
 - `string-copy-ownership`: ensures string access stays `uint8_t **out_ptr` + `size_t *out_len` with `pure_simdjson_bytes_free`.
 - `diag-surface`: ensures ABI version, implementation name, parser/doc handle role names, and bounded parser diagnostics remain part of the public surface.

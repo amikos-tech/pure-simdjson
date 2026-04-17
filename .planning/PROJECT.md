@@ -15,6 +15,8 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster
 <!-- Shipped and confirmed valuable. -->
 
 - [x] Validated in Phase 2: the repository builds vendored simdjson `v4.6.1` through `build.rs`, exposes a panic-safe C ABI with generation-stamped parser/doc handles, and proves the minimal `parser_new -> parser_parse -> doc_root -> element_get_int64` path through local and CI smoke checks
+- [x] Validated in Phase 3: Go consumers can load the shim through purego, manage `Parser`/`Doc` lifecycles safely, reuse parsers through `ParserPool`, and receive typed ABI/version errors instead of raw status codes
+- [x] Validated in Phase 4: the public DOM API now exposes typed scalar/string/bool/null accessors, cursor-pull array/object iteration, direct field lookup, executable examples, and package-wide DOC-03 coverage for the shipped v0.1 surface
 
 ### Active
 
@@ -22,15 +24,8 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster
 
 **v0.1 (MVP) — DOM API:**
 
-- [ ] Parse JSON from `[]byte` into a reusable `Doc` handle (input copied into Rust-owned padded arena)
-- [ ] Cursor/pull iteration (Go drives; no Go `map[string]any`/`[]any` materialization)
-- [ ] Typed number access: distinct `int64`, `uint64`, `float64` getters with `ErrNumberOutOfRange` / `ErrPrecisionLoss`
-- [ ] Typed accessors for string, bool, null, array, object
-- [ ] Parser/Document reuse API (allocate once, reuse across parses) + `ParserPool` helper
-- [ ] Explicit handle lifecycle: `Close()`/`Free()`, generation-stamped handles; finalizer as leak-warning only
 - [ ] Five-platform support: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
 - [ ] musl/Alpine smoke-test job + `PURE_SIMDJSON_LIB_PATH` escape hatch (implementation strategy TBD in Phase 6)
-- [ ] Rust FFI shim with C ABI, `ffi_wrap`-helper-enforced `catch_unwind` + error-code convention (mirrors pure-tokenizers)
 - [ ] Binary bootstrap: download pre-built shared library from CloudFlare R2 (primary) + GitHub Releases (fallback); SHA-256 table in Go source
 - [ ] CI release matrix with cosign keyless signing + ad-hoc macOS codesign
 - [ ] Benchmarks vs `encoding/json`, `minio/simdjson-go`, `bytedance/sonic` on twitter.json, canada.json, citm_catalog.json
@@ -85,9 +80,9 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster
 
 ## Current State
 
-Phase 2 is complete. The repository now builds vendored simdjson `v4.6.1` through `build.rs`, exposes the minimal public parse path with panic-safe exports and generation-checked handles, and has external smoke proof on Linux plus observed Windows/MSVC and Darwin CI verification.
+Phase 4 is complete. The repository now ships the full v0.1 DOM accessor surface: typed scalar/string/bool/null accessors, scanner-style array/object traversal, direct field lookup, executable examples, and package-wide Godoc for the exported API, all backed by the Rust shim and purego bindings.
 
-Next up: Phase 999.1 adds local pre-commit and pre-push verification hooks before the broader Go API work continues.
+Next up: Phase 5 adds bootstrap and distribution so a fresh machine can download, verify, cache, and load the correct shared library automatically.
 
 ## Key Decisions
 
@@ -128,4 +123,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-15 after Phase 2 completion*
+*Last updated: 2026-04-17 after Phase 4 completion*
