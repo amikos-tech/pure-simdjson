@@ -88,6 +88,8 @@ func withProcessFileLock(lockPath string, fn func() error) (err error) {
 			return fmt.Errorf("timed out acquiring lock %q after %s", lockPath, lockAcquireTimeout)
 		}
 		if time.Now().After(nextLogAt) {
+			fmt.Fprintf(os.Stderr, "pure-simdjson: waiting for install lock at %s (held %s)...\n",
+				lockPath, time.Since(start).Truncate(time.Second))
 			nextLogAt = time.Now().Add(lockLogInterval)
 		}
 		time.Sleep(lockRetryInterval)
