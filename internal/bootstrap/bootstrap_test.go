@@ -115,9 +115,22 @@ func TestWithMirrorValidation(t *testing.T) {
 }
 
 func TestWithMirrorLoopback(t *testing.T) {
-	_, err := bootstrap.ResolveConfig(bootstrap.WithMirror("http://localhost:9999"))
-	if err != nil {
-		t.Fatalf("WithMirror(http://localhost) should succeed: %v", err)
+	// Full RFC 5735 loopback range must be accepted for HTTP — previously only
+	// three literals ("localhost", "127.0.0.1", "::1") passed. Regression for
+	// PR #6 review item #2.
+	cases := []string{
+		"http://localhost:9999",
+		"http://127.0.0.1:9999",
+		"http://127.0.0.2:9999",
+		"http://127.255.255.254:9999",
+		"http://[::1]:9999",
+	}
+	for _, raw := range cases {
+		t.Run(raw, func(t *testing.T) {
+			if _, err := bootstrap.ResolveConfig(bootstrap.WithMirror(raw)); err != nil {
+				t.Fatalf("WithMirror(%s) should succeed: %v", raw, err)
+			}
+		})
 	}
 }
 

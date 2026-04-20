@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 )
@@ -113,11 +114,17 @@ func validateBaseURL(rawURL string) error {
 	return fmt.Errorf("mirror URL must use HTTPS for non-loopback hosts: %s", rawURL)
 }
 
-// isLoopbackHost reports whether host is a loopback address or hostname.
+// isLoopbackHost reports whether host is a loopback address or hostname. The
+// hostname fast path handles "localhost"; everything else falls through to
+// net.IP.IsLoopback which covers the full 127.0.0.0/8 range and ::1 per
+// RFC 5735 / RFC 4291.
 func isLoopbackHost(host string) bool {
-	switch host {
-	case "localhost", "127.0.0.1", "::1":
+	if strings.EqualFold(host, "localhost") {
 		return true
 	}
-	return false
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback()
 }
