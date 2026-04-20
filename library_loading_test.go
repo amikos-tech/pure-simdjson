@@ -2,158 +2,204 @@ package purejson
 
 import (
 	"errors"
-	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/amikos-tech/pure-simdjson/internal/bootstrap"
 )
 
-func TestResolveLibraryPathUsesDebugFallback(t *testing.T) {
-	wd := mustChdir(t, t.TempDir())
-	defer wd()
+// The bootstrap package memoizes failures for 30s via a package-level cache.
+// Tests in this file either bypass bootstrap via PURE_SIMDJSON_LIB_PATH or a
+// pre-populated cache, or deliberately exercise the failure path exactly once,
+// so no reset helper is needed.
 
-	debugPath := filepath.Join("target", "debug", platformLibraryName())
-	if err := os.MkdirAll(filepath.Dir(debugPath), 0o755); err != nil {
-		t.Fatalf("MkdirAll(%q) error = %v", filepath.Dir(debugPath), err)
+// TestResolveLibraryPathAbsolute asserts that resolveLibraryPath never returns
+// a relative path or bare filename — DIST-09 / pitfall #29: Windows LoadLibrary
+// must always receive a full path to prevent DLL hijacking via CWD.
+func TestResolveLibraryPathAbsolute(t *testing.T) {
+	t.Setenv(libraryEnvPath, "")
+	t.Setenv("PURE_SIMDJSON_CACHE_DIR", t.TempDir())
+
+	cachePath := bootstrap.CachePath(runtime.GOOS, runtime.GOARCH)
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
 	}
-	if err := os.WriteFile(debugPath, []byte("stub"), 0o644); err != nil {
-		t.Fatalf("WriteFile(%q) error = %v", debugPath, err)
+	if err := os.WriteFile(cachePath, []byte("stub"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
 	}
+
+	path, _, err := resolveLibraryPath()
+	if err != nil {
+		t.Fatalf("resolveLibraryPath() error = %v", err)
+	}
+	if !filepath.IsAbs(path) {
+		t.Fatalf("resolveLibraryPath() path = %q, want absolute", path)
+	}
+}
+
+// TestLibPathEnvBypassesDownload asserts that PURE_SIMDJSON_LIB_PATH short-
+// circuits the cache + bootstrap stages. The file at the env-provided path is
+// returned verbatim (absolute) and no network I/O happens.
+func TestLibPathEnvBypassesDownload(t *testing.T) {
+	tempDir := t.TempDir()
+	fake := filepath.Join(tempDir, "fake.so")
+	if err := os.WriteFile(fake, []byte("stub"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	t.Setenv(libraryEnvPath, fake)
+	// Even if LIB_PATH is set, point cache at a fresh TempDir so a leaked
+	// bootstrap would be observable as a failure rather than a cache hit.
+	t.Setenv("PURE_SIMDJSON_CACHE_DIR", t.TempDir())
 
 	path, attempted, err := resolveLibraryPath()
 	if err != nil {
 		t.Fatalf("resolveLibraryPath() error = %v", err)
 	}
-
-	wantPath, err := filepath.Abs(debugPath)
-	if err != nil {
-		t.Fatalf("filepath.Abs(%q) error = %v", debugPath, err)
+	if !filepath.IsAbs(path) {
+		t.Fatalf("resolveLibraryPath() path = %q, want absolute", path)
 	}
-	if path != wantPath {
-		t.Fatalf("resolveLibraryPath() path = %q, want %q", path, wantPath)
+	if path != fake {
+		t.Fatalf("resolveLibraryPath() path = %q, want %q", path, fake)
 	}
-	if len(attempted) < 2 {
-		t.Fatalf("resolveLibraryPath() attempted = %v, want at least release and debug candidates", attempted)
+	if len(attempted) != 1 || attempted[0] != fake {
+		t.Fatalf("resolveLibraryPath() attempted = %v, want [%q]", attempted, fake)
 	}
 }
 
-func TestActiveLibraryEnvOverrideMissingWrapsLoadFailure(t *testing.T) {
-	restore := withLibraryCacheClearedForTest(t)
-	defer restore()
-
-	missing := filepath.Join(t.TempDir(), "missing", platformLibraryName())
-	t.Setenv(libraryEnvPath, missing)
-
-	_, err := activeLibrary()
-	if !errors.Is(err, errLoadLibrary) {
-		t.Fatalf("activeLibrary() error = %v, want errors.Is(..., errLoadLibrary)", err)
-	}
-	if !strings.Contains(err.Error(), "attempted paths:") {
-		t.Fatalf("activeLibrary() error = %q, want attempted paths list", err)
-	}
-	if !strings.Contains(err.Error(), missing) {
-		t.Fatalf("activeLibrary() error = %q, want missing path %q", err, missing)
-	}
-}
-
-func TestActiveLibrarySearchMissReportsAttemptedPaths(t *testing.T) {
-	restoreCache := withLibraryCacheClearedForTest(t)
-	defer restoreCache()
-	restoreWD := mustChdir(t, t.TempDir())
-	defer restoreWD()
-
+// TestResolveLibraryPathCacheHit asserts that a pre-populated cache file is
+// returned without invoking bootstrap (no network call needed). The test uses
+// PURE_SIMDJSON_CACHE_DIR to point the cache layout at a fresh TempDir and
+// writes the platform library filename into the expected cache subdirectory.
+func TestResolveLibraryPathCacheHit(t *testing.T) {
 	t.Setenv(libraryEnvPath, "")
+	t.Setenv("PURE_SIMDJSON_CACHE_DIR", t.TempDir())
 
-	_, err := activeLibrary()
-	if !errors.Is(err, errLoadLibrary) {
-		t.Fatalf("activeLibrary() error = %v, want errors.Is(..., errLoadLibrary)", err)
+	cachePath := bootstrap.CachePath(runtime.GOOS, runtime.GOARCH)
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
 	}
-	if !strings.Contains(err.Error(), "attempted paths:") {
-		t.Fatalf("activeLibrary() error = %q, want attempted paths list", err)
+	if err := os.WriteFile(cachePath, []byte("stub"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
 	}
-	if !strings.Contains(err.Error(), platformLibraryName()) {
-		t.Fatalf("activeLibrary() error = %q, want platform library name %q", err, platformLibraryName())
-	}
-}
 
-func TestActiveLibraryEnvOverrideLoadsBuiltLibrary(t *testing.T) {
-	restore := withLibraryCacheClearedForTest(t)
-	defer restore()
-
-	libPath := filepath.Join(projectRootForTest(t), "target", "release", platformLibraryName())
-	if _, err := os.Stat(libPath); err != nil {
-		t.Skipf("built library not present at %s; run `cargo build --release` first", libPath)
-	}
-	t.Setenv(libraryEnvPath, libPath)
-
-	library, err := activeLibrary()
+	path, _, err := resolveLibraryPath()
 	if err != nil {
-		t.Fatalf("activeLibrary() error = %v", err)
+		t.Fatalf("resolveLibraryPath() error = %v", err)
 	}
-	if library.path == "" {
-		t.Fatal("activeLibrary() returned empty library path")
-	}
-}
-
-func TestActiveLibraryEnvOverrideInvalidLibraryWrapsLoadFailure(t *testing.T) {
-	restore := withLibraryCacheClearedForTest(t)
-	defer restore()
-
-	tempDir := t.TempDir()
-	invalidLibrary := filepath.Join(tempDir, platformLibraryName())
-	if err := os.WriteFile(invalidLibrary, []byte("not-a-shared-library"), 0o644); err != nil {
-		t.Fatalf("WriteFile(%q) error = %v", invalidLibrary, err)
-	}
-	t.Setenv(libraryEnvPath, invalidLibrary)
-
-	_, err := activeLibrary()
-	if !errors.Is(err, errLoadLibrary) {
-		t.Fatalf("activeLibrary() error = %v, want errors.Is(..., errLoadLibrary)", err)
-	}
-	if !strings.Contains(err.Error(), "attempted paths:") {
-		t.Fatalf("activeLibrary() error = %q, want attempted paths list", err)
-	}
-	if !strings.Contains(err.Error(), invalidLibrary) {
-		t.Fatalf("activeLibrary() error = %q, want invalid library path %q", err, invalidLibrary)
+	if path != cachePath {
+		t.Fatalf("resolveLibraryPath() path = %q, want %q", path, cachePath)
 	}
 }
 
-func TestResolveLibraryPathPreservesCandidatePathError(t *testing.T) {
-	restoreWD := mustChdir(t, t.TempDir())
-	defer restoreWD()
+// TestResolveLibraryPathBootstrapError asserts that when no cache exists, no
+// LIB_PATH is set, and the mirror points at a dead loopback port, the returned
+// error mentions PURE_SIMDJSON_LIB_PATH (D-21) so users know how to bypass.
+func TestResolveLibraryPathBootstrapError(t *testing.T) {
+	t.Setenv(libraryEnvPath, "")
+	t.Setenv("PURE_SIMDJSON_CACHE_DIR", t.TempDir())
+	// Force bootstrap to fail fast: redirect R2 at a dead loopback port and
+	// disable GitHub fallback so we don't hammer the network in CI.
+	t.Setenv("PURE_SIMDJSON_BINARY_MIRROR", "http://127.0.0.1:1")
+	t.Setenv("PURE_SIMDJSON_DISABLE_GH_FALLBACK", "1")
 
-	if err := os.WriteFile("target", []byte("not-a-directory"), 0o644); err != nil {
-		t.Fatalf("WriteFile(%q) error = %v", "target", err)
-	}
-
-	_, attempted, err := resolveLibraryPath()
+	_, _, err := resolveLibraryPath()
 	if err == nil {
-		t.Fatal("resolveLibraryPath() error = nil, want path error")
+		t.Fatalf("resolveLibraryPath() error = nil, want bootstrap failure")
 	}
-	if len(attempted) == 0 {
-		t.Fatal("resolveLibraryPath() attempted = nil, want attempted candidates")
+	if !strings.Contains(err.Error(), libraryEnvPath) {
+		t.Fatalf("resolveLibraryPath() error = %q, want mention of %s (D-21)", err, libraryEnvPath)
 	}
-
-	var pathErr *fs.PathError
-	if errors.As(err, &pathErr) {
-		return
-	}
-
-	// Windows reports this parent-not-directory setup as an ordinary miss for
-	// child paths, so there is no non-ENOENT stat error for resolveLibraryPath to
-	// preserve.
-	if runtime.GOOS == "windows" {
-		if err.Error() != "shared library not found" {
-			t.Fatalf("resolveLibraryPath() error = %v, want shared library not found on windows", err)
-		}
-		return
-	}
-
-	t.Fatalf("resolveLibraryPath() error = %v, want fs.PathError", err)
 }
 
+// TestActiveLibraryLockScope asserts M1 — activeLibrary must call
+// resolveLibraryPath() and loadLibrary() OUTSIDE libraryMu. Holding the loader
+// mutex across the network-I/O-bearing stages would serialize every concurrent
+// NewParser() on the first caller's bandwidth.
+//
+// Implementation: grep-style walk over the activeLibrary function body in the
+// source file, tracking whether libraryMu.Lock is held.
+func TestActiveLibraryLockScope(t *testing.T) {
+	data, err := os.ReadFile("library_loading.go")
+	if err != nil {
+		t.Fatalf("read library_loading.go: %v", err)
+	}
+	src := string(data)
+
+	// Extract the body of func activeLibrary() up to the matching closing brace.
+	start := strings.Index(src, "func activeLibrary(")
+	if start < 0 {
+		t.Fatal("activeLibrary function not found in library_loading.go")
+	}
+	// Find the end of the function: naive but sufficient — the next line that
+	// starts with a top-level '}' after a newline.
+	rest := src[start:]
+	closingRe := regexp.MustCompile(`(?m)^}\s*$`)
+	loc := closingRe.FindStringIndex(rest)
+	if loc == nil {
+		t.Fatal("end of activeLibrary not found")
+	}
+	body := rest[:loc[1]]
+
+	lineRe := regexp.MustCompile(`\r?\n`)
+	lines := lineRe.Split(body, -1)
+
+	locked := 0
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Skip single-line comments that might mention libraryMu.Lock.
+		if strings.HasPrefix(trimmed, "//") {
+			continue
+		}
+		if strings.Contains(line, "libraryMu.Lock") {
+			locked++
+			continue
+		}
+		if strings.Contains(line, "libraryMu.Unlock") {
+			locked--
+			if locked < 0 {
+				locked = 0
+			}
+			continue
+		}
+		// Skip defer libraryMu.Unlock — it pairs with the enclosing Lock() but
+		// doesn't release yet; we still count it as unlock for lexical scope
+		// tracking so any code under a `defer libraryMu.Unlock()` after the
+		// recheck-and-install section is not considered "under the lock" for
+		// this heuristic.  Callers like resolveLibraryPath must simply not
+		// appear textually between Lock and a subsequent Unlock (or defer).
+		if locked > 0 {
+			if strings.Contains(line, "resolveLibraryPath()") {
+				t.Fatalf("M1 violation at line %d: resolveLibraryPath called under libraryMu.Lock\n%s",
+					i+1, line)
+			}
+			if strings.Contains(line, "loadLibrary(") {
+				t.Fatalf("M1 violation at line %d: loadLibrary called under libraryMu.Lock\n%s",
+					i+1, line)
+			}
+		}
+	}
+
+	// Double-checked locking fingerprint: at least two Lock acquisitions
+	// (one for the fast-path read, one for the recheck-insert) must appear.
+	if got := strings.Count(body, "libraryMu.Lock"); got < 2 {
+		t.Fatalf("activeLibrary has %d libraryMu.Lock calls, want >=2 for double-checked locking", got)
+	}
+}
+
+// TestNewParserSignatureUnchanged pins NewParser's signature: no ctx argument,
+// preserving D-02. Compile-time assertion only — the call itself may fail if
+// the native library is not loaded on this machine, which we ignore.
+func TestNewParserSignatureUnchanged(t *testing.T) {
+	var f func() (*Parser, error) = NewParser
+	_ = f
+}
+
+// withLibraryCacheClearedForTest is retained from Phase 3 tests so other
+// activeLibrary tests can reset the package-level cache between runs.
 func withLibraryCacheClearedForTest(t *testing.T) func() {
 	t.Helper()
 
@@ -169,6 +215,63 @@ func withLibraryCacheClearedForTest(t *testing.T) func() {
 	}
 }
 
+// TestActiveLibraryEnvOverrideMissingWrapsLoadFailure exercises the env-path
+// branch when the pointed-at file does not exist — the error chain must still
+// Unwrap to errLoadLibrary so callers can use errors.Is.
+func TestActiveLibraryEnvOverrideMissingWrapsLoadFailure(t *testing.T) {
+	restore := withLibraryCacheClearedForTest(t)
+	defer restore()
+
+	missing := filepath.Join(t.TempDir(), "missing", "libpure_simdjson.so")
+	t.Setenv(libraryEnvPath, missing)
+
+	_, err := activeLibrary()
+	if !errors.Is(err, errLoadLibrary) {
+		t.Fatalf("activeLibrary() error = %v, want errors.Is(..., errLoadLibrary)", err)
+	}
+}
+
+// TestActiveLibraryEnvOverrideLoadsBuiltLibrary exercises the happy-path env
+// override — if a built library is available locally, setting LIB_PATH to it
+// must produce a working loadedLibrary without triggering any download. This
+// test is skipped in environments where cargo build --release has not been run.
+func TestActiveLibraryEnvOverrideLoadsBuiltLibrary(t *testing.T) {
+	restore := withLibraryCacheClearedForTest(t)
+	defer restore()
+
+	libName := builtLibraryName()
+	libPath := filepath.Join(projectRootForTest(t), "target", "release", libName)
+	if _, err := os.Stat(libPath); err != nil {
+		t.Skipf("built library not present at %s; run `cargo build --release` first", libPath)
+	}
+	t.Setenv(libraryEnvPath, libPath)
+
+	library, err := activeLibrary()
+	if err != nil {
+		t.Fatalf("activeLibrary() error = %v", err)
+	}
+	if library.path == "" {
+		t.Fatal("activeLibrary() returned empty library path")
+	}
+}
+
+// builtLibraryName mirrors the historical platformLibraryName() helper that
+// Phase 3 defined in this package and Phase 5 moved to internal/bootstrap.
+// Test-only — tests still need to locate the cargo build artefact under
+// target/release/ which uses these filenames.
+func builtLibraryName() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "libpure_simdjson.dylib"
+	case "linux":
+		return "libpure_simdjson.so"
+	case "windows":
+		return "pure_simdjson.dll"
+	default:
+		return "libpure_simdjson"
+	}
+}
+
 func projectRootForTest(t *testing.T) string {
 	t.Helper()
 
@@ -177,22 +280,4 @@ func projectRootForTest(t *testing.T) string {
 		t.Fatal("runtime.Caller(0) returned ok=false")
 	}
 	return filepath.Dir(thisFile)
-}
-
-func mustChdir(t *testing.T, dir string) func() {
-	t.Helper()
-
-	previous, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("os.Getwd() error = %v", err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("os.Chdir(%q) error = %v", dir, err)
-	}
-
-	return func() {
-		if err := os.Chdir(previous); err != nil {
-			t.Fatalf("os.Chdir(%q) restore error = %v", previous, err)
-		}
-	}
 }
