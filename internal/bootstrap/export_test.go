@@ -65,8 +65,8 @@ var GitHubAssetName = githubAssetName
 var DefaultCacheDir = defaultCacheDir
 
 // WithProcessFileLockForTest is the exported test seam for withProcessFileLock.
-func WithProcessFileLockForTest(lockPath string, fn func() error) error {
-	return withProcessFileLock(lockPath, fn)
+func WithProcessFileLockForTest(ctx context.Context, lockPath string, fn func() error) error {
+	return withProcessFileLock(ctx, lockPath, fn)
 }
 
 // AtomicInstallForTest is the exported test seam for atomicInstall.

@@ -229,7 +229,7 @@ func ensureArtifact(ctx context.Context, cfg bootstrapConfig) error {
 	}
 
 	lockPath := filepath.Join(filepath.Dir(cachePath), ".lock")
-	return withProcessFileLock(lockPath, func() error {
+	return withProcessFileLock(ctx, lockPath, func() error {
 		// Re-check after lock — another process may have installed while we waited.
 		if _, err := os.Stat(cachePath); err == nil {
 			return nil

@@ -1,6 +1,7 @@
 package bootstrap_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -117,7 +118,7 @@ func TestCacheDirTempDirFallbackPerms(t *testing.T) {
 func TestWithProcessFileLockBasic(t *testing.T) {
 	lockPath := filepath.Join(t.TempDir(), ".lock")
 	called := false
-	err := bootstrap.WithProcessFileLockForTest(lockPath, func() error {
+	err := bootstrap.WithProcessFileLockForTest(context.Background(), lockPath, func() error {
 		called = true
 		return nil
 	})

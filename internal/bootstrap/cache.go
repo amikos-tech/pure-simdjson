@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -56,9 +57,14 @@ func artifactCachePath(cacheDir, version, goos, goarch string) string {
 }
 
 // withProcessFileLock acquires an exclusive flock on lockPath, calls fn, then
-// releases the lock. Polling: 200ms interval, 2-minute timeout.
+// releases the lock. Polling: 200ms interval, 2-minute timeout. The retry sleep
+// observes ctx cancellation so a cancelled caller does not block for up to the
+// full timeout.
 // Source: pure-onnx@v0.0.1/ort/bootstrap.go lines 1283-1334 (verbatim, rename pkg).
-func withProcessFileLock(lockPath string, fn func() error) (err error) {
+func withProcessFileLock(ctx context.Context, lockPath string, fn func() error) (err error) {
+	if ctx == nil {
+		return errors.New("lock: nil context")
+	}
 	if fn == nil {
 		return fmt.Errorf("lock callback is nil")
 	}
@@ -92,7 +98,12 @@ func withProcessFileLock(lockPath string, fn func() error) (err error) {
 				lockPath, time.Since(start).Truncate(time.Second))
 			nextLogAt = time.Now().Add(lockLogInterval)
 		}
-		time.Sleep(lockRetryInterval)
+		select {
+		case <-time.After(lockRetryInterval):
+		case <-ctx.Done():
+			_ = file.Close()
+			return ctx.Err()
+		}
 	}
 
 	defer func() {
