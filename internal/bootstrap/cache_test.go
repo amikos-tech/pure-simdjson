@@ -80,6 +80,24 @@ func TestCacheDirEnvOverrideEmpty(t *testing.T) {
 	}
 }
 
+func TestCacheDirEnvOverrideRelativeIsAbsolutized(t *testing.T) {
+	// DIST-09 invariant: CachePath must always be absolute, even when the env
+	// override supplies a relative path. Regression for PR #6 review items
+	// #8 and #11 (library_loading.go stage-2 "absolute by construction" claim).
+	rel := filepath.Join(".", "cache-rel-"+t.Name())
+	t.Setenv("PURE_SIMDJSON_CACHE_DIR", rel)
+
+	got := bootstrap.DefaultCacheDir()
+	if !filepath.IsAbs(got) {
+		t.Fatalf("DefaultCacheDir() = %q for relative env %q, want absolute", got, rel)
+	}
+
+	cachePath := bootstrap.CachePath("linux", "amd64")
+	if !filepath.IsAbs(cachePath) {
+		t.Fatalf("CachePath(linux,amd64) = %q for relative env %q, want absolute", cachePath, rel)
+	}
+}
+
 func TestCacheDirTempDirFallbackPerms(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("UserCacheDir practically never fails on windows")

@@ -20,8 +20,10 @@ const (
 )
 
 // defaultCacheDir returns the base cache directory for pure-simdjson artifacts.
+// The returned path is always absolute (DIST-09).
 // Precedence (L2 + L6):
-//  1. PURE_SIMDJSON_CACHE_DIR env var, if non-empty.
+//  1. PURE_SIMDJSON_CACHE_DIR env var, if non-empty. Relative values are
+//     normalized via filepath.Abs so CachePath always returns an absolute path.
 //  2. os.UserCacheDir() + "/pure-simdjson".
 //  3. os.TempDir() + "/pure-simdjson-<uid>" with 0700 perms (L6 — private,
 //     UID-scoped subdir, never the bare TempDir path).
@@ -29,6 +31,9 @@ const (
 // Source: pure-onnx@v0.0.1/ort/bootstrap.go lines 1370-1383, adapted for L2/L6.
 func defaultCacheDir() string {
 	if env := os.Getenv(cacheDirEnvVar); env != "" {
+		if abs, err := filepath.Abs(env); err == nil {
+			return abs
+		}
 		return env
 	}
 	base, err := os.UserCacheDir()
