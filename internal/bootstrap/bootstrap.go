@@ -146,37 +146,72 @@ func (c bootstrapConfig) effectiveCacheDir() string {
 	return c.cacheDir
 }
 
-// bootstrapFailureCache guards a per-process memoized error (M2). It prevents
+// bootstrapFailureCache guards per-process memoized errors (M2). It prevents
 // blocked-network environments from replaying the retry ladder on every
-// NewParser() call.
+// NewParser() call. Keyed on the subset of config that changes network
+// behaviour so a corrected mirror URL is not shadowed by a stale failure.
 type bootstrapFailureCache struct {
-	mu        sync.Mutex
-	lastErr   error
+	mu      sync.Mutex
+	entries map[bootstrapFailureKey]bootstrapFailureEntry
+}
+
+type bootstrapFailureKey struct {
+	mirrorURL string
+	disableGH bool
+	goos      string
+	goarch    string
+	version   string
+}
+
+type bootstrapFailureEntry struct {
+	err       error
 	expiresAt time.Time
 }
 
-// peek returns a non-nil cached error if one is currently valid; nil otherwise.
-func (c *bootstrapFailureCache) peek() error {
+func failureKey(cfg bootstrapConfig) bootstrapFailureKey {
+	return bootstrapFailureKey{
+		mirrorURL: cfg.mirrorURL,
+		disableGH: cfg.disableGH,
+		goos:      cfg.goos,
+		goarch:    cfg.goarch,
+		version:   cfg.version,
+	}
+}
+
+// peek returns a non-nil cached error if one is currently valid for key; nil otherwise.
+func (c *bootstrapFailureCache) peek(key bootstrapFailureKey) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.lastErr != nil && time.Now().Before(c.expiresAt) {
-		return c.lastErr
+	entry, ok := c.entries[key]
+	if !ok {
+		return nil
 	}
+	if time.Now().Before(entry.expiresAt) {
+		return entry.err
+	}
+	delete(c.entries, key)
 	return nil
 }
 
-func (c *bootstrapFailureCache) record(err error) {
+func (c *bootstrapFailureCache) record(key bootstrapFailureKey, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.lastErr = err
-	c.expiresAt = time.Now().Add(bootstrapFailureTTL)
+	if c.entries == nil {
+		c.entries = make(map[bootstrapFailureKey]bootstrapFailureEntry)
+	}
+	c.entries[key] = bootstrapFailureEntry{err: err, expiresAt: time.Now().Add(bootstrapFailureTTL)}
+}
+
+func (c *bootstrapFailureCache) forget(key bootstrapFailureKey) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.entries, key)
 }
 
 func (c *bootstrapFailureCache) clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.lastErr = nil
-	c.expiresAt = time.Time{}
+	c.entries = nil
 }
 
 var globalBootstrapFailureCache bootstrapFailureCache
@@ -196,21 +231,23 @@ func BootstrapSync(ctx context.Context, opts ...BootstrapOption) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if cached := globalBootstrapFailureCache.peek(); cached != nil {
-		return fmt.Errorf("bootstrap failed (memoized): %w", cached)
-	}
 
 	cfg, err := resolveConfig(opts...)
 	if err != nil {
 		// Config errors are NOT memoized — they are caller bugs, not network state.
 		return err
 	}
+	key := failureKey(cfg)
+
+	if cached := globalBootstrapFailureCache.peek(key); cached != nil {
+		return fmt.Errorf("bootstrap failed (memoized): %w", cached)
+	}
 
 	if err := ensureArtifact(ctx, cfg); err != nil {
-		globalBootstrapFailureCache.record(err)
+		globalBootstrapFailureCache.record(key, err)
 		return err
 	}
-	globalBootstrapFailureCache.clear()
+	globalBootstrapFailureCache.forget(key)
 	return nil
 }
 
