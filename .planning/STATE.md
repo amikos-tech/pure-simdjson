@@ -21,15 +21,15 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-15)
 
 **Core value:** Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, precision-preserving parser that does not require cgo at consumer build time.
-**Current focus:** Phase 05 — bootstrap-distribution
+**Current focus:** Phase 06 — ci-release-matrix-platform-coverage
 
 ## Current Position
 
-Phase: 999.1
+Phase: 06 (ci-release-matrix-platform-coverage) — READY TO PLAN
 Plan: Not started
 Status: Ready to plan
 Last activity: 2026-04-20
-Shipping: Phase 04 fully verified locally
+Shipping: Phase 05 complete — bootstrap pipeline wired end-to-end (human UAT partial: E2E against live R2+GH requires Phase 06 CI-05)
 
 Progress: [██████████] 100%
 
