@@ -218,7 +218,15 @@ Plans:
 4. A corrupted artifact (mismatched SHA-256) is rejected before `dlopen` with a clear error
 5. `pure-simdjson-bootstrap` CLI pre-fetches all platform artifacts for offline distribution
 
-**Plans:** TBD
+**Plans:** 6 plans
+
+Plans:
+- [ ] `05-01-PLAN.md` — Package scaffold: version/checksums/url/flock/error sentinels + cobra dep (Wave 1)
+- [ ] `05-02-PLAN.md` — HTTP download pipeline: cache layout, Full-Jitter retry, SHA-256 verify, BootstrapSync API (Wave 2)
+- [ ] `05-03-PLAN.md` — Bootstrap test suite: URL/cache unit tests + fault injection stubs (Wave 2)
+- [ ] `05-04-PLAN.md` — Loader integration: rewrite resolveLibraryPath 4-stage chain, delete legacy candidates (Wave 3)
+- [ ] `05-05-PLAN.md` — Bootstrap CLI: four cobra verbs + fetch integration test (Wave 3)
+- [ ] `05-06-PLAN.md` — Fault injection tests + docs/bootstrap.md (Wave 4)
 
 **UI hint:** no
 
@@ -360,7 +368,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 2. Rust Shim + Minimal Parse | 3/3 | Complete | 2026-04-15 |
 | 3. Go API + purego Happy Path | 5/5 | Complete | 2026-04-16 |
 | 4. Full Typed Accessor Surface | 5/5 | Complete | 2026-04-17 |
-| 5. Bootstrap + Distribution | 0/? | Not started | — |
+| 5. Bootstrap + Distribution | 0/6 | Not started | — |
 | 6. CI Release Matrix | 0/? | Not started | — |
 | 7. Benchmarks + v0.1 Release | 0/? | Not started | — |
 
