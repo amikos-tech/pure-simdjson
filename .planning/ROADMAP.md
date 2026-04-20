@@ -221,8 +221,8 @@ Plans:
 **Plans:** 6 plans
 
 Plans:
-- [ ] `05-01-PLAN.md` — Package scaffold: version/checksums/url/flock/error sentinels + cobra dep (Wave 1)
-- [ ] `05-02-PLAN.md` — HTTP download pipeline: cache layout, Full-Jitter retry, SHA-256 verify, BootstrapSync API (Wave 2)
+- [x] `05-01-PLAN.md` — Package scaffold: version/checksums/url/flock/error sentinels + cobra dep (Wave 1)
+- [x] `05-02-PLAN.md` — HTTP download pipeline: cache layout, Full-Jitter retry, SHA-256 verify, BootstrapSync API (Wave 2)
 - [ ] `05-03-PLAN.md` — Bootstrap test suite: URL/cache unit tests + fault injection stubs (Wave 3)
 - [ ] `05-04-PLAN.md` — Loader integration: rewrite resolveLibraryPath 4-stage chain + activeLibrary double-checked locking, delete legacy candidates (Wave 4)
 - [ ] `05-05-PLAN.md` — Bootstrap CLI: four cobra verbs + fetch integration test + verify --dest --all-platforms (Wave 4)

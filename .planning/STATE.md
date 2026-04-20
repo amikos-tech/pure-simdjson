@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: executing
-stopped_at: Completed 05-01
-last_updated: "2026-04-20T11:27:30.180Z"
+stopped_at: Completed 05-02
+last_updated: "2026-04-20T11:38:16.791Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 10
   completed_phases: 4
   total_plans: 22
-  completed_plans: 17
-  percent: 77
+  completed_plans: 18
+  percent: 82
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 05 (bootstrap-distribution) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-04-20
 Shipping: Phase 04 fully verified locally
 
-Progress: [████████░░] 77%
+Progress: [████████░░] 82%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [████████░░] 77%
 | Phase 04-full-typed-accessor-surface P04 | 8m | 2 tasks | 3 files |
 | Phase 04-full-typed-accessor-surface P05 | 11m | 2 tasks | 7 files |
 | Phase 05 P01 | 3min | 2 tasks | 9 files |
+| Phase 05 P02 | 7min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,12 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 05]: Canonical error sentinels (ErrChecksumMismatch, ErrAllSourcesFailed, ErrNoChecksum) live only in internal/bootstrap/errors.go; root errors.go re-exports via pointer alias so errors.Is matches both paths.
 - [Phase 05]: GitHub release asset names are platform-tagged (libpure_simdjson-<goos>-<goarch>.ext, pure_simdjson-<goos>-<goarch>-msvc.dll) to avoid flat-namespace collision; cache filename stays platform-independent under <os>-<arch>/ directory in R2.
 - [Phase 05]: ChecksumKey helper exported from internal/bootstrap so the Plan 05 CLI (separate cmd/ package) can reuse the Checksums map key format without exposing the map layout.
+- [Phase 05]: PURE_SIMDJSON_CACHE_DIR env var takes precedence over os.UserCacheDir in defaultCacheDir so ephemeral-HOME CI runners and t.Setenv+t.TempDir test suites can self-isolate (L2 review resolution).
+- [Phase 05]: When os.UserCacheDir fails, fall back to a UID-scoped 0700 subdirectory under os.TempDir (pure-simdjson-<uid>) instead of the bare TempDir path so the cache is never world-writable (L6 + DIST-05 spirit).
+- [Phase 05]: BootstrapSync memoizes failures for 30 seconds via a package-level sync.Mutex-guarded cache so blocked-network NewParser() calls short-circuit after the first ladder exhausts; TTL is not configurable in v0.1 (M2 review resolution).
+- [Phase 05]: Test seams for the external bootstrap_test package live in internal/bootstrap/export_test.go (compiled only during go test) — re-exports resolveConfig, withHTTPClient, withGitHubBaseURL, defaultCacheDir, and ResetBootstrapFailureCacheForTest (M3 review resolution).
+- [Phase 05]: User-Agent 'pure-simdjson-go/v<Version>' is stamped on every outbound HTTP request in download.go so R2/GitHub server-side telemetry can identify the library and version (L3 review resolution).
+- [Phase 05]: BootstrapSync checks ctx.Err() BEFORE consulting the failure-memoization cache, so a cancelled ctx returns ctx.Err() even when a memoized failure exists; config errors (bad mirror URL) are NOT memoized because they are caller bugs, not network state.
 
 ### Pending Todos
 
@@ -101,8 +108,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T11:27:30.176Z
-Stopped at: Completed 05-01
+Last session: 2026-04-20T11:38:16.786Z
+Stopped at: Completed 05-02
 Resume file: None
 
 **Planned Phase:** 05 (bootstrap-distribution) — 6 plans — 2026-04-20T11:21:15.134Z

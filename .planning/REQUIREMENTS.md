@@ -60,11 +60,14 @@ Requirements for initial release. Each maps to roadmap phases.
 **: GitHub Releases mirror as fallback source for each artifact
 - [x] **DIST-03
 **: SHA-256 table for every artifact embedded in Go source (`internal/bootstrap/checksums.go`); generated at release time
-- [ ] **DIST-04**: `BootstrapSync(ctx)` Go API downloads, verifies, and caches the library; callable for preflight
-- [ ] **DIST-05**: Library auto-downloaded on first `NewParser()` if not cached; cached to OS user-cache-dir with 0700 perms on unix
+- [x] **DIST-04
+**: `BootstrapSync(ctx)` Go API downloads, verifies, and caches the library; callable for preflight
+- [x] **DIST-05
+**: Library auto-downloaded on first `NewParser()` if not cached; cached to OS user-cache-dir with 0700 perms on unix
 - [x] **DIST-06
 **: `PURE_SIMDJSON_LIB_PATH` env var overrides download entirely (air-gapped + mirror case)
-- [ ] **DIST-07**: `PURE_SIMDJSON_BINARY_MIRROR` env var overrides the R2 base URL (corporate firewall case)
+- [x] **DIST-07
+**: `PURE_SIMDJSON_BINARY_MIRROR` env var overrides the R2 base URL (corporate firewall case)
 - [ ] **DIST-08**: `cmd/pure-simdjson-bootstrap` CLI pre-downloads artifacts for offline installs
 - [x] **DIST-09
 **: Windows `LoadLibrary` uses full path (never bare filename); prevents DLL hijacking
