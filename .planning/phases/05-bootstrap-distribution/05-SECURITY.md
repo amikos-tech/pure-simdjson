@@ -71,6 +71,7 @@ created: 2026-04-20
 | Audit Date | Threats Total | Closed | Open | Run By |
 |------------|---------------|--------|------|--------|
 | 2026-04-20 | 14 | 14 | 0 | gsd-security-auditor (State B — created from artifacts) |
+| 2026-04-20 | 14 | 14 | 0 | /gsd-secure-phase re-audit (State A — post code-review fixes) |
 
 ### 2026-04-20 — Initial audit
 
@@ -80,6 +81,26 @@ created: 2026-04-20
 - Gate check for DIST-10: `grep -rn "sigstore" . --include="*.go"` returned zero hits; docs-only acceptance stands.
 - Result: `## SECURED` — 14/14 closed, no open threats, no escalations.
 - Deferred (not a threat, tracked for Phase 6): `checksums.go` ships commented placeholders only; the `ErrNoChecksum` fail-closed path is tested and is the correct behaviour for a pre-release.
+
+### 2026-04-20 — Re-audit (post code-review fixes)
+
+- Input state: **A** (existing SECURITY.md; re-run triggered by `/gsd-secure-phase 5`).
+- Trigger: four code-review fixes landed AFTER the initial audit (commits `6ee2938` WR-01, `ea6e6f3` WR-02, `bfa7612` WR-03, `814d826` WR-04), each touching security-adjacent code paths.
+- Post-fix impact analysis:
+  - **WR-01** (cache.go +2 lines): logs a message while waiting on the install flock. Observability only — no mitigation surface touched.
+  - **WR-02** (bootstrap.go +55/-18): keys `bootstrapFailureCache` on the resolved config (mirror + cache dir + lib path) rather than a global. **Strengthens T-05-12** — a blocked mirror URL no longer poisons the failure cache for consumers that pass a different mirror.
+  - **WR-03** (cache.go +17, bootstrap.go +2): threads `context.Context` through `withProcessFileLock` so the retry sleep is cancellable. **Strengthens T-05-02 / T-05-14** — cooperative cancellation during lock-wait closes a DoS vector where a stuck flock peer could stall `NewParser()` past ctx deadline.
+  - **WR-04** (fetch_test.go): switches hits counter to `atomic.Int32` under `-race`. Test-only; no production surface.
+- Line-citation drift check: mitigations referenced by file:line in the register remained present and functionally identical. Specific shifts (all verified to still point at the documented mitigation):
+  - `bootstrap.go:58` → `bootstrap.go:55` (`WithMirror`)
+  - `bootstrap.go:126` → `bootstrap.go:114` (`resolveConfig`)
+  - `bootstrap.go:152-180` → `bootstrap.go:149-183` (`bootstrapFailureCache` struct + methods)
+  - `bootstrap.go:199,210,213` → `bootstrap.go:230,237,243` (memoize read/skip/return in `bootstrap`)
+  - `cache.go:40,65,109,117` → `cache.go:30,64,~111,121` (`defaultCacheDir`, `withProcessFileLock`, `atomicInstall`)
+  - `download.go`, `url.go`, `library_loading.go`, `version.go`, `verify.go` — untouched by the fixes, citations unchanged.
+- Re-ran full mitigation regression suite on current HEAD: `go test ./internal/bootstrap/... ./cmd/pure-simdjson-bootstrap/... -run 'TestChecksumMismatchIsPermanent|TestCacheDirPerms|TestCacheDirTempDirFallbackPerms|TestConcurrentBootstrap|TestResolveLibraryPathAbsolute|TestRedirectDowngrade|TestHTTPSDowngradeRejected|TestGitHubAssetNames|TestBootstrapFailureMemoized|TestFallback|TestActiveLibraryLockScope|TestVerifyAllPlatformsDest' -count=1` → both packages **ok**.
+- No new threats surfaced (no new ingress points, no new env vars, no new external calls introduced by WR-01/02/03/04).
+- Result: `## SECURED` (unchanged) — 14/14 closed; WR-02 and WR-03 strengthen existing mitigations without introducing new accepted risks.
 
 ---
 
