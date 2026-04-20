@@ -81,6 +81,20 @@ func SleepWithJitterForTest(ctx context.Context, attempt int) error {
 	return sleepWithJitter(ctx, attempt)
 }
 
+// RejectHTTPSDowngradeForTest is the exported test seam for rejectHTTPSDowngrade.
+// Used by Plan 05-06 to unit-test the redirect-policy contract directly without
+// constructing a two-server HTTPS→HTTP redirect topology.
+func RejectHTTPSDowngradeForTest(req *http.Request, via []*http.Request) error {
+	return rejectHTTPSDowngrade(req, via)
+}
+
+// NewHTTPClientForTest is the exported test seam for newHTTPClient. Used by
+// Plan 05-06 (T-05-04) to assert CheckRedirect is wired to rejectHTTPSDowngrade
+// — the wiring test pairs with RejectHTTPSDowngradeForTest's behaviour test.
+func NewHTTPClientForTest() *http.Client {
+	return newHTTPClient()
+}
+
 // IsRetryableForTest is the exported test seam for isRetryable.
 func IsRetryableForTest(statusCode int, headers http.Header, bodySnippet string) bool {
 	return isRetryable(statusCode, headers, bodySnippet)

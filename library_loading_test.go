@@ -20,24 +20,77 @@ import (
 // TestResolveLibraryPathAbsolute asserts that resolveLibraryPath never returns
 // a relative path or bare filename — DIST-09 / pitfall #29: Windows LoadLibrary
 // must always receive a full path to prevent DLL hijacking via CWD.
+//
+// Plan 05-06 extension: also asserts that every entry in the `attempted` slice
+// (returned even on the error paths) is absolute or empty. The original Plan
+// 05-04 test exercised only the success path; the new sub-tests cover the
+// env-override-missing and bootstrap-failure paths where a regression would
+// otherwise leak a bare filename into a Windows LoadLibrary call.
 func TestResolveLibraryPathAbsolute(t *testing.T) {
-	t.Setenv(libraryEnvPath, "")
-	t.Setenv("PURE_SIMDJSON_CACHE_DIR", t.TempDir())
+	t.Run("cache-hit-success", func(t *testing.T) {
+		t.Setenv(libraryEnvPath, "")
+		t.Setenv("PURE_SIMDJSON_CACHE_DIR", t.TempDir())
 
-	cachePath := bootstrap.CachePath(runtime.GOOS, runtime.GOARCH)
-	if err := os.MkdirAll(filepath.Dir(cachePath), 0o700); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
-	}
-	if err := os.WriteFile(cachePath, []byte("stub"), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+		cachePath := bootstrap.CachePath(runtime.GOOS, runtime.GOARCH)
+		if err := os.MkdirAll(filepath.Dir(cachePath), 0o700); err != nil {
+			t.Fatalf("MkdirAll: %v", err)
+		}
+		if err := os.WriteFile(cachePath, []byte("stub"), 0o644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
 
-	path, _, err := resolveLibraryPath()
-	if err != nil {
-		t.Fatalf("resolveLibraryPath() error = %v", err)
+		path, attempted, err := resolveLibraryPath()
+		if err != nil {
+			t.Fatalf("resolveLibraryPath() error = %v", err)
+		}
+		assertAllAbsoluteOrEmpty(t, path, attempted)
+	})
+
+	t.Run("env-override-missing-absolute-input", func(t *testing.T) {
+		// The env path points at a file that does not exist. resolveLibraryPath
+		// must return an error AND the attempted slice must contain only
+		// absolute paths — never the bare filename a hostile actor might
+		// substitute via CWD.
+		t.Setenv(libraryEnvPath, "/absolute/path/that/does/not/exist.so")
+		t.Setenv("PURE_SIMDJSON_CACHE_DIR", t.TempDir())
+
+		path, attempted, err := resolveLibraryPath()
+		if err == nil {
+			t.Fatalf("resolveLibraryPath() error = nil, want missing-file failure")
+		}
+		assertAllAbsoluteOrEmpty(t, path, attempted)
+	})
+
+	t.Run("env-override-missing-relative-input", func(t *testing.T) {
+		// A relative env path triggers filepath.Abs before stat — even on the
+		// failure branch the attempted slice MUST hold the absolute form, never
+		// the relative bare-filename input.
+		t.Setenv(libraryEnvPath, "relative/missing.so")
+		t.Setenv("PURE_SIMDJSON_CACHE_DIR", t.TempDir())
+
+		path, attempted, err := resolveLibraryPath()
+		if err == nil {
+			t.Fatalf("resolveLibraryPath() error = nil, want missing-file failure")
+		}
+		assertAllAbsoluteOrEmpty(t, path, attempted)
+	})
+}
+
+// assertAllAbsoluteOrEmpty fails the test if `path` or any entry in `attempted`
+// is a non-empty relative path. Empty strings are tolerated so the helper
+// composes with both success and failure paths from resolveLibraryPath.
+func assertAllAbsoluteOrEmpty(t *testing.T, path string, attempted []string) {
+	t.Helper()
+	if path != "" && !filepath.IsAbs(path) {
+		t.Errorf("returned path = %q, want absolute or empty (DIST-09)", path)
 	}
-	if !filepath.IsAbs(path) {
-		t.Fatalf("resolveLibraryPath() path = %q, want absolute", path)
+	for i, p := range attempted {
+		if p == "" {
+			continue
+		}
+		if !filepath.IsAbs(p) {
+			t.Errorf("attempted[%d] = %q, want absolute or empty (DIST-09)", i, p)
+		}
 	}
 }
 

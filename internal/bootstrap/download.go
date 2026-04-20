@@ -305,12 +305,16 @@ func downloadOnce(ctx context.Context, cfg bootstrapConfig, rawURL, cacheDir str
 	if err != nil {
 		return "", "", markPermanentBootstrapError(fmt.Errorf("create temp: %w", err))
 	}
-	tmpPath = f.Name()
+	// Capture the temp path in a local so the cleanup defer is not subject to
+	// named-return-zeroing when an early `return "", "", err` fires below
+	// (Plan 05-06 Rule 1 — fixes orphan *.tmp leak observed in
+	// TestBootstrapSyncCancellation).
+	createdTmp := f.Name()
 	success := false
 	defer func() {
 		_ = f.Close()
 		if !success {
-			_ = os.Remove(tmpPath)
+			_ = os.Remove(createdTmp)
 		}
 	}()
 
@@ -329,5 +333,5 @@ func downloadOnce(ctx context.Context, cfg bootstrapConfig, rawURL, cacheDir str
 	}
 	digest = hex.EncodeToString(h.Sum(nil))
 	success = true
-	return tmpPath, digest, nil
+	return createdTmp, digest, nil
 }
