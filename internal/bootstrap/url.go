@@ -21,9 +21,11 @@ var SupportedPlatforms = [][2]string{
 	{"windows", "amd64"},
 }
 
-// platformLibraryName returns the on-disk library filename for the given GOOS (D-10).
+// PlatformLibraryName returns the on-disk library filename for the given GOOS (D-10).
 // This is the name the file has in the CACHE, not on the GitHub release.
-func platformLibraryName(goos string) string {
+// Exported so the CLI (cmd/pure-simdjson-bootstrap) can construct cache paths
+// without redeclaring the name set.
+func PlatformLibraryName(goos string) string {
 	switch goos {
 	case "darwin":
 		return "libpure_simdjson.dylib"
@@ -63,12 +65,12 @@ func githubAssetName(goos, goarch string) string {
 }
 
 // r2ArtifactURL constructs the R2 primary download URL (DIST-01).
-// Layout: <baseURL>/v<version>/<os>-<arch>/<platformLibraryName>
+// Layout: <baseURL>/v<version>/<os>-<arch>/<PlatformLibraryName>
 // The <os>-<arch>/ directory provides namespacing; the file segment can reuse
-// platformLibraryName because directories prevent collision.
+// PlatformLibraryName because directories prevent collision.
 func r2ArtifactURL(baseURL, version, goos, goarch string) string {
 	osArch := goos + "-" + goarch
-	lib := platformLibraryName(goos)
+	lib := PlatformLibraryName(goos)
 	return fmt.Sprintf("%s/v%s/%s/%s",
 		strings.TrimRight(baseURL, "/"), version, osArch, lib)
 }
@@ -88,11 +90,11 @@ func githubArtifactURL(baseURL, version, goos, goarch string) string {
 }
 
 // ChecksumKey returns the map key used in Checksums for a given platform (D-08).
-// Format: "v<version>/<goos>-<goarch>/<platformLibraryName>"
+// Format: "v<version>/<goos>-<goarch>/<PlatformLibraryName>"
 // EXPORTED (uppercase) because the CLI in cmd/pure-simdjson-bootstrap (a
 // separate package) needs it for the `verify` subcommand.
 func ChecksumKey(version, goos, goarch string) string {
-	return fmt.Sprintf("v%s/%s-%s/%s", version, goos, goarch, platformLibraryName(goos))
+	return fmt.Sprintf("v%s/%s-%s/%s", version, goos, goarch, PlatformLibraryName(goos))
 }
 
 // validateBaseURL rejects non-HTTPS URLs except for loopback hosts (tests).

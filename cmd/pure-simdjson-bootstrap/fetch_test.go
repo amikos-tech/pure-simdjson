@@ -34,7 +34,7 @@ func TestFetchCmd(t *testing.T) {
 	var hits atomic.Int32
 	for _, p := range bootstrap.SupportedPlatforms {
 		goos, goarch := p[0], p[1]
-		urlPath := "/v" + bootstrap.Version + "/" + goos + "-" + goarch + "/" + platformLibraryNameForCLI(goos)
+		urlPath := "/v" + bootstrap.Version + "/" + goos + "-" + goarch + "/" + bootstrap.PlatformLibraryName(goos)
 		mux.HandleFunc(urlPath, func(w http.ResponseWriter, r *http.Request) {
 			hits.Add(1)
 			_, _ = w.Write(fakeBody)
@@ -68,7 +68,7 @@ func TestFetchCmd(t *testing.T) {
 	}
 	// Verify all 5 artifacts exist at destDir at their expected platform paths.
 	for _, p := range bootstrap.SupportedPlatforms {
-		want := filepath.Join(destDir, "v"+bootstrap.Version, p[0]+"-"+p[1], platformLibraryNameForCLI(p[0]))
+		want := filepath.Join(destDir, "v"+bootstrap.Version, p[0]+"-"+p[1], bootstrap.PlatformLibraryName(p[0]))
 		if _, err := os.Stat(want); err != nil {
 			t.Errorf("artifact missing for %s/%s at %s: %v", p[0], p[1], want, err)
 		}

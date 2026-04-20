@@ -35,7 +35,7 @@ func TestVerifyAllPlatformsDest(t *testing.T) {
 		if err := os.MkdirAll(dir, 0700); err != nil {
 			t.Fatalf("mkdir %s: %v", dir, err)
 		}
-		libPath := filepath.Join(dir, platformLibraryNameForCLI(goos))
+		libPath := filepath.Join(dir, bootstrap.PlatformLibraryName(goos))
 		if err := os.WriteFile(libPath, fakeBody, 0600); err != nil {
 			t.Fatalf("write %s: %v", libPath, err)
 		}
@@ -74,7 +74,7 @@ func TestVerifyAllPlatformsDestMismatchFails(t *testing.T) {
 		if err := os.MkdirAll(dir, 0700); err != nil {
 			t.Fatalf("mkdir %s: %v", dir, err)
 		}
-		libPath := filepath.Join(dir, platformLibraryNameForCLI(goos))
+		libPath := filepath.Join(dir, bootstrap.PlatformLibraryName(goos))
 		body := fakeBody
 		if i == 2 { // flip one platform to bad bytes
 			body = badBody
@@ -114,7 +114,7 @@ func TestVerifyCurrentPlatformDefault(t *testing.T) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		t.Fatalf("mkdir %s: %v", dir, err)
 	}
-	libPath := filepath.Join(dir, platformLibraryNameForCLI(runtime.GOOS))
+	libPath := filepath.Join(dir, bootstrap.PlatformLibraryName(runtime.GOOS))
 	if err := os.WriteFile(libPath, fakeBody, 0600); err != nil {
 		t.Fatalf("write: %v", err)
 	}

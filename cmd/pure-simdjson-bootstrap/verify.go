@@ -68,25 +68,8 @@ func artifactPath(dest, goos, goarch string) string {
 	return filepath.Join(dest,
 		"v"+bootstrap.Version,
 		goos+"-"+goarch,
-		platformLibraryNameForCLI(goos),
+		bootstrap.PlatformLibraryName(goos),
 	)
-}
-
-// platformLibraryNameForCLI duplicates the minimal on-disk filename logic from
-// internal/bootstrap/url.go because platformLibraryName is unexported there
-// (D-10 locks the name set). Keep in sync. This lives in verify.go because the
-// only cmd/ callers that need it are verify and the integration tests.
-func platformLibraryNameForCLI(goos string) string {
-	switch goos {
-	case "darwin":
-		return "libpure_simdjson.dylib"
-	case "linux":
-		return "libpure_simdjson.so"
-	case "windows":
-		return "pure_simdjson-msvc.dll"
-	default:
-		return "libpure_simdjson"
-	}
 }
 
 // runVerify dispatches between the current-platform and --all-platforms paths.

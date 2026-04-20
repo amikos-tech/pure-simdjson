@@ -58,7 +58,7 @@ func artifactCachePath(cacheDir, version, goos, goarch string) string {
 	return filepath.Join(cacheDir,
 		"v"+version,
 		goos+"-"+goarch,
-		platformLibraryName(goos))
+		PlatformLibraryName(goos))
 }
 
 // withProcessFileLock acquires an exclusive flock on lockPath, calls fn, then
