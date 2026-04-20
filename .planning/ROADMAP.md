@@ -412,5 +412,27 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
+### Phase 999.4: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (BACKLOG)
+
+**Goal:** [Captured for future planning] Execute the Phase 5 human UAT that could not be exercised during Phase 5 because the `internal/bootstrap/checksums.go` map is populated only at release time by Phase 6 CI-05. On a fresh machine with `~/Library/Caches/pure-simdjson` cleared, `NewParser()` should download a real artifact from `releases.amikos.tech`, verify SHA-256 against the populated `Checksums` map, cache with 0700 perms, and parse a sample document successfully on each of the 5 target platforms (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64). Validates Success Criterion 1 from ROADMAP.md. Blocked-by: Phase 6 CI-05. See `.planning/phases/05-bootstrap-distribution/05-HUMAN-UAT.md` for original context.
+
+**Requirements:** TBD — promote after Phase 6 ships a release with populated checksums.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.5: Corporate-firewall bootstrap workaround verification (BACKLOG)
+
+**Goal:** [Captured for future planning] Verify the corporate-firewall bootstrap workaround under a real proxy that blocks `releases.amikos.tech`. Two scenarios: (a) `PURE_SIMDJSON_BINARY_MIRROR` points at an internal mirror and bootstrap succeeds; (b) mirror unset but GitHub Releases fallback is reachable, and bootstrap succeeds via the GH ladder. Cannot be automated meaningfully in CI — needs a real corporate network or proxy emulation. Deferred from Phase 5 HUMAN-UAT per `05-VALIDATION.md` Manual-Only Verifications. See `.planning/phases/05-bootstrap-distribution/05-HUMAN-UAT.md` for original context.
+
+**Requirements:** TBD — promote when user-reported issue or internal corp-network testbed is available.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
 ---
 *Roadmap created: 2026-04-14 from PROJECT.md, REQUIREMENTS.md, and research/SUMMARY.md*
