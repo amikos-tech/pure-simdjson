@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -854,6 +855,51 @@ func TestRetryAfterHintFromServer(t *testing.T) {
 	// hint is 1s, which must be honored — so between-attempt sleep ≥ ~1s.
 	if elapsed < 900*time.Millisecond {
 		t.Fatalf("elapsed = %v, expected ≥ ~1s (Retry-After honored)", elapsed)
+	}
+}
+
+// TestCachedArtifactPerms asserts the installed cache file has 0644 mode
+// (convention for shared libraries), not the 0600 default from os.CreateTemp.
+// Regression for PR #6 review item #7.
+func TestCachedArtifactPerms(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix permission bits not meaningful on windows")
+	}
+	clearBootstrapEnv(t)
+
+	body := []byte("perms-body")
+	digest := computeHex(body)
+	goos, goarch := "linux", "amd64"
+	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, digest)()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	cacheDir := t.TempDir()
+	t.Setenv("PURE_SIMDJSON_CACHE_DIR", cacheDir)
+	t.Setenv("PURE_SIMDJSON_DISABLE_GH_FALLBACK", "1")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := bootstrap.BootstrapSync(ctx,
+		bootstrap.WithMirror(srv.URL),
+		bootstrap.WithTarget(goos, goarch),
+		bootstrap.WithHTTPClient(srv.Client()),
+	); err != nil {
+		t.Fatalf("BootstrapSync: %v", err)
+	}
+
+	cached := bootstrap.CachePath(goos, goarch)
+	info, err := os.Stat(cached)
+	if err != nil {
+		t.Fatalf("stat cached artifact: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o644 {
+		t.Fatalf("cached artifact mode = %#o, want 0644", perm)
 	}
 }
 

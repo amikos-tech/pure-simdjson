@@ -401,6 +401,13 @@ func downloadOnce(ctx context.Context, cfg bootstrapConfig, rawURL, cacheDir str
 	if err := f.Sync(); err != nil {
 		return "", "", fmt.Errorf("fsync temp: %w", err)
 	}
+	// os.CreateTemp produces 0600; shared libs are conventionally 0644 (rpm /
+	// dpkg / Nix). Set before rename so the cached file has the expected mode
+	// on first observation. dlopen only needs read, so this is defensive
+	// convention match rather than strictly required.
+	if err := f.Chmod(0o644); err != nil {
+		return "", "", fmt.Errorf("chmod temp: %w", err)
+	}
 	digest = hex.EncodeToString(h.Sum(nil))
 	success = true
 	return createdTmp, digest, nil
