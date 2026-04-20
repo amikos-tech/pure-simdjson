@@ -844,6 +844,65 @@ func TestRetryAfterHintFromServer(t *testing.T) {
 	}
 }
 
+// TestBootstrapRejectsAdvertisedOversize asserts the Content-Length pre-check
+// in downloadOnce: a server that advertises a body > 128 MiB is rejected
+// before any temp file is created, preventing ~768 MiB of wasted disk writes
+// across the full retry ladder. Regression for PR #6 review item #5.
+//
+// The handler Hijacks the connection to send a forged Content-Length without
+// actually streaming that many bytes; Go's default ResponseWriter would
+// recompute Content-Length from the written bytes.
+func TestBootstrapRejectsAdvertisedOversize(t *testing.T) {
+	clearBootstrapEnv(t)
+
+	goos, goarch := "linux", "amd64"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			http.Error(w, "no hijacker", http.StatusInternalServerError)
+			return
+		}
+		conn, bufrw, err := hj.Hijack()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		_, _ = bufrw.WriteString("HTTP/1.1 200 OK\r\nContent-Length: 134217729\r\nContent-Type: application/octet-stream\r\n\r\n")
+		_ = bufrw.Flush()
+		// No body — the client must reject on headers alone.
+	}))
+	defer srv.Close()
+
+	cacheDir := t.TempDir()
+	t.Setenv("PURE_SIMDJSON_CACHE_DIR", cacheDir)
+	t.Setenv("PURE_SIMDJSON_DISABLE_GH_FALLBACK", "1")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := bootstrap.BootstrapSync(ctx,
+		bootstrap.WithMirror(srv.URL),
+		bootstrap.WithTarget(goos, goarch),
+		bootstrap.WithHTTPClient(srv.Client()),
+	)
+	if err == nil {
+		t.Fatalf("BootstrapSync should have rejected oversize response")
+	}
+	if !strings.Contains(err.Error(), "advertised response too large") {
+		t.Fatalf("error did not flag oversize pre-check: %v", err)
+	}
+
+	// No *.tmp files should linger in the cache directory — pre-check fires
+	// before os.CreateTemp.
+	libDir := filepath.Join(cacheDir, "v"+bootstrap.Version, goos+"-"+goarch)
+	entries, _ := os.ReadDir(libDir)
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".tmp") {
+			t.Errorf("temp file leaked: %s", e.Name())
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Small helpers shared by the Plan 05-03 additions.
 // ---------------------------------------------------------------------------

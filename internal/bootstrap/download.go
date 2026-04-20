@@ -356,6 +356,15 @@ func downloadOnce(ctx context.Context, cfg bootstrapConfig, rawURL, cacheDir str
 		return "", "", statusErr
 	}
 
+	// Short-circuit on advertised oversize bodies so we never allocate a temp
+	// file for a ~128MiB+ payload a hostile server declared. ContentLength == -1
+	// for chunked transfer; that case falls through to the LimitReader gate.
+	if resp.ContentLength > maxBootstrapArtifactBytes {
+		return "", "", markPermanentBootstrapError(
+			fmt.Errorf("advertised response too large: %d bytes from %s (cap: %d)",
+				resp.ContentLength, rawURL, maxBootstrapArtifactBytes))
+	}
+
 	// os.CreateTemp(cacheDir, ...) ensures the temp file is on the same
 	// filesystem as the final cache path — critical for os.Rename atomicity
 	// (pitfall #3).
