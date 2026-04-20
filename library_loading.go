@@ -1,18 +1,26 @@
 package purejson
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/amikos-tech/pure-simdjson/internal/bootstrap"
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
 
 const libraryEnvPath = "PURE_SIMDJSON_LIB_PATH"
+
+// bootstrapResolveTimeout bounds the auto-bootstrap stage inside
+// resolveLibraryPath. Five minutes is generous enough for a cold download of
+// the shared library on a slow link while guaranteeing NewParser cannot stall
+// indefinitely.
+const bootstrapResolveTimeout = 5 * time.Minute
 
 type loadedLibrary struct {
 	path               string
@@ -26,14 +34,28 @@ var (
 	cachedLibrary *loadedLibrary
 )
 
+// activeLibrary returns the process-wide loaded library, triggering the resolve
+// + dlopen + bind chain on first call. Concurrency model is double-checked
+// locking (M1): libraryMu guards only the cachedLibrary pointer. Path
+// resolution — which may trigger a multi-minute bootstrap download — and the
+// dlopen/bind calls all run OUTSIDE libraryMu so concurrent NewParser() calls
+// are not serialized on the first caller's bandwidth.
+//
+// A benign race is possible where two callers both reach the slow path and
+// both dlopen the library; the loser discards its handle and returns the
+// installed pointer. For v0.1 we accept the rare leak because purego does not
+// expose dlclose; the dlopen race happens at most once per process.
 func activeLibrary() (*loadedLibrary, error) {
+	// Fast path: read the cached pointer under the lock, release immediately.
 	libraryMu.Lock()
-	defer libraryMu.Unlock()
-
-	if cachedLibrary != nil {
-		return cachedLibrary, nil
+	cached := cachedLibrary
+	libraryMu.Unlock()
+	if cached != nil {
+		return cached, nil
 	}
 
+	// Slow path: path resolution runs without libraryMu held (M1). This is the
+	// stage that may trigger a network download.
 	path, attempted, err := resolveLibraryPath()
 	if err != nil {
 		return nil, wrapLoadFailure(formatAttemptedPaths(attempted), err)
@@ -54,16 +76,47 @@ func activeLibrary() (*loadedLibrary, error) {
 		return nil, wrapStatus(rc)
 	}
 
-	cachedLibrary = &loadedLibrary{
+	library := &loadedLibrary{
 		path:               path,
 		handle:             handle,
 		implementationName: implementationName,
 		bindings:           bindings,
 	}
+
+	// Re-check under the lock and install. If a concurrent caller won the race,
+	// drop our handle and return theirs. For v0.1 purego has no dlclose surface
+	// so we simply orphan the loser's handle — acceptable because the race fires
+	// at most once per process lifetime.
+	libraryMu.Lock()
+	defer libraryMu.Unlock()
+	if cachedLibrary != nil {
+		return cachedLibrary, nil
+	}
+	cachedLibrary = library
 	return cachedLibrary, nil
 }
 
+// resolveLibraryPath implements the 4-stage resolution chain:
+//
+//  1. Env override — PURE_SIMDJSON_LIB_PATH: absolute path honoured as-is,
+//     relative paths resolved via filepath.Abs (DIST-09 Windows full-path
+//     invariant). No network I/O.
+//  2. Cache hit — a prior BootstrapSync installed the artifact at
+//     bootstrap.CachePath. No SHA-256 re-verify on hit (D-04 — trust-on-first-
+//     write; verification happened at install time).
+//  3. Auto-bootstrap — call bootstrap.BootstrapSync with an internal 5-minute
+//     timeout so NewParser never blocks indefinitely.
+//  4. Cache hit after bootstrap — the artifact MUST be present now; if it
+//     isn't the install broke an invariant.
+//
+// Returned path is always absolute (DIST-09). Returned error on bootstrap
+// failure references PURE_SIMDJSON_LIB_PATH so users learn the bypass
+// mechanism (D-21). Errors from bootstrap are wrapped with %w so
+// errors.Is(err, purejson.ErrChecksumMismatch) and the other re-exported
+// sentinels continue to match across the chain (H2 pointer-identity aliasing,
+// Plan 01).
 func resolveLibraryPath() (string, []string, error) {
+	// Stage 1: env override.
 	if envPath := strings.TrimSpace(os.Getenv(libraryEnvPath)); envPath != "" {
 		absPath, err := filepath.Abs(envPath)
 		if err != nil {
@@ -75,91 +128,31 @@ func resolveLibraryPath() (string, []string, error) {
 		return absPath, []string{absPath}, nil
 	}
 
-	candidates, err := libraryCandidates()
-	if err != nil {
-		return "", nil, err
+	// Stage 2: cache hit — bootstrap.CachePath returns an absolute path by
+	// construction (cacheDir is absolute; filepath.Join preserves that).
+	cachePath := bootstrap.CachePath(runtime.GOOS, runtime.GOARCH)
+	if _, err := os.Stat(cachePath); err == nil {
+		return cachePath, []string{cachePath}, nil
 	}
 
-	// Walk candidates in priority order. Filter NotExist (the common miss) so the
-	// returned error reflects the first real problem (permission denied, broken
-	// path) rather than the trailing "not found" from the last candidate.
-	attempted := make([]string, 0, len(candidates))
-	var statErr error
-	for _, candidate := range candidates {
-		attempted = append(attempted, candidate)
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate, attempted, nil
-		} else if !errors.Is(err, os.ErrNotExist) && statErr == nil {
-			statErr = err
-		}
+	// Stage 3: auto-bootstrap with an internal timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), bootstrapResolveTimeout)
+	defer cancel()
+	if err := bootstrap.BootstrapSync(ctx); err != nil {
+		return "", []string{cachePath},
+			fmt.Errorf("bootstrap failed (set %s to bypass): %w", libraryEnvPath, err)
 	}
 
-	if statErr != nil {
-		return "", attempted, statErr
+	// Stage 4: cache hit after bootstrap.
+	if _, err := os.Stat(cachePath); err == nil {
+		return cachePath, []string{cachePath}, nil
 	}
-	return "", attempted, fmt.Errorf("shared library not found")
+	return "", []string{cachePath},
+		fmt.Errorf("shared library not found after bootstrap (set %s to bypass)", libraryEnvPath)
 }
 
-func libraryCandidates() ([]string, error) {
-	root, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("determine working directory: %w", err)
-	}
-
-	triple, err := rustTargetTriple()
-	if err != nil {
-		return nil, err
-	}
-
-	libraryName := platformLibraryName()
-	raw := []string{
-		filepath.Join(root, "target", "release", libraryName),
-		filepath.Join(root, "target", "debug", libraryName),
-		filepath.Join(root, "target", triple, "release", libraryName),
-		filepath.Join(root, "target", triple, "debug", libraryName),
-	}
-
-	candidates := make([]string, 0, len(raw))
-	for _, candidate := range raw {
-		absPath, err := filepath.Abs(candidate)
-		if err != nil {
-			return nil, fmt.Errorf("resolve candidate %s: %w", candidate, err)
-		}
-		candidates = append(candidates, absPath)
-	}
-	return candidates, nil
-}
-
-func platformLibraryName() string {
-	switch runtime.GOOS {
-	case "darwin":
-		return "libpure_simdjson.dylib"
-	case "linux":
-		return "libpure_simdjson.so"
-	case "windows":
-		return "pure_simdjson.dll"
-	default:
-		return "libpure_simdjson"
-	}
-}
-
-func rustTargetTriple() (string, error) {
-	switch runtime.GOOS + "/" + runtime.GOARCH {
-	case "darwin/amd64":
-		return "x86_64-apple-darwin", nil
-	case "darwin/arm64":
-		return "aarch64-apple-darwin", nil
-	case "linux/amd64":
-		return "x86_64-unknown-linux-gnu", nil
-	case "linux/arm64":
-		return "aarch64-unknown-linux-gnu", nil
-	case "windows/amd64":
-		return "x86_64-pc-windows-msvc", nil
-	default:
-		return "", fmt.Errorf("unsupported platform %s/%s", runtime.GOOS, runtime.GOARCH)
-	}
-}
-
+// formatAttemptedPaths renders the attempted-paths slice for error messages.
+// Retained from Phase 3 so Phase 3's error tests continue to match.
 func formatAttemptedPaths(paths []string) string {
 	if len(paths) == 0 {
 		return "attempted paths: none"

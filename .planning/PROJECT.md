@@ -80,9 +80,9 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster
 
 ## Current State
 
-Phase 4 is complete. The repository now ships the full v0.1 DOM accessor surface: typed scalar/string/bool/null accessors, scanner-style array/object traversal, direct field lookup, executable examples, and package-wide Godoc for the exported API, all backed by the Rust shim and purego bindings.
+Phase 5 is complete. The repository now ships the bootstrap + distribution pipeline: R2 primary with GitHub Releases fallback, SHA-256 verification, OS-user-cache-dir storage with 0700 perms, cross-process flock, `PURE_SIMDJSON_LIB_PATH` / `PURE_SIMDJSON_BINARY_MIRROR` / `PURE_SIMDJSON_CACHE_DIR` env overrides, a `pure-simdjson-bootstrap` CLI (fetch/verify/platforms/version), and `docs/bootstrap.md` covering env vars, air-gapped, corporate-firewall, and cosign flows. End-to-end bootstrap against live artifacts requires Phase 6 CI-05 to populate real SHA-256 digests — tracked as partial UAT.
 
-Next up: Phase 5 adds bootstrap and distribution so a fresh machine can download, verify, cache, and load the correct shared library automatically.
+Next up: Phase 6 wires the CI release matrix — tag push produces signed, verified shared libraries for all five targets (plus Alpine smoke-test) uploaded to R2 and GitHub Releases with a generated checksum manifest.
 
 ## Key Decisions
 
@@ -123,4 +123,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-17 after Phase 4 completion*
+*Last updated: 2026-04-20 after Phase 5 completion*

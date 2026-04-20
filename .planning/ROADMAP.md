@@ -16,7 +16,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 - [x] **Phase 2: Rust Shim + Minimal Parse Path** — Build the Rust cdylib with vendored simdjson and the smallest end-to-end parse path (parser_new -> parse -> doc_root -> get_int64)
 - [x] **Phase 3: Go Public API + purego Happy Path** — Wire Go's `purejson` package to the shim with handle lifecycle, ParserPool, typed errors, and one accessor as smoke test
 - [x] **Phase 4: Full Typed Accessor Surface** — Complete the DOM accessor surface (uint64/float64/string/bool/null) and cursor-pull iteration over arrays and objects
-- [ ] **Phase 5: Bootstrap + Distribution** — Implement R2 download with GitHub fallback, SHA-256 verification, OS cache, env overrides, and the bootstrap CLI
+- [x] **Phase 5: Bootstrap + Distribution** — Implement R2 download with GitHub fallback, SHA-256 verification, OS cache, env overrides, and the bootstrap CLI
 - [ ] **Phase 6: CI Release Matrix + Platform Coverage** — Build, sign, and publish artifacts for all five targets plus Alpine smoke-test, with cosign and ad-hoc macOS codesign
 - [ ] **Phase 7: Benchmarks + v0.1 Release** — Three-tier benchmark harness vs `encoding/json`, `simdjson-go`, `sonic`, `goccy/go-json`; correctness oracle; documentation; v0.1 tag
 
@@ -218,7 +218,15 @@ Plans:
 4. A corrupted artifact (mismatched SHA-256) is rejected before `dlopen` with a clear error
 5. `pure-simdjson-bootstrap` CLI pre-fetches all platform artifacts for offline distribution
 
-**Plans:** TBD
+**Plans:** 6 plans
+
+Plans:
+- [x] `05-01-PLAN.md` — Package scaffold: version/checksums/url/flock/error sentinels + cobra dep (Wave 1)
+- [x] `05-02-PLAN.md` — HTTP download pipeline: cache layout, Full-Jitter retry, SHA-256 verify, BootstrapSync API (Wave 2)
+- [x] `05-03-PLAN.md` — Bootstrap test suite: URL/cache unit tests + fault injection stubs (Wave 3)
+- [x] `05-04-PLAN.md` — Loader integration: rewrite resolveLibraryPath 4-stage chain + activeLibrary double-checked locking, delete legacy candidates (Wave 4)
+- [x] `05-05-PLAN.md` — Bootstrap CLI: four cobra verbs + fetch integration test + verify --dest --all-platforms (Wave 4)
+- [x] `05-06-PLAN.md` — Remaining fault injection tests + docs/bootstrap.md (Wave 5)
 
 **UI hint:** no
 
@@ -241,6 +249,7 @@ Plans:
 - Alpine smoke-test job (`alpine:latest` container) loads via `PURE_SIMDJSON_LIB_PATH` with a user-built `.so`; documents the chosen musl strategy (PLAT-06, CI-07, pitfall 21)
 - Cosign keyless OIDC signing on every artifact
 - SHA-256 manifest computed in CI and committed back as `internal/bootstrap/checksums.go` either in the tagged commit or a follow-up PR (CI-05)
+- GitHub Release asset upload step renames platform binaries to their platform-tagged form (`libpure_simdjson-<goos>-<goarch>.ext` / `pure_simdjson-windows-amd64-msvc.dll`) per Phase 5 H1 contract to avoid flat-namespace collision (CI-05)
 - Single tag workflow handles version bump, changelog stub, and release-notes (CI-06)
 - `-static-libstdc++ -static-libgcc` verified via `nm` showing only `extern "C"` exports (pitfall 22)
 
@@ -360,7 +369,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 2. Rust Shim + Minimal Parse | 3/3 | Complete | 2026-04-15 |
 | 3. Go API + purego Happy Path | 5/5 | Complete | 2026-04-16 |
 | 4. Full Typed Accessor Surface | 5/5 | Complete | 2026-04-17 |
-| 5. Bootstrap + Distribution | 0/? | Not started | — |
+| 5. Bootstrap + Distribution | 6/6 | Complete | 2026-04-20 |
 | 6. CI Release Matrix | 0/? | Not started | — |
 | 7. Benchmarks + v0.1 Release | 0/? | Not started | — |
 
@@ -397,6 +406,28 @@ Plans:
 **Goal:** [Captured for future planning] Reshape the exported `internal/ffi` layout carriers so purego bindings can preserve ABI/layout guarantees without exposing field-level coupling as de facto public API.
 
 **Requirements:** TBD
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.4: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (BACKLOG)
+
+**Goal:** [Captured for future planning] Execute the Phase 5 human UAT that could not be exercised during Phase 5 because the `internal/bootstrap/checksums.go` map is populated only at release time by Phase 6 CI-05. On a fresh machine with `~/Library/Caches/pure-simdjson` cleared, `NewParser()` should download a real artifact from `releases.amikos.tech`, verify SHA-256 against the populated `Checksums` map, cache with 0700 perms, and parse a sample document successfully on each of the 5 target platforms (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64). Validates Success Criterion 1 from ROADMAP.md. Blocked-by: Phase 6 CI-05. See `.planning/phases/05-bootstrap-distribution/05-HUMAN-UAT.md` for original context.
+
+**Requirements:** TBD — promote after Phase 6 ships a release with populated checksums.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.5: Corporate-firewall bootstrap workaround verification (BACKLOG)
+
+**Goal:** [Captured for future planning] Verify the corporate-firewall bootstrap workaround under a real proxy that blocks `releases.amikos.tech`. Two scenarios: (a) `PURE_SIMDJSON_BINARY_MIRROR` points at an internal mirror and bootstrap succeeds; (b) mirror unset but GitHub Releases fallback is reachable, and bootstrap succeeds via the GH ladder. Cannot be automated meaningfully in CI — needs a real corporate network or proxy emulation. Deferred from Phase 5 HUMAN-UAT per `05-VALIDATION.md` Manual-Only Verifications. See `.planning/phases/05-bootstrap-distribution/05-HUMAN-UAT.md` for original context.
+
+**Requirements:** TBD — promote when user-reported issue or internal corp-network testbed is available.
 
 **Plans:** 0 plans
 
