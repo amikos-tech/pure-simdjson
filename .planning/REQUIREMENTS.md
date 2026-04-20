@@ -68,7 +68,8 @@ Requirements for initial release. Each maps to roadmap phases.
 **: `PURE_SIMDJSON_LIB_PATH` env var overrides download entirely (air-gapped + mirror case)
 - [x] **DIST-07
 **: `PURE_SIMDJSON_BINARY_MIRROR` env var overrides the R2 base URL (corporate firewall case)
-- [ ] **DIST-08**: `cmd/pure-simdjson-bootstrap` CLI pre-downloads artifacts for offline installs
+- [x] **DIST-08
+**: `cmd/pure-simdjson-bootstrap` CLI pre-downloads artifacts for offline installs
 - [x] **DIST-09
 **: Windows `LoadLibrary` uses full path (never bare filename); prevents DLL hijacking
 - [x] **DIST-10

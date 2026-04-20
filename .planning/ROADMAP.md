@@ -225,7 +225,7 @@ Plans:
 - [x] `05-02-PLAN.md` — HTTP download pipeline: cache layout, Full-Jitter retry, SHA-256 verify, BootstrapSync API (Wave 2)
 - [x] `05-03-PLAN.md` — Bootstrap test suite: URL/cache unit tests + fault injection stubs (Wave 3)
 - [x] `05-04-PLAN.md` — Loader integration: rewrite resolveLibraryPath 4-stage chain + activeLibrary double-checked locking, delete legacy candidates (Wave 4)
-- [ ] `05-05-PLAN.md` — Bootstrap CLI: four cobra verbs + fetch integration test + verify --dest --all-platforms (Wave 4)
+- [x] `05-05-PLAN.md` — Bootstrap CLI: four cobra verbs + fetch integration test + verify --dest --all-platforms (Wave 4)
 - [ ] `05-06-PLAN.md` — Remaining fault injection tests + docs/bootstrap.md (Wave 5)
 
 **UI hint:** no
@@ -369,7 +369,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 2. Rust Shim + Minimal Parse | 3/3 | Complete | 2026-04-15 |
 | 3. Go API + purego Happy Path | 5/5 | Complete | 2026-04-16 |
 | 4. Full Typed Accessor Surface | 5/5 | Complete | 2026-04-17 |
-| 5. Bootstrap + Distribution | 4/6 | In progress | — |
+| 5. Bootstrap + Distribution | 5/6 | In progress | — |
 | 6. CI Release Matrix | 0/? | Not started | — |
 | 7. Benchmarks + v0.1 Release | 0/? | Not started | — |
 
