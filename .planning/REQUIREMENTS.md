@@ -101,7 +101,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **DOC-02**: `docs/ffi-contract.md` — full FFI contract (from Phase 1); versioned alongside ABI
 - [x] **DOC-03**: Godoc on every exported type/function in `purejson`
 - [x] **DOC-04**: `docs/concurrency.md` — per-parser single-doc invariant, `ParserPool` pattern, why not to share a Parser
-- [ ] **DOC-05**: `docs/bootstrap.md` — env vars, mirror setup, air-gapped install flow
+- [x] **DOC-05
+**: `docs/bootstrap.md` — env vars, mirror setup, air-gapped install flow
 - [ ] **DOC-06**: `CHANGELOG.md` following Keep-a-Changelog format
 - [ ] **DOC-07**: `LICENSE` (MIT) + `NOTICE` for simdjson's Apache-2.0 upstream
 

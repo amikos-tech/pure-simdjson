@@ -16,7 +16,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 - [x] **Phase 2: Rust Shim + Minimal Parse Path** — Build the Rust cdylib with vendored simdjson and the smallest end-to-end parse path (parser_new -> parse -> doc_root -> get_int64)
 - [x] **Phase 3: Go Public API + purego Happy Path** — Wire Go's `purejson` package to the shim with handle lifecycle, ParserPool, typed errors, and one accessor as smoke test
 - [x] **Phase 4: Full Typed Accessor Surface** — Complete the DOM accessor surface (uint64/float64/string/bool/null) and cursor-pull iteration over arrays and objects
-- [ ] **Phase 5: Bootstrap + Distribution** — Implement R2 download with GitHub fallback, SHA-256 verification, OS cache, env overrides, and the bootstrap CLI
+- [x] **Phase 5: Bootstrap + Distribution** — Implement R2 download with GitHub fallback, SHA-256 verification, OS cache, env overrides, and the bootstrap CLI
 - [ ] **Phase 6: CI Release Matrix + Platform Coverage** — Build, sign, and publish artifacts for all five targets plus Alpine smoke-test, with cosign and ad-hoc macOS codesign
 - [ ] **Phase 7: Benchmarks + v0.1 Release** — Three-tier benchmark harness vs `encoding/json`, `simdjson-go`, `sonic`, `goccy/go-json`; correctness oracle; documentation; v0.1 tag
 
@@ -226,7 +226,7 @@ Plans:
 - [x] `05-03-PLAN.md` — Bootstrap test suite: URL/cache unit tests + fault injection stubs (Wave 3)
 - [x] `05-04-PLAN.md` — Loader integration: rewrite resolveLibraryPath 4-stage chain + activeLibrary double-checked locking, delete legacy candidates (Wave 4)
 - [x] `05-05-PLAN.md` — Bootstrap CLI: four cobra verbs + fetch integration test + verify --dest --all-platforms (Wave 4)
-- [ ] `05-06-PLAN.md` — Remaining fault injection tests + docs/bootstrap.md (Wave 5)
+- [x] `05-06-PLAN.md` — Remaining fault injection tests + docs/bootstrap.md (Wave 5)
 
 **UI hint:** no
 

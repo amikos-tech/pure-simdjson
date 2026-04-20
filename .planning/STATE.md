@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
-status: executing
-stopped_at: Completed 05-05
-last_updated: "2026-04-20T12:13:24.569Z"
+status: verifying
+stopped_at: Completed 05-06
+last_updated: "2026-04-20T12:28:36.979Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 10
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 22
-  completed_plans: 21
-  percent: 95
+  completed_plans: 22
+  percent: 100
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 
 Phase: 05 (bootstrap-distribution) — EXECUTING
 Plan: 6 of 6
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-20
 Shipping: Phase 04 fully verified locally
 
-Progress: [██████████] 95%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [██████████] 95%
 | Phase 05 P03 | 3min | 1 tasks | 3 files |
 | Phase 05 P04 | 8min | 1 tasks | 3 files |
 | Phase Phase 05 PP05 | 5min | 2 tasks | 7 files |
+| Phase Phase 05 PP06 | 9min | 2 tasks tasks | 5 files files |
 
 ## Accumulated Context
 
@@ -110,6 +111,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 05]: verify supports --dest <dir> and --all-platforms (M4) so offline bundles produced by 'fetch --all-platforms --dest X' can be round-trip verified via 'verify --all-platforms --dest X'; the layout under <dest> is v<Version>/<os>-<arch>/<libname>, identical to what fetch writes.
 - [Phase 05]: CLI root command uses SilenceUsage: true and SilenceErrors: true; errors render exactly once via main() to stderr with exit code 1, preventing cobra from drowning error messages in the default usage dump (D-28).
 - [Phase 05]: Integration tests mutate the package-level bootstrap.Checksums map via a t.Cleanup-restored override so httptest-served fake bytes can hash-match; the map is empty in dev (pre-CI-05), the override is the M3-spirit test seam for the cmd/ package.
+- [Phase 05]: downloadOnce captures the temp path in a local createdTmp before the cleanup defer; named-return-zeroing on early return "", "", err otherwise leaves orphan *.tmp files in the cache dir on every cancelled/failed bootstrap (Plan 06 Rule 1 fix surfaced by TestBootstrapSyncCancellation).
+- [Phase 05]: T-05-04 redirect-downgrade defence is covered by three layered tests — TestRedirectDowngradeUnit (calls rejectHTTPSDowngrade with synthetic via-chain), TestRedirectDowngradeWired (asserts newHTTPClient().CheckRedirect points at the policy), and the existing TestHTTPSDowngradeRejected end-to-end via httptest.NewTLSServer; preferred over a brittle two-server httptest topology.
+- [Phase 05]: Cross-process flock test (Fault Injection Matrix item 8) is intentionally NOT added in v0.1 — flock/LockFileEx correctness is OS code, pure-onnx ships without one, and subprocess tests are flaky on Windows CI; rationale comment lives at TestConcurrentBootstrap so future contributors find it without re-discovering.
 
 ### Pending Todos
 
@@ -122,8 +126,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T12:13:24.559Z
-Stopped at: Completed 05-05
+Last session: 2026-04-20T12:28:36.969Z
+Stopped at: Completed 05-06
 Resume file: None
 
 **Planned Phase:** 05 (bootstrap-distribution) — 6 plans — 2026-04-20T11:21:15.134Z
