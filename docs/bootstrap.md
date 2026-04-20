@@ -166,9 +166,11 @@ loading, regardless of whether the user runs the cosign step.
 ## Retry and Error Behavior
 
 The bootstrap pipeline retries transient failures (HTTP 429, HTTP 5xx, GitHub
-403 rate-limit responses) with Full-Jitter exponential backoff (capped at 8
-seconds). The retry loop is context-aware: a cancelled context aborts both
-in-flight downloads and the inter-attempt sleep within milliseconds.
+403 rate-limit responses) with exponential backoff plus additive jitter
+(capped at 8 seconds). When a server returns a `Retry-After` header, the
+bootstrap loop honors that hint (capped at 16 seconds) instead of the
+computed backoff. The retry loop is context-aware: a cancelled context aborts
+both in-flight downloads and the inter-attempt sleep within milliseconds.
 
 URL-fatal errors (e.g. HTTP 404) skip the remaining retries for the current
 URL and roll over to the next URL in the ladder, so a missing artifact on R2

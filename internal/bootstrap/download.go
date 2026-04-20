@@ -248,7 +248,10 @@ func downloadAndVerify(ctx context.Context, cfg bootstrapConfig, cachePath strin
 
 // downloadWithRetry runs the primary-then-fallback attempt ladder (D-15): up to
 // 3 attempts against the R2 URL, then up to 3 against the GitHub fallback.
-// Backoff is Full-Jitter, capped at 8s, and interruptible via ctx.
+// Backoff is exponential with additive jitter (see jitterBackoff), capped at
+// 8s, and interruptible via ctx. When a server supplies Retry-After on a
+// retryable failure, that hint dominates the computed backoff up to
+// maxRetrySleep.
 //
 // Permanent-error semantics on the outer loop:
 //   - Ladder-fatal (checksum mismatch, redirect downgrade, oversized body,

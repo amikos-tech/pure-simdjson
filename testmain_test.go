@@ -16,8 +16,9 @@ import (
 // target/release/ automatically. To keep those tests working without changing
 // them, we set PURE_SIMDJSON_LIB_PATH to the locally-built library when one is
 // present at the canonical cargo path. Tests that need to exercise resolution
-// behaviour (e.g. TestResolveLibraryPathCacheHit) override LIB_PATH to ""
-// via t.Setenv, so this default is a benign baseline rather than a lock-in.
+// behaviour (e.g. TestResolveLibraryPathCacheHit) override
+// PURE_SIMDJSON_LIB_PATH to "" via t.Setenv, so this default is a benign
+// baseline rather than a lock-in.
 func TestMain(m *testing.M) {
 	if os.Getenv(libraryEnvPath) == "" {
 		if builtPath, ok := findBuiltLibraryForTestMain(); ok {
