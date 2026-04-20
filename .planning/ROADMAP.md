@@ -223,10 +223,10 @@ Plans:
 Plans:
 - [ ] `05-01-PLAN.md` — Package scaffold: version/checksums/url/flock/error sentinels + cobra dep (Wave 1)
 - [ ] `05-02-PLAN.md` — HTTP download pipeline: cache layout, Full-Jitter retry, SHA-256 verify, BootstrapSync API (Wave 2)
-- [ ] `05-03-PLAN.md` — Bootstrap test suite: URL/cache unit tests + fault injection stubs (Wave 2)
-- [ ] `05-04-PLAN.md` — Loader integration: rewrite resolveLibraryPath 4-stage chain, delete legacy candidates (Wave 3)
-- [ ] `05-05-PLAN.md` — Bootstrap CLI: four cobra verbs + fetch integration test (Wave 3)
-- [ ] `05-06-PLAN.md` — Fault injection tests + docs/bootstrap.md (Wave 4)
+- [ ] `05-03-PLAN.md` — Bootstrap test suite: URL/cache unit tests + fault injection stubs (Wave 3)
+- [ ] `05-04-PLAN.md` — Loader integration: rewrite resolveLibraryPath 4-stage chain + activeLibrary double-checked locking, delete legacy candidates (Wave 4)
+- [ ] `05-05-PLAN.md` — Bootstrap CLI: four cobra verbs + fetch integration test + verify --dest --all-platforms (Wave 4)
+- [ ] `05-06-PLAN.md` — Remaining fault injection tests + docs/bootstrap.md (Wave 5)
 
 **UI hint:** no
 
@@ -249,6 +249,7 @@ Plans:
 - Alpine smoke-test job (`alpine:latest` container) loads via `PURE_SIMDJSON_LIB_PATH` with a user-built `.so`; documents the chosen musl strategy (PLAT-06, CI-07, pitfall 21)
 - Cosign keyless OIDC signing on every artifact
 - SHA-256 manifest computed in CI and committed back as `internal/bootstrap/checksums.go` either in the tagged commit or a follow-up PR (CI-05)
+- GitHub Release asset upload step renames platform binaries to their platform-tagged form (`libpure_simdjson-<goos>-<goarch>.ext` / `pure_simdjson-windows-amd64-msvc.dll`) per Phase 5 H1 contract to avoid flat-namespace collision (CI-05)
 - Single tag workflow handles version bump, changelog stub, and release-notes (CI-06)
 - `-static-libstdc++ -static-libgcc` verified via `nm` showing only `extern "C"` exports (pitfall 22)
 
