@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/amikos-tech/pure-simdjson/internal/bootstrap"
@@ -30,12 +31,12 @@ func TestFetchCmd(t *testing.T) {
 	// Build a mux serving all 5 platform artifacts at the R2 path layout:
 	//   /v<Version>/<goos>-<goarch>/<platformLibraryName>
 	mux := http.NewServeMux()
-	var hits int
+	var hits atomic.Int32
 	for _, p := range bootstrap.SupportedPlatforms {
 		goos, goarch := p[0], p[1]
 		urlPath := "/v" + bootstrap.Version + "/" + goos + "-" + goarch + "/" + platformLibraryNameForCLI(goos)
 		mux.HandleFunc(urlPath, func(w http.ResponseWriter, r *http.Request) {
-			hits++
+			hits.Add(1)
 			_, _ = w.Write(fakeBody)
 		})
 	}
@@ -62,8 +63,8 @@ func TestFetchCmd(t *testing.T) {
 	if err := runFetch(context.Background(), true, nil, destDir, "", srv.URL, io.Discard); err != nil {
 		t.Fatalf("runFetch --all-platforms: %v", err)
 	}
-	if hits != 5 {
-		t.Fatalf("expected 5 downloads (one per platform), got %d", hits)
+	if got := hits.Load(); got != 5 {
+		t.Fatalf("expected 5 downloads (one per platform), got %d", got)
 	}
 	// Verify all 5 artifacts exist at destDir at their expected platform paths.
 	for _, p := range bootstrap.SupportedPlatforms {
@@ -81,10 +82,10 @@ func TestFetchCmdSingleTarget(t *testing.T) {
 	fakeSum := fakeHex(fakeBody)
 
 	mux := http.NewServeMux()
-	var hits int
+	var hits atomic.Int32
 	urlPath := "/v" + bootstrap.Version + "/linux-amd64/libpure_simdjson.so"
 	mux.HandleFunc(urlPath, func(w http.ResponseWriter, r *http.Request) {
-		hits++
+		hits.Add(1)
 		_, _ = w.Write(fakeBody)
 	})
 	srv := httptest.NewServer(mux)
@@ -102,7 +103,7 @@ func TestFetchCmdSingleTarget(t *testing.T) {
 	if err := runFetch(context.Background(), false, []string{"linux/amd64"}, destDir, "", srv.URL, io.Discard); err != nil {
 		t.Fatalf("runFetch --target linux/amd64: %v", err)
 	}
-	if hits != 1 {
-		t.Fatalf("expected 1 download, got %d", hits)
+	if got := hits.Load(); got != 1 {
+		t.Fatalf("expected 1 download, got %d", got)
 	}
 }
