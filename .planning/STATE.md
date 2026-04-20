@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: "Phase 5 shipped — PR #6"
-stopped_at: Completed 05-06
-last_updated: "2026-04-20T14:12:54.876Z"
+stopped_at: Phase 6 context gathered
+last_updated: "2026-04-20T15:28:41.009Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 12
@@ -70,6 +70,10 @@ Progress: [██████████] 100%
 
 ## Accumulated Context
 
+### Roadmap Evolution
+
+- Phase 06.1 inserted after Phase 06: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (promoted from backlog item 999.4)
+
 ### Decisions
 
 Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting current work:
@@ -127,8 +131,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T12:28:36.969Z
-Stopped at: Completed 05-06
-Resume file: None
+Last session: 2026-04-20T15:28:41.009Z
+Stopped at: Phase 6 context gathered
+Resume file: .planning/phases/06-ci-release-matrix-platform-coverage/06-CONTEXT.md
 
 **Planned Phase:** 05 (bootstrap-distribution) — 6 plans — 2026-04-20T11:21:15.134Z
