@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: executing
-stopped_at: Completed 05-02
-last_updated: "2026-04-20T11:38:16.791Z"
+stopped_at: Completed 05-03
+last_updated: "2026-04-20T11:46:46.298Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 10
   completed_phases: 4
   total_plans: 22
-  completed_plans: 18
-  percent: 82
+  completed_plans: 19
+  percent: 86
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 05 (bootstrap-distribution) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-04-20
 Shipping: Phase 04 fully verified locally
 
-Progress: [████████░░] 82%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [████████░░] 82%
 | Phase 04-full-typed-accessor-surface P05 | 11m | 2 tasks | 7 files |
 | Phase 05 P01 | 3min | 2 tasks | 9 files |
 | Phase 05 P02 | 7min | 2 tasks | 6 files |
+| Phase 05 P03 | 3min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,8 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 05]: Test seams for the external bootstrap_test package live in internal/bootstrap/export_test.go (compiled only during go test) — re-exports resolveConfig, withHTTPClient, withGitHubBaseURL, defaultCacheDir, and ResetBootstrapFailureCacheForTest (M3 review resolution).
 - [Phase 05]: User-Agent 'pure-simdjson-go/v<Version>' is stamped on every outbound HTTP request in download.go so R2/GitHub server-side telemetry can identify the library and version (L3 review resolution).
 - [Phase 05]: BootstrapSync checks ctx.Err() BEFORE consulting the failure-memoization cache, so a cancelled ctx returns ctx.Err() even when a memoized failure exists; config errors (bad mirror URL) are NOT memoized because they are caller bugs, not network state.
+- [Phase 05]: downloadWithRetry now distinguishes per-URL fatal (404 -> skip remaining retries for that URL, try next URL) from ladder-fatal (checksum/no-checksum/HTTPS-downgrade -> abort all URLs); Fault Injection Matrix item 9 (R2 404 -> GH fallback fires) requires this separation.
+- [Phase 05]: internal/bootstrap/export_test.go additionally re-exports r2ArtifactURL, githubArtifactURL, githubAssetName so URL-construction tests assert the exact wire format instead of rebuilding the format string in-test (prevents test/production drift).
 
 ### Pending Todos
 
@@ -108,8 +111,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T11:38:16.786Z
-Stopped at: Completed 05-02
+Last session: 2026-04-20T11:46:46.293Z
+Stopped at: Completed 05-03
 Resume file: None
 
 **Planned Phase:** 05 (bootstrap-distribution) — 6 plans — 2026-04-20T11:21:15.134Z
