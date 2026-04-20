@@ -54,16 +54,26 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Distribution
 
-- [ ] **DIST-01**: Pre-built shared libraries uploaded to CloudFlare R2 at `releases.amikos.tech/pure-simdjson/v<version>/<os>-<arch>/lib<name>.<ext>`
-- [ ] **DIST-02**: GitHub Releases mirror as fallback source for each artifact
-- [ ] **DIST-03**: SHA-256 table for every artifact embedded in Go source (`internal/bootstrap/checksums.go`); generated at release time
-- [ ] **DIST-04**: `BootstrapSync(ctx)` Go API downloads, verifies, and caches the library; callable for preflight
-- [ ] **DIST-05**: Library auto-downloaded on first `NewParser()` if not cached; cached to OS user-cache-dir with 0700 perms on unix
-- [ ] **DIST-06**: `PURE_SIMDJSON_LIB_PATH` env var overrides download entirely (air-gapped + mirror case)
-- [ ] **DIST-07**: `PURE_SIMDJSON_BINARY_MIRROR` env var overrides the R2 base URL (corporate firewall case)
-- [ ] **DIST-08**: `cmd/pure-simdjson-bootstrap` CLI pre-downloads artifacts for offline installs
-- [ ] **DIST-09**: Windows `LoadLibrary` uses full path (never bare filename); prevents DLL hijacking
-- [ ] **DIST-10**: Release artifacts cosign-signed with keyless OIDC; verification documented but optional
+- [x] **DIST-01
+**: Pre-built shared libraries uploaded to CloudFlare R2 at `releases.amikos.tech/pure-simdjson/v<version>/<os>-<arch>/lib<name>.<ext>`
+- [x] **DIST-02
+**: GitHub Releases mirror as fallback source for each artifact
+- [x] **DIST-03
+**: SHA-256 table for every artifact embedded in Go source (`internal/bootstrap/checksums.go`); generated at release time
+- [x] **DIST-04
+**: `BootstrapSync(ctx)` Go API downloads, verifies, and caches the library; callable for preflight
+- [x] **DIST-05
+**: Library auto-downloaded on first `NewParser()` if not cached; cached to OS user-cache-dir with 0700 perms on unix
+- [x] **DIST-06
+**: `PURE_SIMDJSON_LIB_PATH` env var overrides download entirely (air-gapped + mirror case)
+- [x] **DIST-07
+**: `PURE_SIMDJSON_BINARY_MIRROR` env var overrides the R2 base URL (corporate firewall case)
+- [x] **DIST-08
+**: `cmd/pure-simdjson-bootstrap` CLI pre-downloads artifacts for offline installs
+- [x] **DIST-09
+**: Windows `LoadLibrary` uses full path (never bare filename); prevents DLL hijacking
+- [x] **DIST-10
+**: Release artifacts cosign-signed with keyless OIDC; verification documented but optional
 
 ### CI & Release
 
@@ -91,7 +101,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **DOC-02**: `docs/ffi-contract.md` — full FFI contract (from Phase 1); versioned alongside ABI
 - [x] **DOC-03**: Godoc on every exported type/function in `purejson`
 - [x] **DOC-04**: `docs/concurrency.md` — per-parser single-doc invariant, `ParserPool` pattern, why not to share a Parser
-- [ ] **DOC-05**: `docs/bootstrap.md` — env vars, mirror setup, air-gapped install flow
+- [x] **DOC-05
+**: `docs/bootstrap.md` — env vars, mirror setup, air-gapped install flow
 - [ ] **DOC-06**: `CHANGELOG.md` following Keep-a-Changelog format
 - [ ] **DOC-07**: `LICENSE` (MIT) + `NOTICE` for simdjson's Apache-2.0 upstream
 

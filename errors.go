@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/amikos-tech/pure-simdjson/internal/bootstrap"
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
 
@@ -37,6 +38,17 @@ var (
 	// ErrInternal reports native panics, internal failures, and any status code
 	// not mapped to a dedicated sentinel.
 	ErrInternal = errors.New("internal error")
+)
+
+// Bootstrap error sentinels are re-exported from internal/bootstrap. Pointer
+// identity is preserved, so errors.Is(err, purejson.ErrChecksumMismatch) and
+// errors.Is(err, bootstrap.ErrChecksumMismatch) both match. Canonical
+// definitions live in internal/bootstrap/errors.go — never call errors.New
+// for these here.
+var (
+	ErrChecksumMismatch = bootstrap.ErrChecksumMismatch
+	ErrAllSourcesFailed = bootstrap.ErrAllSourcesFailed
+	ErrNoChecksum       = bootstrap.ErrNoChecksum
 )
 
 var errLoadLibrary = errors.New("load library")
