@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
-status: verifying
-stopped_at: Phase 5 context gathered
-last_updated: "2026-04-20T11:21:15.142Z"
-last_activity: 2026-04-17
+status: executing
+stopped_at: Completed 05-01
+last_updated: "2026-04-20T11:27:30.180Z"
+last_activity: 2026-04-20
 progress:
   total_phases: 10
   completed_phases: 4
   total_plans: 22
-  completed_plans: 16
-  percent: 73
+  completed_plans: 17
+  percent: 77
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-15)
 
 **Core value:** Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, precision-preserving parser that does not require cgo at consumer build time.
-**Current focus:** Phase 04 — full-typed-accessor-surface
+**Current focus:** Phase 05 — bootstrap-distribution
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-17
+Phase: 05 (bootstrap-distribution) — EXECUTING
+Plan: 2 of 6
+Status: Ready to execute
+Last activity: 2026-04-20
 Shipping: Phase 04 fully verified locally
 
-Progress: [██████████] 16/16 plans (100%)
+Progress: [████████░░] 77%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [██████████] 16/16 plans (100%)
 | Phase 04 P03 | 4m | 2 tasks | 8 files |
 | Phase 04-full-typed-accessor-surface P04 | 8m | 2 tasks | 3 files |
 | Phase 04-full-typed-accessor-surface P05 | 11m | 2 tasks | 7 files |
+| Phase 05 P01 | 3min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 04]: Document the final v0.1 purejson surface only in package docs and examples; do not preview bootstrap or On-Demand behavior.
 - [Phase 04]: Lock the numeric boundary contract explicitly: max-int64+1 -> ErrNumberOutOfRange, 1e20 -> ErrWrongType, 9007199254740993 -> ErrPrecisionLoss.
 - [Phase 04]: Use a recursive FuzzParseThenGetString DOM walk to validate copied Go strings across successful object and array paths.
+- [Phase 05]: Canonical error sentinels (ErrChecksumMismatch, ErrAllSourcesFailed, ErrNoChecksum) live only in internal/bootstrap/errors.go; root errors.go re-exports via pointer alias so errors.Is matches both paths.
+- [Phase 05]: GitHub release asset names are platform-tagged (libpure_simdjson-<goos>-<goarch>.ext, pure_simdjson-<goos>-<goarch>-msvc.dll) to avoid flat-namespace collision; cache filename stays platform-independent under <os>-<arch>/ directory in R2.
+- [Phase 05]: ChecksumKey helper exported from internal/bootstrap so the Plan 05 CLI (separate cmd/ package) can reuse the Checksums map key format without exposing the map layout.
 
 ### Pending Todos
 
@@ -97,8 +101,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 5 context gathered
-Resume file: --resume-file
+Last session: 2026-04-20T11:27:30.176Z
+Stopped at: Completed 05-01
+Resume file: None
 
 **Planned Phase:** 05 (bootstrap-distribution) — 6 plans — 2026-04-20T11:21:15.134Z

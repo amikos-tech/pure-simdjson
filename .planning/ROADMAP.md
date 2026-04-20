@@ -369,7 +369,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 2. Rust Shim + Minimal Parse | 3/3 | Complete | 2026-04-15 |
 | 3. Go API + purego Happy Path | 5/5 | Complete | 2026-04-16 |
 | 4. Full Typed Accessor Surface | 5/5 | Complete | 2026-04-17 |
-| 5. Bootstrap + Distribution | 0/6 | Not started | — |
+| 5. Bootstrap + Distribution | 1/6 | In progress | — |
 | 6. CI Release Matrix | 0/? | Not started | — |
 | 7. Benchmarks + v0.1 Release | 0/? | Not started | — |
 
