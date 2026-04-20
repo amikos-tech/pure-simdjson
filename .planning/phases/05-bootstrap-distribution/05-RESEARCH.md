@@ -743,22 +743,25 @@ func main() {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`PURE_SIMDJSON_CACHE_DIR` override (Claude's discretion)**
    - What we know: `os.UserCacheDir()` works on all 5 platforms; D-01/D-07 specify layout.
    - What's unclear: Some CI environments override `$XDG_CACHE_HOME` or `$HOME` to control paths. An explicit override would be cleaner for those users.
    - Recommendation: Add `PURE_SIMDJSON_CACHE_DIR` as a `BootstrapOption` and env var. Low cost, clearly in Claude's discretion scope.
+   - RESOLVED: Implemented in 05-02 Task 1 (defaultCacheDir reads PURE_SIMDJSON_CACHE_DIR env var). See review L2.
 
 2. **GitHub Releases URL format for flat files**
    - What we know: Pattern is `https://github.com/<owner>/<repo>/releases/download/v<ver>/<filename>`.
    - What's unclear: Whether the actual GH Release tags will be prefixed with `v` (must match Phase 6 CI tag naming).
    - Recommendation: Use `v` prefix in URL (standard Go module convention). Planner should note dependency on Phase 6 tag naming.
+   - RESOLVED: Confirmed by D-06/D-07 in CONTEXT.md. v prefix used in url.go githubArtifactURL (05-01 Task 1).
 
 3. **`checksums.go` placeholder content for v0.1 development**
    - What we know: CI-05 generates the real SHA-256 values at release time. Phase 5 implements the verification machinery.
    - What's unclear: What placeholder values to use in `checksums.go` during development (before Phase 6 produces real artifacts).
    - Recommendation: Ship `checksums.go` with empty map `var Checksums = map[string]string{}`. Document that CI-05 populates it. `BootstrapSync` should return a clear error if the entry is missing: `ErrNoChecksum`.
+   - RESOLVED: Empty map with commented exemplar entries locked in 05-01 Task 2 checksums.go. Real SHA-256 values populated by Phase 6 CI-05 release-time pipeline.
 
 ---
 
