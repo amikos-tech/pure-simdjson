@@ -45,6 +45,20 @@ func WithHTTPClient(c *http.Client) BootstrapOption { return withHTTPClient(c) }
 // WithGitHubBaseURL is the exported test seam for withGitHubBaseURL.
 func WithGitHubBaseURL(rawURL string) BootstrapOption { return withGitHubBaseURL(rawURL) }
 
+// ---- URL construction seams ---------------------------------------------------
+// Plan 05-03 exposes the unexported URL helpers so tests can assert H1 platform
+// tagging, exact URL layouts, and override-base behaviour without rebuilding the
+// string format inline (which would let the test and production drift).
+
+// R2ArtifactURL is the exported test seam for r2ArtifactURL.
+var R2ArtifactURL = r2ArtifactURL
+
+// GitHubArtifactURL is the exported test seam for githubArtifactURL.
+var GitHubArtifactURL = githubArtifactURL
+
+// GitHubAssetName is the exported test seam for githubAssetName (H1 verification).
+var GitHubAssetName = githubAssetName
+
 // ---- cache seams --------------------------------------------------------------
 
 // DefaultCacheDir is the exported test seam for defaultCacheDir.

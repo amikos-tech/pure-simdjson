@@ -199,6 +199,14 @@ func downloadAndVerify(ctx context.Context, cfg bootstrapConfig, cachePath strin
 // downloadWithRetry runs the primary-then-fallback attempt ladder (D-15): up to
 // 3 attempts against the R2 URL, then up to 3 against the GitHub fallback.
 // Backoff is Full-Jitter, capped at 8s, and interruptible via ctx.
+//
+// Permanent-error semantics on the outer loop:
+//   - Ladder-fatal (checksum mismatch, redirect downgrade, oversized body,
+//     request-construction failure) → abort the whole ladder. These do not get
+//     "better" on a different URL.
+//   - Per-URL fatal (non-retryable HTTP status, e.g. 404) → skip remaining
+//     retries for this URL and move to the next one. Per Fault Injection Matrix
+//     item 9 the GH fallback MUST fire when R2 returns 404.
 func downloadWithRetry(ctx context.Context, cfg bootstrapConfig, primaryURL, fallbackURL, cacheDir string) (tmpPath, digest string, err error) {
 	urls := []string{primaryURL}
 	if fallbackURL != "" {
@@ -222,9 +230,12 @@ func downloadWithRetry(ctx context.Context, cfg bootstrapConfig, primaryURL, fal
 			}
 			lastErr = fmt.Errorf("attempt %d/%d %s: %w",
 				attempt+1, bootstrapRetryAttempt, u, oneErr)
-			if isPermanentBootstrapError(oneErr) {
-				// Checksum mismatch / redirect downgrade / oversized body → stop the whole ladder.
+			if isLadderFatalError(oneErr) {
 				return "", "", markPermanentBootstrapError(lastErr)
+			}
+			if isPermanentBootstrapError(oneErr) {
+				// Per-URL fatal (e.g. 404) — stop retrying this URL, move on.
+				break
 			}
 		}
 	}
@@ -233,6 +244,24 @@ func downloadWithRetry(ctx context.Context, cfg bootstrapConfig, primaryURL, fal
 	}
 	return "", "", fmt.Errorf("%w: %v (set PURE_SIMDJSON_LIB_PATH to bypass)",
 		ErrAllSourcesFailed, lastErr)
+}
+
+// isLadderFatalError reports whether err is permanent across the whole URL
+// ladder (not just the current URL). Checksum mismatch, missing-checksum, and
+// HTTPS→HTTP redirect downgrade are ladder-fatal: trying the next URL cannot
+// recover because either the embedded checksum is wrong or the upstream is
+// actively hostile.
+func isLadderFatalError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, ErrChecksumMismatch) || errors.Is(err, ErrNoChecksum) {
+		return true
+	}
+	if isBootstrapRedirectPolicyError(err) {
+		return true
+	}
+	return false
 }
 
 // downloadOnce performs a single HTTP GET with User-Agent stamped, streams the

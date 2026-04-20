@@ -426,3 +426,321 @@ func TestWithDest(t *testing.T) {
 		t.Fatalf("destDir = %q, want %q", cfg.DestDir(), dest)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Plan 05-03 — additions that round out the VALIDATION.md Fault Injection
+// Matrix on top of the tests 05-02 already shipped. Each test below cites the
+// matrix row it satisfies so the mapping from spec → assertion is auditable.
+// ---------------------------------------------------------------------------
+
+// TestURLConstruction covers DIST-01: R2 URL construction for all 5 platforms.
+// The R2 layout keeps a platform-independent filename under <os>-<arch>/ because
+// the directory component prevents collision (complements H1 GH tagging).
+func TestURLConstruction(t *testing.T) {
+	const base = "https://releases.example.com/pure-simdjson"
+	const version = "0.1.0"
+
+	cases := []struct {
+		goos, goarch string
+		wantSuffix   string // suffix after /v<version>/
+	}{
+		{"linux", "amd64", "linux-amd64/libpure_simdjson.so"},
+		{"linux", "arm64", "linux-arm64/libpure_simdjson.so"},
+		{"darwin", "amd64", "darwin-amd64/libpure_simdjson.dylib"},
+		{"darwin", "arm64", "darwin-arm64/libpure_simdjson.dylib"},
+		{"windows", "amd64", "windows-amd64/pure_simdjson-msvc.dll"},
+	}
+
+	if len(cases) != len(bootstrap.SupportedPlatforms) {
+		t.Fatalf("case table covers %d platforms, SupportedPlatforms has %d",
+			len(cases), len(bootstrap.SupportedPlatforms))
+	}
+
+	for _, c := range cases {
+		t.Run(c.goos+"-"+c.goarch, func(t *testing.T) {
+			got := bootstrap.R2ArtifactURL(base, version, c.goos, c.goarch)
+			want := base + "/v" + version + "/" + c.wantSuffix
+			if got != want {
+				t.Fatalf("r2ArtifactURL(%s,%s) = %q, want %q", c.goos, c.goarch, got, want)
+			}
+		})
+	}
+
+	// Trailing-slash hygiene: a base URL with a trailing slash must produce the
+	// same URL as one without, so callers can't accidentally introduce a double
+	// slash in the path (which R2 would 404 on).
+	withSlash := bootstrap.R2ArtifactURL(base+"/", version, "linux", "amd64")
+	withoutSlash := bootstrap.R2ArtifactURL(base, version, "linux", "amd64")
+	if withSlash != withoutSlash {
+		t.Fatalf("trailing slash not trimmed: %q vs %q", withSlash, withoutSlash)
+	}
+}
+
+// TestGitHubAssetNames covers H1: GH release assets live in a flat namespace so
+// each platform must produce a DISTINCT filename. This test is the regression
+// guard against a future refactor that accidentally drops the platform tag.
+func TestGitHubAssetNames(t *testing.T) {
+	cases := []struct {
+		goos, goarch, want string
+	}{
+		{"linux", "amd64", "libpure_simdjson-linux-amd64.so"},
+		{"linux", "arm64", "libpure_simdjson-linux-arm64.so"},
+		{"darwin", "amd64", "libpure_simdjson-darwin-amd64.dylib"},
+		{"darwin", "arm64", "libpure_simdjson-darwin-arm64.dylib"},
+		{"windows", "amd64", "pure_simdjson-windows-amd64-msvc.dll"},
+	}
+
+	// Per-platform exact-string check.
+	for _, c := range cases {
+		t.Run(c.goos+"-"+c.goarch, func(t *testing.T) {
+			got := bootstrap.GitHubAssetName(c.goos, c.goarch)
+			if got != c.want {
+				t.Fatalf("githubAssetName(%s,%s) = %q, want %q", c.goos, c.goarch, got, c.want)
+			}
+		})
+	}
+
+	// Pairwise-distinct check — the whole point of H1. If two platforms produce
+	// the same asset name we have a flat-namespace collision at release time.
+	seen := map[string]string{}
+	for _, c := range cases {
+		got := bootstrap.GitHubAssetName(c.goos, c.goarch)
+		if prev, clash := seen[got]; clash {
+			t.Fatalf("H1 collision: %s/%s and %s both produce asset name %q",
+				c.goos, c.goarch, prev, got)
+		}
+		seen[got] = c.goos + "/" + c.goarch
+	}
+}
+
+// TestGitHubArtifactURL covers H1 at the URL level: default base + override
+// base both produce the expected platform-tagged URL.
+func TestGitHubArtifactURL(t *testing.T) {
+	const version = "0.1.0"
+	defaultBase := "https://github.com/amikos-tech/pure-simdjson/releases/download"
+
+	t.Run("default-base", func(t *testing.T) {
+		cases := []struct {
+			goos, goarch, wantAsset string
+		}{
+			{"linux", "amd64", "libpure_simdjson-linux-amd64.so"},
+			{"linux", "arm64", "libpure_simdjson-linux-arm64.so"},
+			{"darwin", "amd64", "libpure_simdjson-darwin-amd64.dylib"},
+			{"darwin", "arm64", "libpure_simdjson-darwin-arm64.dylib"},
+			{"windows", "amd64", "pure_simdjson-windows-amd64-msvc.dll"},
+		}
+		for _, c := range cases {
+			got := bootstrap.GitHubArtifactURL("", version, c.goos, c.goarch)
+			want := defaultBase + "/v" + version + "/" + c.wantAsset
+			if got != want {
+				t.Errorf("githubArtifactURL(default,%s,%s) = %q, want %q",
+					c.goos, c.goarch, got, want)
+			}
+		}
+	})
+
+	t.Run("override-base", func(t *testing.T) {
+		override := "https://ghtest.example/dl"
+		got := bootstrap.GitHubArtifactURL(override, version, "linux", "amd64")
+		want := override + "/v" + version + "/libpure_simdjson-linux-amd64.so"
+		if got != want {
+			t.Fatalf("githubArtifactURL(override,linux,amd64) = %q, want %q", got, want)
+		}
+	})
+}
+
+// TestChecksumKeyFormat pins the "v<version>/<goos>-<goarch>/<libname>" layout
+// so the CLI `verify` subcommand (Plan 05) and the Checksums map stay in lockstep.
+func TestChecksumKeyFormat(t *testing.T) {
+	cases := []struct {
+		version, goos, goarch, want string
+	}{
+		{"0.1.0", "linux", "amd64", "v0.1.0/linux-amd64/libpure_simdjson.so"},
+		{"0.1.0", "linux", "arm64", "v0.1.0/linux-arm64/libpure_simdjson.so"},
+		{"0.1.0", "darwin", "amd64", "v0.1.0/darwin-amd64/libpure_simdjson.dylib"},
+		{"0.1.0", "darwin", "arm64", "v0.1.0/darwin-arm64/libpure_simdjson.dylib"},
+		{"0.1.0", "windows", "amd64", "v0.1.0/windows-amd64/pure_simdjson-msvc.dll"},
+	}
+	for _, c := range cases {
+		got := bootstrap.ChecksumKey(c.version, c.goos, c.goarch)
+		if got != c.want {
+			t.Errorf("ChecksumKey(%s,%s,%s) = %q, want %q",
+				c.version, c.goos, c.goarch, got, c.want)
+		}
+	}
+}
+
+// TestResolveConfigCacheDirEnv covers L2: PURE_SIMDJSON_CACHE_DIR takes priority
+// over os.UserCacheDir so CI runners with ephemeral HOME can self-isolate.
+func TestResolveConfigCacheDirEnv(t *testing.T) {
+	clearBootstrapEnv(t)
+
+	custom := t.TempDir()
+	t.Setenv("PURE_SIMDJSON_CACHE_DIR", custom)
+
+	cfg, err := bootstrap.ResolveConfig()
+	if err != nil {
+		t.Fatalf("resolveConfig: %v", err)
+	}
+	if cfg.CacheDir() != custom {
+		t.Fatalf("cacheDir = %q, want env override %q", cfg.CacheDir(), custom)
+	}
+}
+
+// TestBootstrapSync is the DIST-04 happy path: httptest mirror serves the
+// artifact, checksum matches, BootstrapSync succeeds, the cached file exists at
+// the expected path, and the server was hit exactly once.
+func TestBootstrapSync(t *testing.T) {
+	clearBootstrapEnv(t)
+
+	body := fakeLibBody()
+	digest := computeHex(body)
+	goos, goarch := "linux", "amd64"
+	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, digest)()
+
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	cacheDir := t.TempDir()
+	t.Setenv("PURE_SIMDJSON_CACHE_DIR", cacheDir)
+
+	err := bootstrap.BootstrapSync(context.Background(),
+		bootstrap.WithMirror(srv.URL),
+		bootstrap.WithTarget(goos, goarch),
+		bootstrap.WithHTTPClient(srv.Client()),
+	)
+	if err != nil {
+		t.Fatalf("BootstrapSync: %v", err)
+	}
+
+	cached := bootstrap.CachePath(goos, goarch)
+	got, err := os.ReadFile(cached)
+	if err != nil {
+		t.Fatalf("artifact not cached at %s: %v", cached, err)
+	}
+	if string(got) != string(body) {
+		t.Fatalf("cached body mismatch")
+	}
+	if hits.Load() != 1 {
+		t.Fatalf("server hits = %d, want 1", hits.Load())
+	}
+}
+
+// TestRetryOn429ThenSuccess covers Fault Injection Matrix item 2:
+// HTTP 429 on first attempt, 200 on retry → retry succeeds, correct file written.
+func TestRetryOn429ThenSuccess(t *testing.T) {
+	clearBootstrapEnv(t)
+
+	body := []byte("retry-success-body")
+	digest := computeHex(body)
+	goos, goarch := "linux", "amd64"
+	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, digest)()
+
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := hits.Add(1)
+		if n == 1 {
+			http.Error(w, "slow down", http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	cacheDir := t.TempDir()
+	t.Setenv("PURE_SIMDJSON_CACHE_DIR", cacheDir)
+	// Disable GH so the retry ladder stays on the single mirror (otherwise the
+	// second attempt would target the fallback URL).
+	t.Setenv("PURE_SIMDJSON_DISABLE_GH_FALLBACK", "1")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	if err := bootstrap.BootstrapSync(ctx,
+		bootstrap.WithMirror(srv.URL),
+		bootstrap.WithTarget(goos, goarch),
+		bootstrap.WithHTTPClient(srv.Client()),
+	); err != nil {
+		t.Fatalf("BootstrapSync: %v", err)
+	}
+	if got := hits.Load(); got != 2 {
+		t.Fatalf("hits = %d, want 2 (first 429, second 200)", got)
+	}
+}
+
+// TestFallback404R2Then200GH covers Fault Injection Matrix item 9 (and DIST-02):
+// R2 returns 404 on every attempt, GH fallback serves 200 → GH fires, artifact cached.
+// Uses the bootstrap.WithGitHubBaseURL seam (M3) to redirect the fallback to a
+// second httptest server whose path layout matches githubArtifactURL's output.
+func TestFallback404R2Then200GH(t *testing.T) {
+	clearBootstrapEnv(t)
+
+	body := []byte("github-fallback-body")
+	digest := computeHex(body)
+	goos, goarch := "linux", "amd64"
+	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, digest)()
+
+	var r2Hits, ghHits atomic.Int32
+
+	r2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r2Hits.Add(1)
+		http.NotFound(w, r)
+	}))
+	defer r2.Close()
+
+	// The GH fallback URL is <ghBase>/v<version>/<assetName>. Any path under
+	// the base that returns 200 with the correct body satisfies the contract —
+	// downloadWithRetry only cares about status + bytes, not path structure.
+	gh := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ghHits.Add(1)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+	defer gh.Close()
+
+	cacheDir := t.TempDir()
+	t.Setenv("PURE_SIMDJSON_CACHE_DIR", cacheDir)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := bootstrap.BootstrapSync(ctx,
+		bootstrap.WithMirror(r2.URL),
+		bootstrap.WithGitHubBaseURL(gh.URL),
+		bootstrap.WithTarget(goos, goarch),
+		bootstrap.WithHTTPClient(r2.Client()),
+	); err != nil {
+		t.Fatalf("BootstrapSync: %v", err)
+	}
+
+	if r2Hits.Load() == 0 {
+		t.Errorf("R2 mirror was never hit — fallback fired prematurely")
+	}
+	if ghHits.Load() != 1 {
+		t.Errorf("GH hits = %d, want 1 (single successful fallback)", ghHits.Load())
+	}
+
+	cached := bootstrap.CachePath(goos, goarch)
+	if got, err := os.ReadFile(cached); err != nil {
+		t.Fatalf("artifact not cached: %v", err)
+	} else if string(got) != string(body) {
+		t.Fatalf("cached body came from the wrong source")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Small helpers shared by the Plan 05-03 additions.
+// ---------------------------------------------------------------------------
+
+func fakeLibBody() []byte { return []byte("fake-library-content-for-testing") }
+
+func computeHex(b []byte) string {
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
+}
