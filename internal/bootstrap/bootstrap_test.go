@@ -736,6 +736,114 @@ func TestFallback404R2Then200GH(t *testing.T) {
 	}
 }
 
+// TestParseRetryAfter covers RFC 7231 §7.1.3 — Retry-After can be an integer
+// seconds count or an HTTP-date. Unparseable values return zero so the caller
+// falls back to the default jitter backoff.
+func TestParseRetryAfter(t *testing.T) {
+	cases := []struct {
+		name   string
+		header string
+		minD   time.Duration
+		maxD   time.Duration
+	}{
+		{"empty", "", 0, 0},
+		{"zero seconds", "0", 0, 0},
+		{"seconds 5", "5", 5 * time.Second, 5 * time.Second},
+		{"seconds padded", "  30 ", 30 * time.Second, 30 * time.Second},
+		{"seconds negative", "-1", 0, 0},
+		{"garbage", "soon", 0, 0},
+		// HTTP-date cases computed relative to time.Now() — allow a small window.
+		{"http-date future", time.Now().Add(10 * time.Second).UTC().Format(http.TimeFormat), 8 * time.Second, 11 * time.Second},
+		{"http-date past", time.Now().Add(-1 * time.Minute).UTC().Format(http.TimeFormat), 0, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := http.Header{}
+			if tc.header != "" {
+				h.Set("Retry-After", tc.header)
+			}
+			got := bootstrap.ParseRetryAfterForTest(h)
+			if got < tc.minD || got > tc.maxD {
+				t.Fatalf("parseRetryAfter(%q) = %v, want within [%v, %v]",
+					tc.header, got, tc.minD, tc.maxD)
+			}
+		})
+	}
+}
+
+// TestSleepHonorsRetryAfterHint asserts that when the server-supplied hint
+// exceeds the computed jitter backoff, the sleep lasts at least the hint
+// duration (min(hint, maxRetrySleep)). Regression for PR #6 review item #9.
+func TestSleepHonorsRetryAfterHint(t *testing.T) {
+	// attempt=0 → jitterBackoff ≤ 500ms + 500ms jitter ≈ 1s max.
+	// A 300ms hint must be ignored (jitter wins); a 1500ms hint must win.
+	hint := 1500 * time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	if err := bootstrap.SleepWithJitterHintForTest(ctx, 0, hint); err != nil {
+		t.Fatalf("sleepWithJitter: %v", err)
+	}
+	elapsed := time.Since(start)
+	// Allow small timer slack; strict lower bound is the hint.
+	if elapsed < hint-100*time.Millisecond {
+		t.Fatalf("elapsed = %v, want ≥ ~%v (hint should dominate jitter backoff)",
+			elapsed, hint)
+	}
+}
+
+// TestRetryAfterHintFromServer wires the full path: HTTP 429 + Retry-After
+// header on first attempt, 200 on second. Ensures the second-attempt sleep
+// honors the server hint.
+func TestRetryAfterHintFromServer(t *testing.T) {
+	clearBootstrapEnv(t)
+
+	body := []byte("retry-after-body")
+	digest := computeHex(body)
+	goos, goarch := "linux", "amd64"
+	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, digest)()
+
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := hits.Add(1)
+		if n == 1 {
+			w.Header().Set("Retry-After", "1") // 1 second
+			http.Error(w, "slow down", http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	cacheDir := t.TempDir()
+	t.Setenv("PURE_SIMDJSON_CACHE_DIR", cacheDir)
+	t.Setenv("PURE_SIMDJSON_DISABLE_GH_FALLBACK", "1")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	if err := bootstrap.BootstrapSync(ctx,
+		bootstrap.WithMirror(srv.URL),
+		bootstrap.WithTarget(goos, goarch),
+		bootstrap.WithHTTPClient(srv.Client()),
+	); err != nil {
+		t.Fatalf("BootstrapSync: %v", err)
+	}
+	elapsed := time.Since(start)
+
+	if got := hits.Load(); got != 2 {
+		t.Fatalf("hits = %d, want 2", got)
+	}
+	// First-attempt jitter at attempt=1 ≤ ~1s+500ms jitter. The Retry-After
+	// hint is 1s, which must be honored — so between-attempt sleep ≥ ~1s.
+	if elapsed < 900*time.Millisecond {
+		t.Fatalf("elapsed = %v, expected ≥ ~1s (Retry-After honored)", elapsed)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Small helpers shared by the Plan 05-03 additions.
 // ---------------------------------------------------------------------------

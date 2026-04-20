@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -101,10 +102,44 @@ func isBootstrapRedirectPolicyError(err error) bool {
 	return false
 }
 
-// sleepWithJitter implements D-13 Full-Jitter + D-14 ctx-aware select. The
-// delay is capped at 8s so a stuck retry loop never dominates a NewParser call.
+// retryHintError wraps a transient HTTP error with a server-supplied
+// Retry-After duration. The retry loop extracts the hint via errors.As and
+// uses max(hint, jitterBackoff) as the sleep duration so we never retry
+// faster than the server asked.
+type retryHintError struct {
+	err   error
+	after time.Duration
+}
+
+func (e *retryHintError) Error() string { return e.err.Error() }
+func (e *retryHintError) Unwrap() error { return e.err }
+
+// parseRetryAfter parses an HTTP Retry-After header (RFC 7231 §7.1.3): either
+// an integer seconds count or an HTTP-date. Returns 0 if absent or unparseable.
+func parseRetryAfter(h http.Header) time.Duration {
+	raw := strings.TrimSpace(h.Get("Retry-After"))
+	if raw == "" {
+		return 0
+	}
+	if secs, err := strconv.Atoi(raw); err == nil && secs >= 0 {
+		return time.Duration(secs) * time.Second
+	}
+	if t, err := http.ParseTime(raw); err == nil {
+		if d := time.Until(t); d > 0 {
+			return d
+		}
+	}
+	return 0
+}
+
+// maxRetrySleep caps Retry-After hints so a pathological server can't stall
+// NewParser for hours. 2× the jitter cap is generous but still bounded.
+const maxRetrySleep = 2 * 8 * time.Second
+
+// jitterBackoff computes D-13's additive-jitter exponential backoff:
+// expBackoff = base << attempt (capped at 8s); total = expBackoff + U(0, base).
 // math/rand/v2 is auto-seeded in Go 1.22+; no manual seeding needed.
-func sleepWithJitter(ctx context.Context, attempt int) error {
+func jitterBackoff(attempt int) time.Duration {
 	const (
 		base = 500 * time.Millisecond
 		cap  = 8 * time.Second
@@ -114,12 +149,27 @@ func sleepWithJitter(ctx context.Context, attempt int) error {
 		shift = 10
 	}
 	expBackoff := base << shift
-	if expBackoff > cap || expBackoff < 0 {
+	if expBackoff > cap {
 		expBackoff = cap
 	}
 	jitter := time.Duration(mrand.Float64() * float64(base))
-	d := expBackoff + jitter
+	return expBackoff + jitter
+}
 
+// sleepWithJitter implements D-14 ctx-aware sleep. When hint > 0 (from a
+// server Retry-After header), the sleep duration is max(hint, jitterBackoff)
+// so we never retry faster than the server asked; hint is also capped at
+// maxRetrySleep to bound worst-case latency.
+func sleepWithJitter(ctx context.Context, attempt int, hint time.Duration) error {
+	d := jitterBackoff(attempt)
+	if hint > 0 {
+		if hint > maxRetrySleep {
+			hint = maxRetrySleep
+		}
+		if hint > d {
+			d = hint
+		}
+	}
 	select {
 	case <-time.After(d):
 		return nil
@@ -215,9 +265,10 @@ func downloadWithRetry(ctx context.Context, cfg bootstrapConfig, primaryURL, fal
 
 	var lastErr error
 	for _, u := range urls {
+		var serverHint time.Duration
 		for attempt := 0; attempt < bootstrapRetryAttempt; attempt++ {
 			if attempt > 0 {
-				if sleepErr := sleepWithJitter(ctx, attempt); sleepErr != nil {
+				if sleepErr := sleepWithJitter(ctx, attempt, serverHint); sleepErr != nil {
 					return "", "", sleepErr
 				}
 			}
@@ -236,6 +287,13 @@ func downloadWithRetry(ctx context.Context, cfg bootstrapConfig, primaryURL, fal
 			if isPermanentBootstrapError(oneErr) {
 				// Per-URL fatal (e.g. 404) — stop retrying this URL, move on.
 				break
+			}
+			// Carry any server Retry-After hint to the next iteration's sleep.
+			var hintErr *retryHintError
+			if errors.As(oneErr, &hintErr) {
+				serverHint = hintErr.after
+			} else {
+				serverHint = 0
 			}
 		}
 	}
@@ -291,6 +349,9 @@ func downloadOnce(ctx context.Context, cfg bootstrapConfig, rawURL, cacheDir str
 			resp.StatusCode, rawURL, strings.TrimSpace(string(snippet)))
 		if !isRetryable(resp.StatusCode, resp.Header, string(snippet)) {
 			return "", "", markPermanentBootstrapError(statusErr)
+		}
+		if hint := parseRetryAfter(resp.Header); hint > 0 {
+			return "", "", &retryHintError{err: statusErr, after: hint}
 		}
 		return "", "", statusErr
 	}

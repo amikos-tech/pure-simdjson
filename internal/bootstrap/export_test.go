@@ -9,6 +9,7 @@ package bootstrap
 import (
 	"context"
 	"net/http"
+	"time"
 )
 
 // ---- config introspection seams ------------------------------------------------
@@ -78,7 +79,19 @@ func AtomicInstallForTest(tmpPath, finalPath string) error {
 
 // SleepWithJitterForTest is the exported test seam for sleepWithJitter.
 func SleepWithJitterForTest(ctx context.Context, attempt int) error {
-	return sleepWithJitter(ctx, attempt)
+	return sleepWithJitter(ctx, attempt, 0)
+}
+
+// SleepWithJitterHintForTest exposes the Retry-After-aware sleep signature
+// so tests can assert hint-vs-jitter precedence without re-implementing the
+// sleep budget.
+func SleepWithJitterHintForTest(ctx context.Context, attempt int, hint time.Duration) error {
+	return sleepWithJitter(ctx, attempt, hint)
+}
+
+// ParseRetryAfterForTest is the exported test seam for parseRetryAfter.
+func ParseRetryAfterForTest(h http.Header) time.Duration {
+	return parseRetryAfter(h)
 }
 
 // RejectHTTPSDowngradeForTest is the exported test seam for rejectHTTPSDowngrade.
