@@ -558,13 +558,6 @@ jobs:
             --artifact-dir "${{ github.workspace }}/release-staging" \
             --staged-root "${{ github.workspace }}/release-staged-root"
 
-      - name: Run Go packaged-artifact smoke gate (PURE_SIMDJSON_BINARY_MIRROR + PURE_SIMDJSON_DISABLE_GH_FALLBACK)
-        run: |
-          set -euo pipefail
-          bash scripts/release/run_go_packaged_smoke.sh \
-            --staged-root "${{ github.workspace }}/release-staged-root" \
-            --version "${{ steps.metadata.outputs.version }}"
-
       - name: Generate SHA256SUMS from the rebuilt manifest
         run: |
           set -euo pipefail
@@ -582,6 +575,13 @@ jobs:
           sums_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
           print(sums_path)
           PY
+
+      - name: Run Go packaged-artifact smoke gate (PURE_SIMDJSON_BINARY_MIRROR + PURE_SIMDJSON_DISABLE_GH_FALLBACK)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_go_packaged_smoke.sh \
+            --staged-root "${{ github.workspace }}/release-staged-root" \
+            --version "${{ steps.metadata.outputs.version }}"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@f713795cb21599bc4e5c4b58cbad1da852d7eeb9

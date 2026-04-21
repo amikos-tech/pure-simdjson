@@ -82,6 +82,20 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             script_text,
         )
 
+    def test_release_publish_generates_checksums_before_packaged_smoke(self) -> None:
+        workflow_text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+
+        generate_idx = workflow_text.index("- name: Generate SHA256SUMS from the rebuilt manifest")
+        smoke_idx = workflow_text.index(
+            "- name: Run Go packaged-artifact smoke gate (PURE_SIMDJSON_BINARY_MIRROR + PURE_SIMDJSON_DISABLE_GH_FALLBACK)"
+        )
+
+        self.assertLess(
+            generate_idx,
+            smoke_idx,
+            "release publish must generate SHA256SUMS before bootstrap smoke consumes the staged mirror",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
