@@ -74,7 +74,7 @@ runs:
             library_name="libpure_simdjson.dylib"
             # Keep the dylib install name stable so reproducibility checks do
             # not depend on Cargo's per-build temp target directory.
-            link_flag="-C link-arg=-Wl,-no_uuid -C link-arg=-Wl,-install_name,@rpath/libpure_simdjson.dylib"
+            link_flag="-C link-arg=-Wl,-install_name,@rpath/libpure_simdjson.dylib"
             ;;
           windows)
             library_name="pure_simdjson.dll"
