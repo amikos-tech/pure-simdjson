@@ -125,14 +125,28 @@ runs:
 
         hash_file() {
           python3 - "$1" <<'PY'
-import hashlib
-import pathlib
-import sys
+          import hashlib
+          import pathlib
+          import sys
 
-path = pathlib.Path(sys.argv[1])
-digest = hashlib.sha256(path.read_bytes()).hexdigest()
-print(digest)
-PY
+          path = pathlib.Path(sys.argv[1])
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          print(digest)
+          PY
+        }
+
+        make_temp_dir() {
+          python3 - "$1" <<'PY'
+          import os
+          import pathlib
+          import sys
+          import tempfile
+
+          prefix = sys.argv[1]
+          runner_temp = os.environ.get("RUNNER_TEMP") or None
+          path = tempfile.mkdtemp(prefix=prefix, dir=runner_temp)
+          print(pathlib.Path(path).resolve().as_posix())
+          PY
         }
 
         build_once_host() {
@@ -161,21 +175,20 @@ PY
 
         library_path_from_dir() {
           python3 - "$1" "$target" "$LIBRARY_NAME" <<'PY'
-import os
-import pathlib
-import sys
+          import pathlib
+          import sys
 
-target_dir = pathlib.Path(sys.argv[1])
-triple = sys.argv[2]
-library_name = sys.argv[3]
-path = target_dir / triple / "release" / library_name
-print(os.path.abspath(path))
-PY
+          target_dir = pathlib.Path(sys.argv[1])
+          triple = sys.argv[2]
+          library_name = sys.argv[3]
+          path = target_dir / triple / "release" / library_name
+          print(path.resolve().as_posix())
+          PY
         }
 
         if [[ "$verify_reproducible" == "true" ]]; then
-          first_dir="$(mktemp -d "${RUNNER_TEMP:-/tmp}/pure-simdjson-build-1.XXXXXX")"
-          second_dir="$(mktemp -d "${RUNNER_TEMP:-/tmp}/pure-simdjson-build-2.XXXXXX")"
+          first_dir="$(make_temp_dir "pure-simdjson-build-1.")"
+          second_dir="$(make_temp_dir "pure-simdjson-build-2.")"
 
           build_once "$first_dir"
           build_once "$second_dir"
