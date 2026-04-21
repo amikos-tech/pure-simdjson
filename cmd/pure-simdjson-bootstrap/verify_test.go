@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/amikos-tech/pure-simdjson/internal/bootstrap"
 )
@@ -168,5 +170,33 @@ func TestVerifyCurrentPlatformDefault(t *testing.T) {
 	}
 	if !bytes.Contains(outBuf.Bytes(), []byte("PASS ")) {
 		t.Fatalf("expected PASS in stdout, got: %s", outBuf.String())
+	}
+}
+
+func TestExpectedChecksumUsesBoundedRemoteResolutionContext(t *testing.T) {
+	origResolve := resolveChecksumFn
+	origTimeout := resolveChecksumTimeout
+	t.Cleanup(func() {
+		resolveChecksumFn = origResolve
+		resolveChecksumTimeout = origTimeout
+	})
+
+	resolveChecksumTimeout = 25 * time.Millisecond
+	resolveChecksumFn = func(ctx context.Context, opts ...bootstrap.BootstrapOption) (string, error) {
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("expected remote checksum resolution context to carry a deadline")
+		}
+		remaining := time.Until(deadline)
+		if remaining <= 0 || remaining > 250*time.Millisecond {
+			t.Fatalf("unexpected timeout window: %v", remaining)
+		}
+		<-ctx.Done()
+		return "", ctx.Err()
+	}
+
+	_, err := expectedChecksum("", "linux", "amd64")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context deadline exceeded, got %v", err)
 	}
 }

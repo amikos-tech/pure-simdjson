@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -145,7 +146,7 @@ func fetchChecksumFromURL(ctx context.Context, cfg bootstrapConfig, rawURL, key 
 }
 
 func parseChecksumFromSHA256SUMS(body []byte, key string) (string, error) {
-	scanner := bufio.NewScanner(strings.NewReader(string(body)))
+	scanner := bufio.NewScanner(bytes.NewReader(body))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {

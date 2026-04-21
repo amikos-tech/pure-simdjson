@@ -11,9 +11,15 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/amikos-tech/pure-simdjson/internal/bootstrap"
 	"github.com/spf13/cobra"
+)
+
+var (
+	resolveChecksumTimeout = 30 * time.Second
+	resolveChecksumFn      = bootstrap.ResolveChecksum
 )
 
 // newVerifyCmd wires the `verify` subcommand (D-25, M4). With no flags it
@@ -114,8 +120,10 @@ func expectedChecksum(dest, goos, goarch string) (string, error) {
 	} else if ok {
 		return digest, nil
 	}
-	return bootstrap.ResolveChecksum(
-		context.Background(),
+	ctx, cancel := context.WithTimeout(context.Background(), resolveChecksumTimeout)
+	defer cancel()
+	return resolveChecksumFn(
+		ctx,
 		bootstrap.WithVersion(bootstrap.Version),
 		bootstrap.WithTarget(goos, goarch),
 	)
