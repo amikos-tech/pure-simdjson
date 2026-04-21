@@ -11,8 +11,8 @@ Basic mode:
   Verifies the release workflows and docs/releases.md exist.
 
 Strict mode:
-  Also validates committed bootstrap source state and that the current commit
-  is anchored on origin/main.
+  Also validates committed bootstrap source state, committed Cargo.lock state,
+  and that the current commit is anchored on origin/main.
 EOF
 }
 
@@ -59,9 +59,19 @@ require_file() {
   fi
 }
 
+require_tracked_file() {
+  local path="$1"
+  require_file "$path"
+  if ! git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
+    echo "required file is not tracked by git: $path" >&2
+    exit 1
+  fi
+}
+
 require_file ".github/workflows/release-prepare.yml"
 require_file ".github/workflows/release.yml"
 require_file "docs/releases.md"
+require_tracked_file "Cargo.lock"
 
 if [[ "$strict" != true ]]; then
   echo "basic release readiness checks passed"
@@ -69,6 +79,7 @@ if [[ "$strict" != true ]]; then
 fi
 
 python3 scripts/release/assert_prepared_state.py --check-source --version "$version"
+cargo metadata --format-version 1 --locked >/dev/null
 git fetch origin main --depth=1
 git merge-base --is-ancestor HEAD origin/main
 
