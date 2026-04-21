@@ -57,6 +57,12 @@ var R2ArtifactURL = r2ArtifactURL
 // GitHubArtifactURL is the exported test seam for githubArtifactURL.
 var GitHubArtifactURL = githubArtifactURL
 
+// R2ChecksumsURL is the exported test seam for r2ChecksumsURL.
+var R2ChecksumsURL = r2ChecksumsURL
+
+// GitHubChecksumsURL is the exported test seam for githubChecksumsURL.
+var GitHubChecksumsURL = githubChecksumsURL
+
 // GitHubAssetName is the exported test seam for githubAssetName (H1 verification).
 var GitHubAssetName = githubAssetName
 

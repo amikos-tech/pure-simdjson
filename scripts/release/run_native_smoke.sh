@@ -108,7 +108,6 @@ case "$platform_tuple" in
     run_unix_smoke "$artifact_path" "$platform_tuple"
     ;;
   windows-*)
-    dumpbin /EXPORTS "$artifact_path"
     run_windows_smoke "$artifact_path" "$artifact_dir"
     ;;
   *)

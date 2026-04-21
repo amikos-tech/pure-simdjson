@@ -57,6 +57,44 @@ func TestVerifyAllPlatformsDest(t *testing.T) {
 	}
 }
 
+func TestVerifyAllPlatformsDestWithLocalSHA256SUMS(t *testing.T) {
+	destDir := t.TempDir()
+	fakeBody := []byte("offline-bundle-with-sums")
+	h := sha256.New()
+	h.Write(fakeBody)
+	sum := hex.EncodeToString(h.Sum(nil))
+
+	versionRoot := filepath.Join(destDir, "v"+bootstrap.Version)
+	if err := os.MkdirAll(versionRoot, 0700); err != nil {
+		t.Fatalf("mkdir %s: %v", versionRoot, err)
+	}
+
+	var sums bytes.Buffer
+	for _, p := range bootstrap.SupportedPlatforms {
+		goos, goarch := p[0], p[1]
+		dir := filepath.Join(versionRoot, goos+"-"+goarch)
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+		libPath := filepath.Join(dir, bootstrap.PlatformLibraryName(goos))
+		if err := os.WriteFile(libPath, fakeBody, 0600); err != nil {
+			t.Fatalf("write %s: %v", libPath, err)
+		}
+		sums.WriteString(sum + "  " + bootstrap.ChecksumKey(bootstrap.Version, goos, goarch) + "\n")
+	}
+	if err := os.WriteFile(filepath.Join(versionRoot, "SHA256SUMS"), sums.Bytes(), 0600); err != nil {
+		t.Fatalf("write SHA256SUMS: %v", err)
+	}
+
+	var outBuf, errBuf bytes.Buffer
+	if err := runVerify(true, destDir, &outBuf, &errBuf); err != nil {
+		t.Fatalf("runVerify --all-platforms --dest with local sums: %v\nstderr:\n%s", err, errBuf.String())
+	}
+	if passCount := bytes.Count(outBuf.Bytes(), []byte("PASS ")); passCount != 5 {
+		t.Fatalf("expected 5 PASS lines, got %d\nstdout:\n%s", passCount, outBuf.String())
+	}
+}
+
 // TestVerifyAllPlatformsDestMismatchFails ensures a single corrupted file in
 // the offline bundle causes runVerify to return ErrChecksumMismatch.
 func TestVerifyAllPlatformsDestMismatchFails(t *testing.T) {

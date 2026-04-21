@@ -210,6 +210,11 @@ func isRetryable(statusCode int, headers http.Header, bodySnippet string) bool {
 // downloadAndVerify resolves URLs, drives the retry loop, verifies the SHA-256,
 // and atomically installs the artifact.
 func downloadAndVerify(ctx context.Context, cfg bootstrapConfig, cachePath string) error {
+	expected, err := resolveExpectedChecksum(ctx, cfg)
+	if err != nil {
+		return err
+	}
+
 	// Compute URLs. Empty mirror falls back to the default R2 base.
 	r2Base := cfg.mirrorURL
 	if r2Base == "" {
@@ -228,19 +233,11 @@ func downloadAndVerify(ctx context.Context, cfg bootstrapConfig, cachePath strin
 		return err
 	}
 
-	// Verify SHA-256 against the embedded Checksums map.
-	key := ChecksumKey(cfg.version, cfg.goos, cfg.goarch)
-	expected, ok := Checksums[key]
-	if !ok {
-		_ = os.Remove(tmpPath)
-		return markPermanentBootstrapError(
-			fmt.Errorf("%w: %s", ErrNoChecksum, key))
-	}
 	if !strings.EqualFold(digest, expected) {
 		_ = os.Remove(tmpPath)
 		return markPermanentBootstrapError(
 			fmt.Errorf("%w: expected %s, got %s for %s",
-				ErrChecksumMismatch, expected, digest, key))
+				ErrChecksumMismatch, expected, digest, ChecksumKey(cfg.version, cfg.goos, cfg.goarch)))
 	}
 
 	return atomicInstall(tmpPath, cachePath)
@@ -310,7 +307,7 @@ func downloadWithRetry(ctx context.Context, cfg bootstrapConfig, primaryURL, fal
 // isLadderFatalError reports whether err is permanent across the whole URL
 // ladder (not just the current URL). Checksum mismatch, missing-checksum, and
 // HTTPS→HTTP redirect downgrade are ladder-fatal: trying the next URL cannot
-// recover because either the embedded checksum is wrong or the upstream is
+// recover because either the authoritative checksum is wrong or the upstream is
 // actively hostile.
 func isLadderFatalError(err error) bool {
 	if err == nil {

@@ -350,7 +350,7 @@ func TestNoChecksumReturnsSentinel(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("anything"))
+		_, _ = w.Write([]byte("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff  v0.0.0/linux-amd64/libpure_simdjson.so\n"))
 	}))
 	defer srv.Close()
 
@@ -358,8 +358,7 @@ func TestNoChecksumReturnsSentinel(t *testing.T) {
 	t.Setenv("PURE_SIMDJSON_CACHE_DIR", cacheDir)
 	t.Setenv("PURE_SIMDJSON_DISABLE_GH_FALLBACK", "1")
 
-	// Use an arch for which no checksum is registered (the production Checksums map
-	// is empty by default, so this should fire).
+	// Use a mirror whose published SHA256SUMS does not contain the requested key.
 	err := bootstrap.BootstrapSync(context.Background(),
 		bootstrap.WithMirror(srv.URL),
 		bootstrap.WithTarget("linux", "amd64"),
@@ -393,7 +392,7 @@ func TestHTTPSDowngradeRejected(t *testing.T) {
 
 	// Pre-register a dummy checksum so the path reaches downloadOnce (not ErrNoChecksum).
 	goos, goarch := "linux", "amd64"
-	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, "deadbeef")()
+	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")()
 
 	cacheDir := t.TempDir()
 	t.Setenv("PURE_SIMDJSON_CACHE_DIR", cacheDir)
@@ -566,7 +565,7 @@ func TestGitHubArtifactURL(t *testing.T) {
 }
 
 // TestChecksumKeyFormat pins the "v<version>/<goos>-<goarch>/<libname>" layout
-// so the CLI `verify` subcommand (Plan 05) and the Checksums map stay in lockstep.
+// so the CLI `verify` subcommand and the published SHA256SUMS stay in lockstep.
 func TestChecksumKeyFormat(t *testing.T) {
 	cases := []struct {
 		version, goos, goarch, want string
@@ -915,6 +914,7 @@ func TestBootstrapRejectsAdvertisedOversize(t *testing.T) {
 	clearBootstrapEnv(t)
 
 	goos, goarch := "linux", "amd64"
+	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		hj, ok := w.(http.Hijacker)
 		if !ok {
@@ -1063,7 +1063,7 @@ func TestDisableGHFallbackWith404(t *testing.T) {
 	goos, goarch := "linux", "amd64"
 	// Pre-register a checksum so we don't bail on ErrNoChecksum before reaching
 	// the URL ladder.
-	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, "deadbeef")()
+	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")()
 
 	var r2Hits, ghHits atomic.Int32
 	r2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1116,7 +1116,7 @@ func TestBootstrapSyncCancellation(t *testing.T) {
 	goos, goarch := "linux", "amd64"
 	// Pre-register a dummy checksum so we'd reach downloadOnce even if cancellation
 	// somehow didn't fire (defensive — we never expect to compute a digest here).
-	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, "deadbeef")()
+	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")()
 	// Disable GH fallback so the cancellation can't be papered over by a fast
 	// fallback URL succeeding before ctx.Err() propagates.
 	t.Setenv("PURE_SIMDJSON_DISABLE_GH_FALLBACK", "1")
@@ -1183,7 +1183,7 @@ func TestBootstrapSyncCtxCancelDuringSleep(t *testing.T) {
 	clearBootstrapEnv(t)
 
 	goos, goarch := "linux", "amd64"
-	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, "deadbeef")()
+	defer bootstrap.RegisterChecksumForTest(bootstrap.Version, goos, goarch, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")()
 	t.Setenv("PURE_SIMDJSON_DISABLE_GH_FALLBACK", "1")
 
 	// 429 every call → guarantees the retry loop enters sleepWithJitter on the

@@ -50,12 +50,18 @@ jobs:
           git fetch --no-tags origin main:refs/remotes/origin/main
           git merge-base --is-ancestor "$GITHUB_SHA" "origin/main"
 
-      - name: Validate committed prepared source state
+      - name: Validate committed release version state
         run: |
           set -euo pipefail
-          python3 scripts/release/assert_prepared_state.py \
-            --check-source \
-            --version "${{ steps.version.outputs.version }}"
+          source_version="$(sed -n 's/^const Version = "\(.*\)"$/\1/p' internal/bootstrap/version.go)"
+          if [[ -z "${source_version}" ]]; then
+            echo "failed to resolve bootstrap.Version from internal/bootstrap/version.go" >&2
+            exit 1
+          fi
+          if [[ "${source_version}" != "${{ steps.version.outputs.version }}" ]]; then
+            echo "tag version ${{ steps.version.outputs.version }} does not match bootstrap.Version ${source_version}" >&2
+            exit 1
+          fi
 
   linux-build:
     name: linux build (${{ matrix.platform_id }})
@@ -128,7 +134,7 @@ jobs:
           runner_kind: linux
           manylinux_image: ${{ matrix.manylinux_image }}
           source_date_epoch: ${{ steps.metadata.outputs.source-date-epoch }}
-          verify_reproducible: false
+          verify_reproducible: true
           # Escape hatch stays explicit: keep use_zigbuild false unless a later
           # manual path proves manylinux is blocked.
           use_zigbuild: "false"
@@ -233,7 +239,7 @@ jobs:
           goarch: ${{ matrix.goarch }}
           runner_kind: darwin
           source_date_epoch: ${{ steps.metadata.outputs.source-date-epoch }}
-          verify_reproducible: false
+          verify_reproducible: true
 
       - name: Ad-hoc codesign darwin dylib
         run: |
@@ -359,7 +365,7 @@ jobs:
           goarch: ${{ matrix.goarch }}
           runner_kind: windows
           source_date_epoch: ${{ steps.metadata.outputs.source-date-epoch }}
-          verify_reproducible: false
+          verify_reproducible: true
 
       - name: Audit windows exports
         shell: pwsh
@@ -452,8 +458,8 @@ jobs:
           set -euo pipefail
           bash scripts/release/run_alpine_smoke.sh --image-ref "$ALPINE_IMAGE_REF"
 
-  release-publish-staging:
-    name: release publish staging
+  release-publish:
+    name: release publish
     runs-on: ubuntu-latest
     needs:
       - verify-tag-source
@@ -464,6 +470,15 @@ jobs:
     defaults:
       run:
         shell: bash
+    env:
+      PROJECT: ${{ github.event.repository.name }}
+      RELEASES_DOMAIN: ${{ vars.RELEASES_DOMAIN || 'releases.amikos.tech' }}
+      R2_BUCKET: ${{ vars.R2_BUCKET || secrets.R2_BUCKET || 'releases' }}
+      R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT || secrets.R2_ENDPOINT_URL || vars.R2_ENDPOINT || vars.R2_ENDPOINT_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN || secrets.R2_SESSION_TOKEN }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION || 'auto' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -550,13 +565,6 @@ jobs:
           combined = {"version": version, "entries": [entries[tuple_key] for tuple_key in expected]}
           output.write_text(json.dumps(combined, indent=2) + "\n", encoding="utf-8")
           PY
-
-      - name: Assert rebuilt manifest matches committed prepared source state
-        run: |
-          set -euo pipefail
-          python3 scripts/release/assert_prepared_state.py \
-            --manifest "${{ github.workspace }}/release-staging/combined-manifest.json" \
-            --version "${{ steps.metadata.outputs.version }}"
 
       - name: Assemble staged release tree for packaged-artifact smoke
         run: |
@@ -695,7 +703,118 @@ jobs:
             --version "${{ github.ref_name }}" \
             --staged-root "${{ github.workspace }}/release-staged-root"
 
-      - name: Publish GitHub Release assets
+      - name: Publish latest.json to R2
+        run: |
+          set -euo pipefail
+          if [[ -z "${AWS_ACCESS_KEY_ID}" || -z "${AWS_SECRET_ACCESS_KEY}" || -z "${R2_ENDPOINT_URL}" ]]; then
+            echo "Missing required R2 credentials or endpoint configuration." >&2
+            exit 1
+          fi
+          release_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          jq -n \
+            --arg version "${{ github.ref_name }}" \
+            --arg date "${release_date}" \
+            --arg checksums_url "${PROJECT}/${{ github.ref_name }}/SHA256SUMS" \
+            --arg checksums_full_url "https://${RELEASES_DOMAIN}/${PROJECT}/${{ github.ref_name }}/SHA256SUMS" \
+            '{version: $version, date: $date, checksums_url: $checksums_url, checksums_full_url: $checksums_full_url}' \
+            > /tmp/latest.json
+          aws s3 cp /tmp/latest.json "s3://${R2_BUCKET}/${PROJECT}/latest.json" \
+            --endpoint-url "${R2_ENDPOINT_URL}" \
+            --content-type "application/json" \
+            --cache-control "public, max-age=60"
+
+      - name: Update releases.json index (optional)
+        if: vars.RELEASE_INDEX_ENABLED == '1'
+        run: |
+          set -euo pipefail
+          if [[ -z "${AWS_ACCESS_KEY_ID}" || -z "${AWS_SECRET_ACCESS_KEY}" || -z "${R2_ENDPOINT_URL}" ]]; then
+            echo "Missing required R2 credentials or endpoint configuration." >&2
+            exit 1
+          fi
+          release_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          fetch_err="$(mktemp)"
+          trap 'rm -f "${fetch_err}"' EXIT
+          if ! aws s3 cp "s3://${R2_BUCKET}/${PROJECT}/releases.json" /tmp/releases-existing.json \
+            --endpoint-url "${R2_ENDPOINT_URL}" 2>"${fetch_err}"; then
+            if grep -Eiq '404|NoSuchKey|Not Found|does not exist' "${fetch_err}"; then
+              rm -f /tmp/releases-existing.json
+            else
+              echo "Failed to fetch existing releases.json from R2." >&2
+              cat "${fetch_err}" >&2
+              exit 1
+            fi
+          fi
+          rm -f "${fetch_err}"
+
+          bash scripts/release/build_releases_index.sh \
+            --existing /tmp/releases-existing.json \
+            --output /tmp/releases.json \
+            --project "${PROJECT}" \
+            --version "${{ github.ref_name }}" \
+            --date "${release_date}" \
+            --domain "${RELEASES_DOMAIN}" \
+            --max 100
+
+          identity="https://github.com/amikos-tech/pure-simdjson/.github/workflows/release.yml@refs/tags/${{ github.ref_name }}"
+          cosign sign-blob --yes \
+            --output-signature /tmp/releases.json.sig \
+            --output-certificate /tmp/releases.json.pem \
+            /tmp/releases.json
+          cosign verify-blob \
+            --signature /tmp/releases.json.sig \
+            --certificate /tmp/releases.json.pem \
+            --certificate-identity "${identity}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            /tmp/releases.json
+
+          aws s3 cp /tmp/releases.json "s3://${R2_BUCKET}/${PROJECT}/releases.json" \
+            --endpoint-url "${R2_ENDPOINT_URL}" \
+            --content-type "application/json" \
+            --cache-control "public, max-age=60"
+          aws s3 cp /tmp/releases.json.sig "s3://${R2_BUCKET}/${PROJECT}/releases.json.sig" \
+            --endpoint-url "${R2_ENDPOINT_URL}" \
+            --content-type "application/octet-stream" \
+            --cache-control "public, max-age=60"
+          aws s3 cp /tmp/releases.json.pem "s3://${R2_BUCKET}/${PROJECT}/releases.json.pem" \
+            --endpoint-url "${R2_ENDPOINT_URL}" \
+            --content-type "application/x-pem-file" \
+            --cache-control "public, max-age=60"
+
+      - name: Purge latest.json from CDN cache
+        if: vars.CF_ZONE_ID != ''
+        env:
+          CF_ZONE_ID: ${{ vars.CF_ZONE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLOUDFLARE_API_TOKEN}" ]]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN is not set; skipping cache purge."
+            exit 0
+          fi
+          curl -sf -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "{\"files\":[\"https://${RELEASES_DOMAIN}/${PROJECT}/latest.json\"]}"
+
+      - name: Purge releases index from CDN cache (optional)
+        if: vars.CF_ZONE_ID != '' && vars.RELEASE_INDEX_ENABLED == '1'
+        env:
+          CF_ZONE_ID: ${{ vars.CF_ZONE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLOUDFLARE_API_TOKEN}" ]]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN is not set; skipping cache purge."
+            exit 0
+          fi
+          curl -sf -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "{\"files\":[\"https://${RELEASES_DOMAIN}/${PROJECT}/releases.json\",\"https://${RELEASES_DOMAIN}/${PROJECT}/releases.json.sig\",\"https://${RELEASES_DOMAIN}/${PROJECT}/releases.json.pem\"]}"
+
+      - name: Publish GitHub release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           files: ${{ github.workspace }}/release-assets/*

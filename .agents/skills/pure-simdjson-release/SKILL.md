@@ -1,6 +1,6 @@
 ---
 name: pure-simdjson-release
-description: Repo-local release guidance for pure-simdjson. Use only for this repository's prep -> main -> tag publish path.
+description: Repo-local release guidance for pure-simdjson. Use only for this repository's tag-driven CI release path.
 ---
 
 # pure-simdjson release
@@ -12,15 +12,15 @@ operations for `pure-simdjson`.
 
 1. Read `docs/releases.md` before suggesting any release action.
 2. Run `bash scripts/release/check_readiness.sh --strict --version <semver-without-v>` before recommending a tag push.
-3. Treat `release-prepare.yml` as mandatory before publish.
-4. Treat `release-prep/v<version> -> main -> tag on merged main commit` as the only supported sequencing.
-5. State explicitly that `release.yml` rejects tags not anchored on `origin/main`.
-6. Treat Phase `06.1` as the place for post-publish fresh-runner validation.
+3. Treat `main -> annotated tag -> CI publish` as the supported sequencing.
+4. State explicitly that `release.yml` expects the tag commit to be anchored on `origin/main`.
+5. Treat Phase `06.1` as the place for post-publish fresh-runner validation.
 
 ## Constraints
 
 - CI is the only publish path.
 - Do not hand-upload artifacts.
 - Do not bypass CI publication.
+- Do not reintroduce prep-branch checksum generation as a release dependency.
 - Do not invent a generic multi-project release abstraction from this skill.
 - If the runbook and a remembered procedure disagree, follow `docs/releases.md`.
