@@ -183,6 +183,19 @@ xattr -d com.apple.quarantine <path-to-dylib>
 This exact operator step is the one referenced by Phase 6 Success Criterion 5
 and `06-VALIDATION.md`.
 
+For a repeatable local approximation of the downloaded-artifact load path on a
+macOS workstation, run:
+
+```bash
+bash scripts/release/check_macos_downloaded_dylib.sh --build-local
+```
+
+That script builds or copies a local `.dylib`, re-signs a temp copy, applies a
+synthetic `com.apple.quarantine` xattr, runs the native and Go smoke paths
+before and after `xattr -d`, and records the current host's `spctl` result.
+Treat it as a repo-local artifact revalidation probe, not a replacement for
+the real published-artifact/fresh-machine UAT.
+
 ## Phase 06.1 Boundary
 
 Phase `06.1` is where post-publish fresh-runner / fresh-machine public

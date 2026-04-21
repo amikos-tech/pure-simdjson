@@ -152,6 +152,9 @@ xattr -d com.apple.quarantine <path-to-dylib>
 ```
 
 This is the same operator guidance captured in [`docs/releases.md`](./releases.md).
+For a repo-local approximation of the downloaded-artifact load path, run
+`bash scripts/release/check_macos_downloaded_dylib.sh --build-local` on a macOS
+host.
 
 ## Verifying Artifact Integrity (Cosign)
 
