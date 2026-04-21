@@ -13,6 +13,7 @@ BUILD_SHARED_LIBRARY_ACTION = (
 )
 SETUP_RUST_ACTION = REPO_ROOT / ".github" / "actions" / "setup-rust" / "action.yml"
 RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
+RUN_NATIVE_SMOKE = REPO_ROOT / "scripts" / "release" / "run_native_smoke.sh"
 
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
@@ -55,6 +56,30 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         self.assertIn(
             'cp "$import_lib_path" "$r2_dir/${{ matrix.import_library_name }}"',
             windows_section,
+        )
+
+    def test_windows_native_smoke_restores_canonical_dll_name_for_import_lib(self) -> None:
+        script_text = RUN_NATIVE_SMOKE.read_text(encoding="utf-8")
+
+        self.assertIn(
+            r"\$runtimeDllPath = Join-Path \$smokeDir 'pure_simdjson.dll'",
+            script_text,
+        )
+        self.assertIn(
+            r"Copy-Item -Force \$artifactPath \$runtimeDllPath",
+            script_text,
+        )
+        self.assertIn(
+            r"Copy-Item -Force \$importLibraryPath \$runtimeImportLibraryPath",
+            script_text,
+        )
+        self.assertIn(
+            r'cl /nologo /TC /Iinclude tests\smoke\minimal_parse.c /link /LIBPATH:\$smokeDir pure_simdjson.dll.lib /OUT:"\$smokeDir\minimal_parse.exe"',
+            script_text,
+        )
+        self.assertIn(
+            r'\$env:PATH = "\$smokeDir;\$env:PATH"',
+            script_text,
         )
 
 

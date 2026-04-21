@@ -77,7 +77,11 @@ run_windows_smoke() {
 \$artifactDir = Split-Path -Parent \$artifactPath
 \$importLibraryPath = '${import_library_windows_path}'
 \$smokeDir = Join-Path \$env:RUNNER_TEMP 'pure-simdjson-native-smoke'
+\$runtimeDllPath = Join-Path \$smokeDir 'pure_simdjson.dll'
+\$runtimeImportLibraryPath = Join-Path \$smokeDir 'pure_simdjson.dll.lib'
 New-Item -ItemType Directory -Force -Path \$smokeDir | Out-Null
+Copy-Item -Force \$artifactPath \$runtimeDllPath
+Copy-Item -Force \$importLibraryPath \$runtimeImportLibraryPath
 
 dumpbin /EXPORTS \$artifactPath | Out-Host
 
@@ -86,9 +90,9 @@ if (\$LASTEXITCODE -ne 0) { exit \$LASTEXITCODE }
 & "\$smokeDir\ffi_export_surface.exe" \$artifactPath
 if (\$LASTEXITCODE -ne 0) { exit \$LASTEXITCODE }
 
-cl /nologo /TC /Iinclude tests\smoke\minimal_parse.c /link /LIBPATH:\$artifactDir pure_simdjson.dll.lib /OUT:"\$smokeDir\minimal_parse.exe"
+cl /nologo /TC /Iinclude tests\smoke\minimal_parse.c /link /LIBPATH:\$smokeDir pure_simdjson.dll.lib /OUT:"\$smokeDir\minimal_parse.exe"
 if (\$LASTEXITCODE -ne 0) { exit \$LASTEXITCODE }
-\$env:PATH = "\$artifactDir;\$env:PATH"
+\$env:PATH = "\$smokeDir;\$env:PATH"
 & "\$smokeDir\minimal_parse.exe"
 if (\$LASTEXITCODE -ne 0) { exit \$LASTEXITCODE }
 PWSH
