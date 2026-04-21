@@ -17,7 +17,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 - [x] **Phase 3: Go Public API + purego Happy Path** — Wire Go's `purejson` package to the shim with handle lifecycle, ParserPool, typed errors, and one accessor as smoke test
 - [x] **Phase 4: Full Typed Accessor Surface** — Complete the DOM accessor surface (uint64/float64/string/bool/null) and cursor-pull iteration over arrays and objects
 - [x] **Phase 5: Bootstrap + Distribution** — Implement R2 download with GitHub fallback, SHA-256 verification, OS cache, env overrides, and the bootstrap CLI
-- [ ] **Phase 6: CI Release Matrix + Platform Coverage** — Build, sign, and publish artifacts for all five targets plus Alpine smoke-test, with cosign and ad-hoc macOS codesign
+- [x] **Phase 6: CI Release Matrix + Platform Coverage** — Build, sign, and publish artifacts for all five targets plus Alpine smoke-test, with cosign and ad-hoc macOS codesign
 - [ ] **Phase 7: Benchmarks + v0.1 Release** — Three-tier benchmark harness vs `encoding/json`, `simdjson-go`, `sonic`, `goccy/go-json`; correctness oracle; documentation; v0.1 tag
 
 ## Phase Details
@@ -274,7 +274,7 @@ Plans:
 - [x] `06-03-PLAN.md` — macOS and Windows release builds with codesign, long-path handling, and export verification
 - [x] `06-04-PLAN.md` — Native + Go packaged-artifact smoke gates, including Alpine escape-hatch validation
 - [x] `06-05-PLAN.md` — Release-prep and tag-publish workflows with checksum/tag coherence, cosign, and R2/GitHub publish
-- [ ] `06-06-PLAN.md` — Release runbook, readiness gate, and repo-local release skill
+- [x] `06-06-PLAN.md` — Release runbook, readiness gate, and repo-local release skill
 
 ---
 
@@ -389,7 +389,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 3. Go API + purego Happy Path | 5/5 | Complete | 2026-04-16 |
 | 4. Full Typed Accessor Surface | 5/5 | Complete | 2026-04-17 |
 | 5. Bootstrap + Distribution | 6/6 | Complete | 2026-04-20 |
-| 6. CI Release Matrix | 4/6 | In progress | — |
+| 6. CI Release Matrix | 6/6 | Complete | 2026-04-21 |
 | 7. Benchmarks + v0.1 Release | 0/? | Not started | — |
 
 Plan counts populated by `/gsd-plan-phase`.
