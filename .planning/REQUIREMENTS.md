@@ -55,7 +55,8 @@ Requirements for initial release. Each maps to roadmap phases.
 **: darwin/arm64 — macOS 11+; ad-hoc codesigned `.dylib`; Apple Silicon native
 - [x] **PLAT-05
 **: windows/amd64 — MSVC toolchain; `.dll` named `pure_simdjson-msvc.dll`
-- [ ] **PLAT-06**: musl/Alpine smoke-test CI job loading via `PURE_SIMDJSON_LIB_PATH` with a user-built `.so` (shipped-musl-artifact strategy deferred to Phase 6 research)
+- [x] **PLAT-06
+**: musl/Alpine smoke-test CI job loading via `PURE_SIMDJSON_LIB_PATH` with a user-built `.so` (shipped-musl-artifact strategy deferred to Phase 6 research)
 
 ### Distribution
 
@@ -88,11 +89,13 @@ Requirements for initial release. Each maps to roadmap phases.
 **: macOS jobs ad-hoc codesign the `.dylib` (`codesign -s - --force`)
 - [x] **CI-03
 **: Linux jobs use manylinux2014 base image (or equivalent) for glibc baseline
-- [ ] **CI-04**: Per-platform FFI smoke test verifies all exported symbols load and one parse round-trips
+- [x] **CI-04
+**: Per-platform FFI smoke test verifies all exported symbols load and one parse round-trips
 - [x] **CI-05
 **: Release pipeline computes SHA-256 for each artifact and commits `checksums.go` in a follow-up PR (or includes it in the tagged commit)
 - [ ] **CI-06**: Version bump, changelog, and release-notes in a single tag workflow
-- [ ] **CI-07**: Alpine smoke-test job runs in an `alpine:latest` container
+- [x] **CI-07
+**: Alpine smoke-test job runs in an `alpine:latest` container
 
 ### Benchmarks & Correctness
 
