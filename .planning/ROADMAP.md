@@ -269,7 +269,7 @@ Plans:
 **Research flag:** YES — spawn `/gsd-research-phase` during planning. The musl/Alpine strategy (static-link-into-glibc-so vs ship `.a` with documented relink vs smoke-test-only with escape hatch) is unresolved per SUMMARY.md decision 5; manylinux vs zig-cc choice and final target matrix also need a focused study before CI is written.
 
 Plans:
-- [ ] `06-01-PLAN.md` — Shared release tooling scaffold: composite actions, packaging helpers, and bootstrap-state generator
+- [x] `06-01-PLAN.md` — Shared release tooling scaffold: composite actions, packaging helpers, and bootstrap-state generator
 - [ ] `06-02-PLAN.md` — Linux GNU release builds in manylinux containers with glibc-floor proof
 - [ ] `06-03-PLAN.md` — macOS and Windows release builds with codesign, long-path handling, and export verification
 - [ ] `06-04-PLAN.md` — Native + Go packaged-artifact smoke gates, including Alpine escape-hatch validation
