@@ -102,18 +102,162 @@ jobs:
           if-no-files-found: error
           path: ${{ github.workspace }}/dist/${{ matrix.platform_id }}
 
-  linux-publish-staging:
-    name: linux publish staging
-    runs-on: ubuntu-latest
-    needs: linux-build
+  darwin-build:
+    name: darwin build (${{ matrix.platform_id }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform_id: darwin-amd64
+            goos: darwin
+            goarch: amd64
+            rust_target: x86_64-apple-darwin
+            runner: macos-15-intel
+            expected_file_arch: x86_64
+            expected_r2_filename: libpure_simdjson.dylib
+            expected_github_asset_name: libpure_simdjson-darwin-amd64.dylib
+          - platform_id: darwin-arm64
+            goos: darwin
+            goarch: arm64
+            rust_target: aarch64-apple-darwin
+            runner: macos-15
+            expected_file_arch: arm64
+            expected_r2_filename: libpure_simdjson.dylib
+            expected_github_asset_name: libpure_simdjson-darwin-arm64.dylib
     defaults:
       run:
         shell: bash
     steps:
-      - name: Download staged linux artifact bundles
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Resolve release metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+
+          version="$(sed -n 's/^const Version = "\(.*\)"/\1/p' internal/bootstrap/version.go)"
+          if [[ -z "$version" ]]; then
+            echo "failed to resolve bootstrap version from internal/bootstrap/version.go" >&2
+            exit 1
+          fi
+
+          SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)"
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >>"$GITHUB_ENV"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "source-date-epoch=$SOURCE_DATE_EPOCH" >>"$GITHUB_OUTPUT"
+
+      - name: Build shared library
+        id: build
+        uses: ./.github/actions/build-shared-library
+        with:
+          target: ${{ matrix.rust_target }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          runner_kind: darwin
+          source_date_epoch: ${{ steps.metadata.outputs.source-date-epoch }}
+          verify_reproducible: false
+
+      - name: Ad-hoc codesign darwin dylib
+        run: |
+          set -euo pipefail
+          codesign -s - --force --timestamp=none "${{ steps.build.outputs.built-library-path }}"
+          codesign --verify --verbose "${{ steps.build.outputs.built-library-path }}"
+
+      - name: Verify darwin dylib is thin
+        run: |
+          set -euo pipefail
+          file_output="$(file "${{ steps.build.outputs.built-library-path }}")"
+          echo "$file_output"
+          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            printf '### %s file output\n\n```\n%s\n```\n' "${{ matrix.platform_id }}" "$file_output" >>"$GITHUB_STEP_SUMMARY"
+          fi
+          if grep -Eiq 'fat|universal' <<<"$file_output"; then
+            echo "expected a thin darwin binary, got: $file_output" >&2
+            exit 1
+          fi
+          if ! grep -q "${{ matrix.expected_file_arch }}" <<<"$file_output"; then
+            echo "expected darwin binary for arch ${{ matrix.expected_file_arch }}, got: $file_output" >&2
+            exit 1
+          fi
+
+      - name: Package darwin shared library
+        id: package
+        uses: ./.github/actions/package-shared-artifact
+        with:
+          input: ${{ steps.build.outputs.built-library-path }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          rust-target: ${{ matrix.rust_target }}
+          version: ${{ steps.metadata.outputs.version }}
+          out-dir: ${{ github.workspace }}/dist/${{ matrix.platform_id }}
+
+      - name: Assert darwin artifact names
+        run: |
+          set -euo pipefail
+          test "${{ steps.package.outputs.github-asset-name }}" = "${{ matrix.expected_github_asset_name }}"
+          test "$(basename "${{ steps.package.outputs.r2-path }}")" = "${{ matrix.expected_r2_filename }}"
+
+      - name: Verify staged darwin artifact
+        uses: ./.github/actions/verify-shared-artifact
+        with:
+          artifact-path: ${{ steps.package.outputs.r2-path }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          rust-target: ${{ matrix.rust_target }}
+          native-abi-smoke-command: |
+            set -euo pipefail
+            tmp_dir="$(mktemp -d "${RUNNER_TEMP:-/tmp}/pure-simdjson-darwin-exports.XXXXXX")"
+            expected_symbols="$tmp_dir/expected.txt"
+            exported_symbols="$tmp_dir/exported.txt"
+            python3 - <<'PY' >"$expected_symbols"
+            from pathlib import Path
+            import re
+            text = Path("include/pure_simdjson.h").read_text(encoding="utf-8")
+            names = re.findall(r"pure_simdjson_error_code_t\s+(pure_simdjson_[a-zA-Z0-9_]+)\s*\(", text)
+            print("\n".join(sorted(names)))
+            PY
+            nm -gU "${{ steps.package.outputs.r2-path }}" \
+              | awk '{print $3}' \
+              | sed 's/^_//' \
+              | grep '^pure_simdjson_' \
+              | sort -u >"$exported_symbols"
+            diff -u "$expected_symbols" "$exported_symbols"
+          minimal-parse-smoke-command: |
+            set -euo pipefail
+            artifact_dir="$(dirname "${{ steps.package.outputs.r2-path }}")"
+            smoke_dir="$(mktemp -d "${RUNNER_TEMP:-/tmp}/pure-simdjson-darwin-smoke.XXXXXX")"
+            cc -Iinclude tests/smoke/minimal_parse.c \
+              -L"$artifact_dir" \
+              -lpure_simdjson \
+              -Wl,-rpath,"$artifact_dir" \
+              -o "$smoke_dir/minimal_parse"
+            "$smoke_dir/minimal_parse"
+
+      - name: Upload staged darwin artifact bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-${{ matrix.platform_id }}
+          if-no-files-found: error
+          path: ${{ github.workspace }}/dist/${{ matrix.platform_id }}
+
+  release-publish-staging:
+    name: release publish staging
+    runs-on: ubuntu-latest
+    needs:
+      - linux-build
+      - darwin-build
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Download staged release artifact bundles
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          pattern: release-linux-*
+          pattern: release-*
           path: ${{ github.workspace }}/release-staging
           merge-multiple: true
 
@@ -122,9 +266,9 @@ jobs:
           set -euo pipefail
           find "${{ github.workspace }}/release-staging" -type f | sort
 
-      - name: Upload merged linux release staging tree
+      - name: Upload merged release staging tree
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: release-linux-staging
+          name: release-staging
           if-no-files-found: error
           path: ${{ github.workspace }}/release-staging
