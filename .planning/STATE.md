@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
-status: executing
-stopped_at: Completed 06-05-PLAN.md
-last_updated: "2026-04-21T07:47:12.607Z"
+status: verifying
+stopped_at: Completed 06-06-PLAN.md
+last_updated: "2026-04-21T07:55:44.237Z"
 last_activity: 2026-04-21
 progress:
   total_phases: 12
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 28
-  completed_plans: 27
-  percent: 96
+  completed_plans: 28
+  percent: 100
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-15)
 
 **Core value:** Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, precision-preserving parser that does not require cgo at consumer build time.
-**Current focus:** Phase 06 — ci-release-matrix-platform-coverage
+**Current focus:** Phase 06 verification complete; next follow-up is Phase 06.1 fresh-machine live bootstrap validation
 
 ## Current Position
 
-Phase: 06 (ci-release-matrix-platform-coverage) — EXECUTING
+Phase: 06 (ci-release-matrix-platform-coverage) — VERIFYING
 Plan: 6 of 6
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-21
-Shipping: Phase 05 complete — bootstrap pipeline wired end-to-end (human UAT partial: E2E against live R2+GH requires Phase 06 CI-05)
+Shipping: Phase 06 complete — CI release path, runbook, readiness gate, and repo-local release skill are in place; Phase 06.1 remains for fresh-runner live-artifact validation
 
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ Progress: [██████████] 96%
 | Phase 06 P03 | 15min | 2 tasks | 5 files |
 | Phase 06 P04 | 44min | 2 tasks | 8 files |
 | Phase 06 P05 | 15min | 2 tasks | 6 files |
+| Phase 06 P06 | 7min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -139,6 +140,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - Release prep now rewrites version.go, checksums.go, and CHANGELOG.md on a release-prep/v<version> branch before any tag is created.
 - Tag publication now starts with a verify-tag-source gate that rejects off-main tags and validates committed bootstrap source state before any build begins.
 - The publish workflow signs and verifies the raw staged blobs first, then copies those bytes into flat GitHub Release asset names so R2 and GitHub Releases carry the same signed payload.
+- docs/releases.md is the single human-readable source of truth for the Phase 6 release-prep -> main -> tag sequence, required repo configuration, artifact layout, and cosign verification commands.
+- scripts/release/check_readiness.sh --strict reuses assert_prepared_state.py --check-source and adds origin/main ancestry checks instead of re-implementing release-state validation in shell.
+- docs/bootstrap.md now points operators at the release runbook and mirrors the exact xattr Gatekeeper workaround, while Phase 06.1 owns the fresh-runner public validation boundary.
 
 ### Pending Todos
 
@@ -151,8 +155,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T07:47:12.601Z
-Stopped at: Completed 06-05-PLAN.md
+Last session: 2026-04-21T07:55:44.232Z
+Stopped at: Completed 06-06-PLAN.md
 Resume file: None
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z
