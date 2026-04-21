@@ -96,7 +96,11 @@ func checksumFromLocalSums(dest, goos, goarch string) (string, bool, error) {
 		if len(fields) != 2 || fields[1] != key {
 			continue
 		}
-		return strings.ToLower(fields[0]), true, nil
+		digest := strings.ToLower(fields[0])
+		if !bootstrap.LooksLikeSHA256Hex(digest) {
+			return "", false, fmt.Errorf("invalid SHA256SUMS digest for %s in %s: %q", key, sumsPath, fields[0])
+		}
+		return digest, true, nil
 	}
 	if err := scanner.Err(); err != nil {
 		return "", false, fmt.Errorf("scan %s: %w", sumsPath, err)

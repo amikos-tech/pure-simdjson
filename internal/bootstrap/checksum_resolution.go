@@ -34,7 +34,7 @@ func resolveExpectedChecksum(ctx context.Context, cfg bootstrapConfig) (string, 
 	key := ChecksumKey(cfg.version, cfg.goos, cfg.goarch)
 	if digest, ok := Checksums[key]; ok {
 		digest = strings.ToLower(strings.TrimSpace(digest))
-		if !looksLikeSHA256Hex(digest) {
+		if !LooksLikeSHA256Hex(digest) {
 			return "", fmt.Errorf("invalid checksum override for %s: %q", key, digest)
 		}
 		return digest, nil
@@ -159,7 +159,7 @@ func parseChecksumFromSHA256SUMS(body []byte, key string) (string, error) {
 			continue
 		}
 		digest := strings.ToLower(strings.TrimSpace(fields[0]))
-		if !looksLikeSHA256Hex(digest) {
+		if !LooksLikeSHA256Hex(digest) {
 			return "", fmt.Errorf("invalid SHA256SUMS digest for %s: %q", key, fields[0])
 		}
 		return digest, nil
@@ -170,7 +170,7 @@ func parseChecksumFromSHA256SUMS(body []byte, key string) (string, error) {
 	return "", fmt.Errorf("%w: %s", ErrNoChecksum, key)
 }
 
-func looksLikeSHA256Hex(raw string) bool {
+func LooksLikeSHA256Hex(raw string) bool {
 	if len(raw) != 64 {
 		return false
 	}
