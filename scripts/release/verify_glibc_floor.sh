@@ -12,6 +12,33 @@ fail() {
   exit 1
 }
 
+write_expected_exports() {
+  local header_path="$1"
+  local repo_root
+  repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+  python3 - "$repo_root" "$header_path" <<'PY'
+import importlib.util
+import pathlib
+import sys
+
+repo_root = pathlib.Path(sys.argv[1])
+header_path = pathlib.Path(sys.argv[2])
+check_header_path = repo_root / "tests" / "abi" / "check_header.py"
+
+spec = importlib.util.spec_from_file_location("check_header", check_header_path)
+if spec is None or spec.loader is None:
+    raise SystemExit(f"failed to load ABI header parser: {check_header_path}")
+
+check_header = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(check_header)
+
+prototypes = check_header.parse_prototypes(header_path.read_text(encoding="utf-8"))
+for name in sorted(name for name in prototypes if name.startswith("pure_simdjson_")):
+    print(name)
+PY
+}
+
 version_gt() {
   local left="$1"
   local right="$2"
@@ -29,7 +56,7 @@ main() {
 
   local tmp_dir
   tmp_dir="$(mktemp -d)"
-  trap 'rm -rf "$tmp_dir"' EXIT
+  trap "rm -rf -- '$tmp_dir'" EXIT
 
   local objdump_output="$tmp_dir/objdump.txt"
   local observed_symbols="$tmp_dir/observed-symbols.txt"
@@ -37,11 +64,13 @@ main() {
   local expected_symbols="$tmp_dir/expected-symbols.txt"
   local missing_symbols="$tmp_dir/missing-symbols.txt"
   local unexpected_symbols="$tmp_dir/unexpected-symbols.txt"
+  local header_path
+  header_path="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/include/pure_simdjson.h"
 
   objdump -T "$library_path" >"$objdump_output"
   nm -D --defined-only "$library_path" | awk '{print $NF}' | sed 's/@.*$//' | sort -u >"$observed_symbols"
   grep '^pure_simdjson_' "$observed_symbols" >"$pure_symbols" || true
-  grep -oE 'pure_simdjson_[A-Za-z0-9_]+' include/pure_simdjson.h | sort -u >"$expected_symbols"
+  write_expected_exports "$header_path" >"$expected_symbols"
 
   grep -v '^pure_simdjson_' "$observed_symbols" >"$unexpected_symbols" || true
   comm -23 "$expected_symbols" "$pure_symbols" >"$missing_symbols" || true

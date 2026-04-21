@@ -38,7 +38,11 @@ run_unix_smoke() {
     extra_link_flags=(-ldl)
   fi
 
-  cc -std=c11 -Wall -Wextra -Iinclude tests/smoke/ffi_export_surface.c -o "$ffi_binary" "${extra_link_flags[@]}"
+  if [[ ${#extra_link_flags[@]} -gt 0 ]]; then
+    cc -std=c11 -Wall -Wextra -Iinclude tests/smoke/ffi_export_surface.c -o "$ffi_binary" "${extra_link_flags[@]}"
+  else
+    cc -std=c11 -Wall -Wextra -Iinclude tests/smoke/ffi_export_surface.c -o "$ffi_binary"
+  fi
   "$ffi_binary" "$artifact"
 
   cc -std=c11 -Wall -Wextra -Iinclude tests/smoke/minimal_parse.c \
