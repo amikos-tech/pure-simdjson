@@ -19,6 +19,7 @@ One of:
 Optional environment variables:
   AWS_SESSION_TOKEN
   AWS_DEFAULT_REGION (defaults to auto)
+  PROJECT (R2 prefix root; defaults to pure-simdjson)
 EOF
 }
 
@@ -71,7 +72,7 @@ if [[ ! -d "$publish_root" ]]; then
   exit 1
 fi
 
-prefix="pure-simdjson/${version}"
+prefix="${PROJECT:-pure-simdjson}/${version}"
 existing_count="$(
   aws --endpoint-url "$endpoint_url" s3api list-objects-v2 \
     --bucket "$R2_BUCKET" \
