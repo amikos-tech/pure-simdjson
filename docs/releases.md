@@ -35,7 +35,9 @@ bash scripts/release/check_readiness.sh --strict --version "${VERSION}"
 `--strict` is the release gate. It fails if:
 
 - `python3 scripts/release/assert_prepared_state.py --check-source --version <semver-without-v>` fails
+- `cargo metadata --format-version 1 --locked` fails
 - `git fetch origin main --depth=1 && git merge-base --is-ancestor HEAD origin/main` fails
+- `Cargo.lock` is missing from the repo or not tracked by git
 - `.github/workflows/release-prepare.yml` is missing
 - `.github/workflows/release.yml` is missing
 - `docs/releases.md` is missing
