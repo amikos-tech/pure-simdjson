@@ -1,9 +1,11 @@
 package bootstrap
 
-// Checksums maps path fragments "v<Version>/<os>-<arch>/<libname>" to their
-// expected SHA-256 hex digests (D-08). CI-05 generates this map at release time.
-// During development the map is empty; BootstrapSync returns ErrNoChecksum when
-// an entry is missing.
+// Checksums optionally overrides published SHA-256 digests for
+// "v<Version>/<os>-<arch>/<libname>" path fragments.
+//
+// Production bootstrap resolves digests from published SHA256SUMS metadata under
+// the release tag. Tests and controlled local flows may inject overrides here to
+// avoid network metadata lookups.
 var Checksums = map[string]string{
 	// "v0.1.0/linux-amd64/libpure_simdjson.so":      "<sha256>",
 	// "v0.1.0/linux-arm64/libpure_simdjson.so":      "<sha256>",

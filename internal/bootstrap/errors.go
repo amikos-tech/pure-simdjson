@@ -8,7 +8,8 @@ import "errors"
 
 var (
 	// ErrChecksumMismatch reports that a downloaded artifact's SHA-256 digest did
-	// not match the value in Checksums. Permanent: no retry on mismatch (D-17, D-31).
+	// not match the authoritative expected value. Permanent: no retry on mismatch
+	// (D-17, D-31).
 	ErrChecksumMismatch = errors.New("checksum mismatch")
 
 	// ErrAllSourcesFailed reports that all download sources (R2 + GitHub fallback)
@@ -16,7 +17,7 @@ var (
 	// hint referencing PURE_SIMDJSON_LIB_PATH (D-21).
 	ErrAllSourcesFailed = errors.New("all sources failed")
 
-	// ErrNoChecksum reports that Checksums has no entry for the requested
-	// platform/version. Expected before CI-05 populates the map at release time.
+	// ErrNoChecksum reports that no authoritative digest could be resolved for the
+	// requested platform/version from checksum overrides or published SHA256SUMS.
 	ErrNoChecksum = errors.New("no checksum for platform")
 )

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/amikos-tech/pure-simdjson/internal/bootstrap"
 )
@@ -53,6 +55,44 @@ func TestVerifyAllPlatformsDest(t *testing.T) {
 	// Stdout should contain one PASS line per platform.
 	passCount := bytes.Count(outBuf.Bytes(), []byte("PASS "))
 	if passCount != 5 {
+		t.Fatalf("expected 5 PASS lines, got %d\nstdout:\n%s", passCount, outBuf.String())
+	}
+}
+
+func TestVerifyAllPlatformsDestWithLocalSHA256SUMS(t *testing.T) {
+	destDir := t.TempDir()
+	fakeBody := []byte("offline-bundle-with-sums")
+	h := sha256.New()
+	h.Write(fakeBody)
+	sum := hex.EncodeToString(h.Sum(nil))
+
+	versionRoot := filepath.Join(destDir, "v"+bootstrap.Version)
+	if err := os.MkdirAll(versionRoot, 0700); err != nil {
+		t.Fatalf("mkdir %s: %v", versionRoot, err)
+	}
+
+	var sums bytes.Buffer
+	for _, p := range bootstrap.SupportedPlatforms {
+		goos, goarch := p[0], p[1]
+		dir := filepath.Join(versionRoot, goos+"-"+goarch)
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+		libPath := filepath.Join(dir, bootstrap.PlatformLibraryName(goos))
+		if err := os.WriteFile(libPath, fakeBody, 0600); err != nil {
+			t.Fatalf("write %s: %v", libPath, err)
+		}
+		sums.WriteString(sum + "  " + bootstrap.ChecksumKey(bootstrap.Version, goos, goarch) + "\n")
+	}
+	if err := os.WriteFile(filepath.Join(versionRoot, "SHA256SUMS"), sums.Bytes(), 0600); err != nil {
+		t.Fatalf("write SHA256SUMS: %v", err)
+	}
+
+	var outBuf, errBuf bytes.Buffer
+	if err := runVerify(true, destDir, &outBuf, &errBuf); err != nil {
+		t.Fatalf("runVerify --all-platforms --dest with local sums: %v\nstderr:\n%s", err, errBuf.String())
+	}
+	if passCount := bytes.Count(outBuf.Bytes(), []byte("PASS ")); passCount != 5 {
 		t.Fatalf("expected 5 PASS lines, got %d\nstdout:\n%s", passCount, outBuf.String())
 	}
 }
@@ -130,5 +170,33 @@ func TestVerifyCurrentPlatformDefault(t *testing.T) {
 	}
 	if !bytes.Contains(outBuf.Bytes(), []byte("PASS ")) {
 		t.Fatalf("expected PASS in stdout, got: %s", outBuf.String())
+	}
+}
+
+func TestExpectedChecksumUsesBoundedRemoteResolutionContext(t *testing.T) {
+	origResolve := resolveChecksumFn
+	origTimeout := resolveChecksumTimeout
+	t.Cleanup(func() {
+		resolveChecksumFn = origResolve
+		resolveChecksumTimeout = origTimeout
+	})
+
+	resolveChecksumTimeout = 25 * time.Millisecond
+	resolveChecksumFn = func(ctx context.Context, opts ...bootstrap.BootstrapOption) (string, error) {
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("expected remote checksum resolution context to carry a deadline")
+		}
+		remaining := time.Until(deadline)
+		if remaining <= 0 || remaining > 250*time.Millisecond {
+			t.Fatalf("unexpected timeout window: %v", remaining)
+		}
+		<-ctx.Done()
+		return "", ctx.Err()
+	}
+
+	_, err := expectedChecksum("", "linux", "amd64")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context deadline exceeded, got %v", err)
 	}
 }

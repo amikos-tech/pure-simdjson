@@ -56,7 +56,7 @@ func githubAssetName(goos, goarch string) string {
 		return fmt.Sprintf("libpure_simdjson-%s-%s.so", goos, goarch)
 	case "windows":
 		// Windows CI builds pure_simdjson-msvc.dll locally; at release upload time
-		// CI-05 renames it to pure_simdjson-<goos>-<goarch>-msvc.dll for the flat
+		// the release workflow renames it to pure_simdjson-<goos>-<goarch>-msvc.dll for the flat
 		// GH asset namespace.
 		return fmt.Sprintf("pure_simdjson-%s-%s-msvc.dll", goos, goarch)
 	default:
@@ -87,6 +87,20 @@ func githubArtifactURL(baseURL, version, goos, goarch string) string {
 	asset := githubAssetName(goos, goarch)
 	return fmt.Sprintf("%s/v%s/%s",
 		strings.TrimRight(base, "/"), version, asset)
+}
+
+// r2ChecksumsURL constructs the published SHA256SUMS URL under the raw R2 tree.
+func r2ChecksumsURL(baseURL, version string) string {
+	return fmt.Sprintf("%s/v%s/SHA256SUMS", strings.TrimRight(baseURL, "/"), version)
+}
+
+// githubChecksumsURL constructs the GitHub Releases SHA256SUMS URL.
+func githubChecksumsURL(baseURL, version string) string {
+	base := baseURL
+	if base == "" {
+		base = defaultGitHubBaseURL
+	}
+	return fmt.Sprintf("%s/v%s/SHA256SUMS", strings.TrimRight(base, "/"), version)
 }
 
 // ChecksumKey returns the map key used in Checksums for a given platform (D-08).

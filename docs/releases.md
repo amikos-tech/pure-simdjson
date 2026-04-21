@@ -1,0 +1,194 @@
+# Release Runbook
+
+`docs/releases.md` is the authoritative release runbook for this repository.
+`release.yml`, `scripts/release/check_readiness.sh`, and the CI matrix are the
+only supported publish path. Do not hand-upload artifacts or bypass CI.
+
+## Org-Standard Flow
+
+`pure-simdjson` now follows the same operator pattern as `pure-onnx` and
+`pure-tokenizers`:
+
+1. Land the release commit on `main`.
+2. Run the strict readiness gate for the intended version.
+3. Create an annotated `v<version>` tag on that `main` commit.
+4. Push the tag.
+5. Let `release.yml` build, sign, verify, and publish the release.
+
+Example:
+
+```bash
+VERSION=0.1.0
+git fetch origin main --tags
+git checkout origin/main
+bash scripts/release/check_readiness.sh --strict --version "${VERSION}"
+git tag -a "v${VERSION}" -m "v${VERSION}"
+git push origin "v${VERSION}"
+```
+
+## Required GitHub Configuration
+
+The org-standard names are:
+
+- GitHub Actions secret: `R2_ACCESS_KEY_ID`
+- GitHub Actions secret: `R2_SECRET_ACCESS_KEY`
+- GitHub Actions secret, if your R2 credentials are session-based:
+  `AWS_SESSION_TOKEN`
+- GitHub Actions variable or secret: `R2_ENDPOINT`
+- Optional GitHub Actions variable or secret: `R2_BUCKET`
+  Default: `releases`
+- Optional GitHub Actions variable: `AWS_DEFAULT_REGION`
+  Default: `auto`
+- Optional GitHub Actions variable: `RELEASES_DOMAIN`
+  Default: `releases.amikos.tech`
+- Optional GitHub Actions variable: `RELEASE_INDEX_ENABLED=1`
+- Optional GitHub Actions variable: `CF_ZONE_ID`
+- Optional GitHub Actions secret: `CLOUDFLARE_API_TOKEN`
+
+Legacy `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `R2_ENDPOINT_URL`
+inputs are still accepted for compatibility, but new repos should use the
+org-standard names above.
+
+No cosign private key is required. `release.yml` uses GitHub OIDC keyless
+signing, so the workflow must keep `id-token: write` and `contents: write`.
+
+## Pre-Tag Readiness Gate
+
+Before recommending or pushing a tag, run:
+
+```bash
+VERSION=0.1.0
+bash scripts/release/check_readiness.sh --strict --version "${VERSION}"
+```
+
+`--strict` fails if:
+
+- `internal/bootstrap/version.go` does not match `<version>`
+- `cargo metadata --format-version 1 --locked` fails
+- `git fetch origin main --depth=1 && git merge-base --is-ancestor HEAD origin/main` fails
+- `Cargo.lock` is missing from the repo or not tracked by git
+- `.github/workflows/release.yml` is missing
+- `docs/releases.md` is missing
+
+## What `release.yml` Does
+
+On a pushed `v*` tag, the workflow:
+
+- verifies the tag is a semver and the commit is anchored on `origin/main`
+- verifies `internal/bootstrap/version.go` matches the tag version
+- builds the five supported platform artifacts
+- runs native smoke gates and packaged-artifact smoke gates
+- generates `SHA256SUMS`
+- keylessly signs raw artifacts and `SHA256SUMS` with cosign
+- uploads the immutable raw release tree to R2
+- publishes `latest.json`
+- optionally updates and signs `releases.json`
+- publishes the flat GitHub Release assets
+
+Runtime checksum verification no longer depends on a generated prep-branch
+source rewrite. The Go bootstrap path resolves expected digests from the
+published `SHA256SUMS` metadata for the requested tag.
+
+## Published Artifact Layout
+
+Raw R2 artifacts and checksum material live under the immutable tree rooted at:
+
+```text
+https://releases.amikos.tech/pure-simdjson/v<version>/
+```
+
+Raw library URLs:
+
+- `https://releases.amikos.tech/pure-simdjson/v<version>/linux-amd64/libpure_simdjson.so`
+- `https://releases.amikos.tech/pure-simdjson/v<version>/linux-arm64/libpure_simdjson.so`
+- `https://releases.amikos.tech/pure-simdjson/v<version>/darwin-amd64/libpure_simdjson.dylib`
+- `https://releases.amikos.tech/pure-simdjson/v<version>/darwin-arm64/libpure_simdjson.dylib`
+- `https://releases.amikos.tech/pure-simdjson/v<version>/windows-amd64/pure_simdjson-msvc.dll`
+- `https://releases.amikos.tech/pure-simdjson/v<version>/SHA256SUMS`
+
+Each raw object is published with `.sig` and `.pem` sidecars. `SHA256SUMS`
+also gets `SHA256SUMS.sig` and `SHA256SUMS.pem`.
+
+GitHub Releases publishes the same bytes under flat asset names:
+
+- `libpure_simdjson-linux-amd64.so`
+- `libpure_simdjson-linux-arm64.so`
+- `libpure_simdjson-darwin-amd64.dylib`
+- `libpure_simdjson-darwin-arm64.dylib`
+- `pure_simdjson-windows-amd64-msvc.dll`
+- `SHA256SUMS`
+
+The metadata endpoints follow the org-standard convention:
+
+- `https://releases.amikos.tech/pure-simdjson/latest.json`
+- `https://releases.amikos.tech/pure-simdjson/releases.json`
+  when `RELEASE_INDEX_ENABLED=1`
+
+## Cosign Verification
+
+`release.yml` uses keyless GitHub OIDC signing. Verification must use:
+
+- certificate identity:
+  `https://github.com/amikos-tech/pure-simdjson/.github/workflows/release.yml@refs/tags/v<version>`
+- certificate issuer:
+  `https://token.actions.githubusercontent.com`
+
+Verify one raw artifact:
+
+```bash
+TAG=v0.1.0
+BASE_URL="https://releases.amikos.tech/pure-simdjson/${TAG}"
+LIB="libpure_simdjson.so"
+
+curl -LO "${BASE_URL}/linux-amd64/${LIB}"
+curl -LO "${BASE_URL}/linux-amd64/${LIB}.sig"
+curl -LO "${BASE_URL}/linux-amd64/${LIB}.pem"
+
+cosign verify-blob \
+  --signature "${LIB}.sig" \
+  --certificate "${LIB}.pem" \
+  --certificate-identity "https://github.com/amikos-tech/pure-simdjson/.github/workflows/release.yml@refs/tags/${TAG}" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  "${LIB}"
+```
+
+Verify `SHA256SUMS` itself:
+
+```bash
+TAG=v0.1.0
+BASE_URL="https://releases.amikos.tech/pure-simdjson/${TAG}"
+
+curl -LO "${BASE_URL}/SHA256SUMS"
+curl -LO "${BASE_URL}/SHA256SUMS.sig"
+curl -LO "${BASE_URL}/SHA256SUMS.pem"
+
+cosign verify-blob \
+  --signature SHA256SUMS.sig \
+  --certificate SHA256SUMS.pem \
+  --certificate-identity "https://github.com/amikos-tech/pure-simdjson/.github/workflows/release.yml@refs/tags/${TAG}" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  SHA256SUMS
+```
+
+## macOS Downloaded Dylibs
+
+The macOS artifacts are ad-hoc signed in CI. A downloaded `.dylib` can still
+arrive with a Gatekeeper quarantine attribute. If the loader is blocked after
+download, remove the quarantine attribute and retry:
+
+```bash
+xattr -d com.apple.quarantine <path-to-dylib>
+```
+
+For a repeatable local approximation of the downloaded-artifact load path on a
+macOS workstation, run:
+
+```bash
+bash scripts/release/check_macos_downloaded_dylib.sh --build-local
+```
+
+## Phase 06.1 Boundary
+
+Phase `06.1` is where post-publish fresh-runner or fresh-machine public
+validation happens. This release runbook ends at a successful tag-driven CI
+publish plus signature and metadata verification.

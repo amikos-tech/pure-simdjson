@@ -17,7 +17,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 - [x] **Phase 3: Go Public API + purego Happy Path** — Wire Go's `purejson` package to the shim with handle lifecycle, ParserPool, typed errors, and one accessor as smoke test
 - [x] **Phase 4: Full Typed Accessor Surface** — Complete the DOM accessor surface (uint64/float64/string/bool/null) and cursor-pull iteration over arrays and objects
 - [x] **Phase 5: Bootstrap + Distribution** — Implement R2 download with GitHub fallback, SHA-256 verification, OS cache, env overrides, and the bootstrap CLI
-- [ ] **Phase 6: CI Release Matrix + Platform Coverage** — Build, sign, and publish artifacts for all five targets plus Alpine smoke-test, with cosign and ad-hoc macOS codesign
+- [x] **Phase 6: CI Release Matrix + Platform Coverage** — Build, sign, and publish artifacts for all five targets plus Alpine smoke-test, with cosign and ad-hoc macOS codesign
 - [ ] **Phase 7: Benchmarks + v0.1 Release** — Three-tier benchmark harness vs `encoding/json`, `simdjson-go`, `sonic`, `goccy/go-json`; correctness oracle; documentation; v0.1 tag
 
 ## Phase Details
@@ -241,16 +241,16 @@ Plans:
 **Requirements:** PLAT-01, PLAT-02, PLAT-03, PLAT-04, PLAT-05, PLAT-06, CI-01, CI-02, CI-03, CI-04, CI-05, CI-06, CI-07
 
 **Must-haves:**
-- `.github/workflows/rust-release.yml` builds all five target artifacts on tag push
+- `.github/workflows/release-prepare.yml` prepares version/checksum source state before tagging, and `.github/workflows/release.yml` builds all five target artifacts on tag push
 - linux/amd64 and linux/arm64: glibc baseline ≤ 2.17 (manylinux2014 base or equivalent); `objdump -T` verification step (PLAT-01, PLAT-02, pitfall 14)
 - darwin/amd64 and darwin/arm64: macOS 11+; ad-hoc codesign via `codesign -s - --force`; thin per-arch (no `lipo`) (pitfall 15, 30)
 - windows/amd64: MSVC toolchain; artifact named `pure_simdjson-msvc.dll`; long-paths enabled in CI (PLAT-05, pitfall 29)
 - Per-platform FFI smoke test job: load the artifact, call every exported symbol once, parse one literal document — gate the release on this (CI-04, pitfall 8, 9)
 - Alpine smoke-test job (`alpine:latest` container) loads via `PURE_SIMDJSON_LIB_PATH` with a user-built `.so`; documents the chosen musl strategy (PLAT-06, CI-07, pitfall 21)
 - Cosign keyless OIDC signing on every artifact
-- SHA-256 manifest computed in CI and committed back as `internal/bootstrap/checksums.go` either in the tagged commit or a follow-up PR (CI-05)
+- SHA-256 manifest computed in CI and committed back as `internal/bootstrap/checksums.go` in the tagged-commit path (CI-05)
 - GitHub Release asset upload step renames platform binaries to their platform-tagged form (`libpure_simdjson-<goos>-<goarch>.ext` / `pure_simdjson-windows-amd64-msvc.dll`) per Phase 5 H1 contract to avoid flat-namespace collision (CI-05)
-- Single tag workflow handles version bump, changelog stub, and release-notes (CI-06)
+- Pre-tag prep flow handles version/checksum source updates; tag workflow generates release notes and publishes that exact prepared state (CI-06)
 - `-static-libstdc++ -static-libgcc` verified via `nm` showing only `extern "C"` exports (pitfall 22)
 
 **Nice-to-haves:**
@@ -264,11 +264,30 @@ Plans:
 4. `objdump -T` on the linux artifacts shows no glibc symbols newer than 2.17
 5. macOS artifacts open without Gatekeeper blocking after the documented `xattr -d com.apple.quarantine` workaround
 
-**Plans:** TBD
+**Plans:** 6 plans
 
 **Research flag:** YES — spawn `/gsd-research-phase` during planning. The musl/Alpine strategy (static-link-into-glibc-so vs ship `.a` with documented relink vs smoke-test-only with escape hatch) is unresolved per SUMMARY.md decision 5; manylinux vs zig-cc choice and final target matrix also need a focused study before CI is written.
 
+Plans:
+- [x] `06-01-PLAN.md` — Shared release tooling scaffold: composite actions, packaging helpers, and bootstrap-state generator
+- [x] `06-02-PLAN.md` — Linux GNU release builds in manylinux containers with glibc-floor proof
+- [x] `06-03-PLAN.md` — macOS and Windows release builds with codesign, long-path handling, and export verification
+- [x] `06-04-PLAN.md` — Native + Go packaged-artifact smoke gates, including Alpine escape-hatch validation
+- [x] `06-05-PLAN.md` — Release-prep and tag-publish workflows with checksum/tag coherence, cosign, and R2/GitHub publish
+- [x] `06-06-PLAN.md` — Release runbook, readiness gate, and repo-local release skill
+
 ---
+
+### Phase 06.1: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (INSERTED)
+
+**Goal:** Execute the Phase 5 human UAT that could not be exercised during Phase 5 because the `internal/bootstrap/checksums.go` map is populated only at release time by Phase 6 CI-05. On a fresh machine with `~/Library/Caches/pure-simdjson` cleared, `NewParser()` should download a real artifact from `releases.amikos.tech`, verify SHA-256 against the populated `Checksums` map, cache with 0700 perms, and parse a sample document successfully on each of the 5 target platforms (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64). Validates Success Criterion 1 from ROADMAP.md.
+
+**Requirements:** TBD — lifted from backlog item 999.4 after Phase 5 deferred the live-artifact bootstrap UAT pending Phase 6 CI-05. See `.planning/phases/05-bootstrap-distribution/05-HUMAN-UAT.md` for original context.
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 06.1 to break down)
 
 ### Phase 7: Benchmarks + v0.1 Release
 
@@ -370,7 +389,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 3. Go API + purego Happy Path | 5/5 | Complete | 2026-04-16 |
 | 4. Full Typed Accessor Surface | 5/5 | Complete | 2026-04-17 |
 | 5. Bootstrap + Distribution | 6/6 | Complete | 2026-04-20 |
-| 6. CI Release Matrix | 0/? | Not started | — |
+| 6. CI Release Matrix | 6/6 | Complete | 2026-04-21 |
 | 7. Benchmarks + v0.1 Release | 0/? | Not started | — |
 
 Plan counts populated by `/gsd-plan-phase`.
@@ -406,17 +425,6 @@ Plans:
 **Goal:** [Captured for future planning] Reshape the exported `internal/ffi` layout carriers so purego bindings can preserve ABI/layout guarantees without exposing field-level coupling as de facto public API.
 
 **Requirements:** TBD
-
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.4: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (BACKLOG)
-
-**Goal:** [Captured for future planning] Execute the Phase 5 human UAT that could not be exercised during Phase 5 because the `internal/bootstrap/checksums.go` map is populated only at release time by Phase 6 CI-05. On a fresh machine with `~/Library/Caches/pure-simdjson` cleared, `NewParser()` should download a real artifact from `releases.amikos.tech`, verify SHA-256 against the populated `Checksums` map, cache with 0700 perms, and parse a sample document successfully on each of the 5 target platforms (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64). Validates Success Criterion 1 from ROADMAP.md. Blocked-by: Phase 6 CI-05. See `.planning/phases/05-bootstrap-distribution/05-HUMAN-UAT.md` for original context.
-
-**Requirements:** TBD — promote after Phase 6 ships a release with populated checksums.
 
 **Plans:** 0 plans
 
