@@ -93,7 +93,8 @@ Requirements for initial release. Each maps to roadmap phases.
 **: Per-platform FFI smoke test verifies all exported symbols load and one parse round-trips
 - [x] **CI-05
 **: Release pipeline computes SHA-256 for each artifact and commits `checksums.go` in a follow-up PR (or includes it in the tagged commit)
-- [ ] **CI-06**: Version bump, changelog, and release-notes in a single tag workflow
+- [x] **CI-06
+**: Version bump, changelog, and release-notes in a single tag workflow
 - [x] **CI-07
 **: Alpine smoke-test job runs in an `alpine:latest` container
 
@@ -218,8 +219,8 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | CI-02 | Phase 6 | Pending |
 | CI-03 | Phase 6 | Complete |
 | CI-04 | Phase 6 | Pending |
-| CI-05 | Phase 6 | Pending |
-| CI-06 | Phase 6 | Pending |
+| CI-05 | Phase 6 | Complete |
+| CI-06 | Phase 6 | Complete |
 | CI-07 | Phase 6 | Pending |
 | BENCH-01 | Phase 7 | Pending |
 | BENCH-02 | Phase 7 | Pending |

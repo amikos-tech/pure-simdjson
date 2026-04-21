@@ -273,7 +273,7 @@ Plans:
 - [x] `06-02-PLAN.md` — Linux GNU release builds in manylinux containers with glibc-floor proof
 - [x] `06-03-PLAN.md` — macOS and Windows release builds with codesign, long-path handling, and export verification
 - [x] `06-04-PLAN.md` — Native + Go packaged-artifact smoke gates, including Alpine escape-hatch validation
-- [ ] `06-05-PLAN.md` — Release-prep and tag-publish workflows with checksum/tag coherence, cosign, and R2/GitHub publish
+- [x] `06-05-PLAN.md` — Release-prep and tag-publish workflows with checksum/tag coherence, cosign, and R2/GitHub publish
 - [ ] `06-06-PLAN.md` — Release runbook, readiness gate, and repo-local release skill
 
 ---
@@ -389,7 +389,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 3. Go API + purego Happy Path | 5/5 | Complete | 2026-04-16 |
 | 4. Full Typed Accessor Surface | 5/5 | Complete | 2026-04-17 |
 | 5. Bootstrap + Distribution | 6/6 | Complete | 2026-04-20 |
-| 6. CI Release Matrix | 3/6 | In progress | — |
+| 6. CI Release Matrix | 4/6 | In progress | — |
 | 7. Benchmarks + v0.1 Release | 0/? | Not started | — |
 
 Plan counts populated by `/gsd-plan-phase`.
