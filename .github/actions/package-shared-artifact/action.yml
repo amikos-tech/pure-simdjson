@@ -1,0 +1,85 @@
+name: package-shared-artifact
+description: Rename a built shared library into release artifact names and emit a checksum-bearing manifest entry.
+
+inputs:
+  input:
+    description: Path to the built shared library.
+    required: true
+  goos:
+    description: GOOS for the package.
+    required: true
+  goarch:
+    description: GOARCH for the package.
+    required: true
+  rust-target:
+    description: Rust target triple for the package.
+    required: true
+  version:
+    description: Semver version without the leading v.
+    required: true
+  out-dir:
+    description: Output directory for packaged artifacts and manifest.
+    required: true
+
+outputs:
+  manifest-path:
+    description: Path to the one-entry manifest JSON file.
+    value: ${{ steps.collect.outputs.manifest-path }}
+  r2-key:
+    description: R2/cache key for the packaged artifact.
+    value: ${{ steps.collect.outputs.r2-key }}
+  r2-path:
+    description: Absolute path to the packaged R2/cache artifact.
+    value: ${{ steps.collect.outputs.r2-path }}
+  github-asset-name:
+    description: Flat-namespace GitHub release asset name.
+    value: ${{ steps.collect.outputs.github-asset-name }}
+  github-asset-path:
+    description: Absolute path to the flat-namespace GitHub asset copy.
+    value: ${{ steps.collect.outputs.github-asset-path }}
+  sha256:
+    description: SHA-256 digest computed from the packaged R2/cache-path bytes.
+    value: ${{ steps.collect.outputs.sha256 }}
+
+runs:
+  using: composite
+  steps:
+    - name: Package shared artifact
+      shell: bash
+      run: |
+        set -euo pipefail
+        bash "$GITHUB_WORKSPACE/scripts/release/package_shared_artifact.sh" \
+          --input "${{ inputs.input }}" \
+          --goos "${{ inputs.goos }}" \
+          --goarch "${{ inputs.goarch }}" \
+          --rust-target "${{ inputs.rust-target }}" \
+          --version "${{ inputs.version }}" \
+          --out-dir "${{ inputs.out-dir }}"
+
+    - name: Collect packaging outputs
+      id: collect
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        manifest_path="${{ inputs.out-dir }}/manifest.json"
+        if [[ ! -f "$manifest_path" ]]; then
+          echo "manifest not found: $manifest_path" >&2
+          exit 1
+        fi
+
+        python3 - "$manifest_path" <<'PY' >>"$GITHUB_OUTPUT"
+import json
+import pathlib
+import sys
+
+manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+entry = manifest["entries"][0]
+
+print(f"manifest-path={sys.argv[1]}")
+print(f"r2-key={entry['r2_key']}")
+print(f"r2-path={entry['local_path']}")
+print(f"github-asset-name={entry['github_asset_name']}")
+print(f"github-asset-path={pathlib.Path(sys.argv[1]).parent / entry['github_asset_name']}")
+print(f"sha256={entry['sha256']}")
+PY

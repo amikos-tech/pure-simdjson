@@ -1,0 +1,226 @@
+name: build-shared-library
+description: Build one release shared library with deterministic flags and optional reproducibility checks.
+
+inputs:
+  toolchain-file:
+    description: Path to the repo-pinned Rust toolchain file.
+    required: false
+    default: rust-toolchain.toml
+  target:
+    description: Rust target triple to build.
+    required: true
+  goos:
+    description: GOOS for the packaged platform.
+    required: true
+  goarch:
+    description: GOARCH for the packaged platform.
+    required: true
+  runner_kind:
+    description: Host runner kind: linux, darwin, or windows.
+    required: true
+  manylinux_image:
+    description: Optional manylinux container image for Linux builds.
+    required: false
+    default: ""
+  use_zigbuild:
+    description: Build with cargo-zigbuild instead of cargo build.
+    required: false
+    default: "false"
+  source_date_epoch:
+    description: SOURCE_DATE_EPOCH supplied by the caller.
+    required: true
+  verify_reproducible:
+    description: Build twice into separate target directories and compare digests.
+    required: false
+    default: "false"
+
+outputs:
+  built-library-path:
+    description: Absolute path to the built shared library.
+    value: ${{ steps.build.outputs.built-library-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install pinned Rust toolchain
+      uses: ./.github/actions/setup-rust
+      with:
+        toolchain-file: rust-toolchain.toml
+        targets: ${{ inputs.target }}
+
+    - name: Configure MSVC environment
+      if: ${{ inputs.runner_kind == 'windows' }}
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Resolve deterministic build flags
+      id: prepare
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        source_date_epoch="${{ inputs.source_date_epoch }}"
+        if [[ ! "$source_date_epoch" =~ ^[0-9]+$ ]]; then
+          echo "source_date_epoch must be a unix timestamp, got: $source_date_epoch" >&2
+          exit 1
+        fi
+
+        case "${{ inputs.runner_kind }}" in
+          linux)
+            library_name="libpure_simdjson.so"
+            link_flag="-C link-arg=-Wl,--build-id=none"
+            ;;
+          darwin)
+            library_name="libpure_simdjson.dylib"
+            link_flag="-C link-arg=-Wl,-no_uuid"
+            ;;
+          windows)
+            library_name="pure_simdjson.dll"
+            link_flag="-C link-arg=/Brepro"
+            ;;
+          *)
+            echo "unsupported runner_kind: ${{ inputs.runner_kind }}" >&2
+            exit 1
+            ;;
+        esac
+
+        rustflags="--remap-path-prefix=${GITHUB_WORKSPACE}=. -C codegen-units=1 -C debuginfo=0 -C strip=symbols ${link_flag}"
+
+        echo "CARGO_INCREMENTAL=0" >>"$GITHUB_ENV"
+        echo "SOURCE_DATE_EPOCH=$source_date_epoch" >>"$GITHUB_ENV"
+        echo "RUSTFLAGS=$rustflags" >>"$GITHUB_ENV"
+        echo "library-name=$library_name" >>"$GITHUB_OUTPUT"
+
+    - name: Install cargo-zigbuild
+      if: ${{ inputs.use_zigbuild == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        cargo install cargo-zigbuild --locked
+
+    - name: Build shared library
+      id: build
+      shell: bash
+      env:
+        LIBRARY_NAME: ${{ steps.prepare.outputs.library-name }}
+      run: |
+        set -euo pipefail
+
+        target="${{ inputs.target }}"
+        runner_kind="${{ inputs.runner_kind }}"
+        manylinux_image="${{ inputs.manylinux_image }}"
+        use_zigbuild="${{ inputs.use_zigbuild }}"
+        verify_reproducible="${{ inputs.verify_reproducible }}"
+
+        if [[ "$use_zigbuild" == "true" && -n "$manylinux_image" ]]; then
+          echo "cargo-zigbuild is not supported inside manylinux_image builds in this action" >&2
+          exit 1
+        fi
+
+        cargo_command=(cargo build --release --locked --target "$target")
+        if [[ "$use_zigbuild" == "true" ]]; then
+          cargo_command=(cargo zigbuild --release --locked --target "$target")
+        fi
+
+        hash_file() {
+          python3 - "$1" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+digest = hashlib.sha256(path.read_bytes()).hexdigest()
+print(digest)
+PY
+        }
+
+        build_once_host() {
+          local target_dir="$1"
+          CARGO_TARGET_DIR="$target_dir" "${cargo_command[@]}"
+        }
+
+        build_once_manylinux() {
+          local target_dir="$1"
+          if ! command -v docker >/dev/null 2>&1; then
+            echo "manylinux_image requires docker on the runner" >&2
+            exit 1
+          fi
+
+          local home_dir="${HOME:?HOME is required}"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+            -v "$home_dir/.cargo:$home_dir/.cargo" \
+            -v "$home_dir/.rustup:$home_dir/.rustup" \
+            -w "$GITHUB_WORKSPACE" \
+            -e HOME="$home_dir" \
+            -e PATH="$home_dir/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            -e CARGO_INCREMENTAL="$CARGO_INCREMENTAL" \
+            -e SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
+            -e RUSTFLAGS="$RUSTFLAGS" \
+            -e CARGO_TARGET_DIR="$target_dir" \
+            "$manylinux_image" \
+            bash -lc "rustup show active-toolchain >/dev/null && ${cargo_command[*]}"
+        }
+
+        build_once() {
+          local target_dir="$1"
+          mkdir -p "$target_dir"
+          if [[ "$runner_kind" == "linux" && -n "$manylinux_image" ]]; then
+            build_once_manylinux "$target_dir"
+          else
+            build_once_host "$target_dir"
+          fi
+        }
+
+        library_path_from_dir() {
+          python3 - "$1" "$target" "$LIBRARY_NAME" <<'PY'
+import os
+import pathlib
+import sys
+
+target_dir = pathlib.Path(sys.argv[1])
+triple = sys.argv[2]
+library_name = sys.argv[3]
+path = target_dir / triple / "release" / library_name
+print(os.path.abspath(path))
+PY
+        }
+
+        if [[ "$verify_reproducible" == "true" ]]; then
+          first_dir="$(mktemp -d "${RUNNER_TEMP:-/tmp}/pure-simdjson-build-1.XXXXXX")"
+          second_dir="$(mktemp -d "${RUNNER_TEMP:-/tmp}/pure-simdjson-build-2.XXXXXX")"
+
+          build_once "$first_dir"
+          build_once "$second_dir"
+
+          first_path="$(library_path_from_dir "$first_dir")"
+          second_path="$(library_path_from_dir "$second_dir")"
+
+          if [[ ! -f "$first_path" || ! -f "$second_path" ]]; then
+            echo "reproducibility check did not produce the expected library outputs" >&2
+            exit 1
+          fi
+
+          first_digest="$(hash_file "$first_path")"
+          second_digest="$(hash_file "$second_path")"
+
+          echo "reproducibility digest #1: $first_digest"
+          echo "reproducibility digest #2: $second_digest"
+
+          if [[ "$first_digest" != "$second_digest" ]]; then
+            echo "reproducibility verification failed for $target" >&2
+            exit 1
+          fi
+
+          final_path="$second_path"
+        else
+          build_once "$GITHUB_WORKSPACE/target"
+          final_path="$(library_path_from_dir "$GITHUB_WORKSPACE/target")"
+        fi
+
+        if [[ ! -f "$final_path" ]]; then
+          echo "built library not found: $final_path" >&2
+          exit 1
+        fi
+
+        echo "built-library-path=$final_path" >>"$GITHUB_OUTPUT"
