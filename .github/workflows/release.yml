@@ -379,7 +379,8 @@ jobs:
               '${{ matrix.import_library_name }}'
           )"
           if [[ -f "$import_lib_path" ]]; then
-            cp "$import_lib_path" "dist/${{ matrix.platform_id }}/${{ matrix.import_library_name }}"
+            r2_dir="$(dirname "${{ steps.package.outputs.r2-path }}")"
+            cp "$import_lib_path" "$r2_dir/${{ matrix.import_library_name }}"
           fi
 
       - name: Record windows dependent DLLs

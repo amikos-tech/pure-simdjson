@@ -44,6 +44,19 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         )
         self.assertNotIn("out-dir: dist/${{ matrix.platform_id }}", windows_section)
 
+    def test_windows_import_library_is_preserved_next_to_staged_dll(self) -> None:
+        workflow_text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+        windows_section = workflow_text.split("- name: Preserve windows import library", 1)[1]
+
+        self.assertIn(
+            'r2_dir="$(dirname "${{ steps.package.outputs.r2-path }}")"',
+            windows_section,
+        )
+        self.assertIn(
+            'cp "$import_lib_path" "$r2_dir/${{ matrix.import_library_name }}"',
+            windows_section,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
