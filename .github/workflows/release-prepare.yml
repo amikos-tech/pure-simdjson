@@ -76,6 +76,11 @@ jobs:
           # manual path proves manylinux is blocked.
           use_zigbuild: "false"
 
+      - name: Verify glibc floor and linux export surface
+        run: |
+          set -euo pipefail
+          bash scripts/release/verify_glibc_floor.sh "${{ steps.build.outputs.built-library-path }}"
+
       - name: Package linux shared library
         id: package
         uses: ./.github/actions/package-shared-artifact
