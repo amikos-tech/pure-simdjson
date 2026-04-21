@@ -6,6 +6,9 @@ on:
 permissions:
   contents: write
 
+env:
+  ALPINE_IMAGE_REF: alpine:latest@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
+
 jobs:
   linux-prepare:
     name: linux prepare (${{ matrix.platform_id }})
@@ -97,6 +100,19 @@ jobs:
         run: |
           set -euo pipefail
           cp linux-arm64-pagesize.txt "${{ github.workspace }}/dist/${{ matrix.platform_id }}/linux-arm64-pagesize.txt"
+
+      - name: Promote linux manifest row for staged assembly
+        run: |
+          set -euo pipefail
+          mv "${{ steps.package.outputs.manifest-path }}" \
+            "${{ github.workspace }}/dist/${{ matrix.platform_id }}/manifest-${{ matrix.platform_id }}.json"
+
+      - name: Run CI-04 native smoke gate (ffi_export_surface.c + minimal_parse.c)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_native_smoke.sh \
+            "${{ steps.package.outputs.r2-path }}" \
+            "${{ matrix.platform_id }}"
 
       - name: Upload staged linux artifact bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -204,41 +220,18 @@ jobs:
           test "${{ steps.package.outputs.github-asset-name }}" = "${{ matrix.expected_github_asset_name }}"
           test "$(basename "${{ steps.package.outputs.r2-path }}")" = "${{ matrix.expected_r2_filename }}"
 
-      - name: Verify staged darwin artifact
-        uses: ./.github/actions/verify-shared-artifact
-        with:
-          artifact-path: ${{ steps.package.outputs.r2-path }}
-          goos: ${{ matrix.goos }}
-          goarch: ${{ matrix.goarch }}
-          rust-target: ${{ matrix.rust_target }}
-          native-abi-smoke-command: |
-            set -euo pipefail
-            tmp_dir="$(mktemp -d "${RUNNER_TEMP:-/tmp}/pure-simdjson-darwin-exports.XXXXXX")"
-            expected_symbols="$tmp_dir/expected.txt"
-            exported_symbols="$tmp_dir/exported.txt"
-            python3 - <<'PY' >"$expected_symbols"
-            from pathlib import Path
-            import re
-            text = Path("include/pure_simdjson.h").read_text(encoding="utf-8")
-            names = re.findall(r"pure_simdjson_error_code_t\s+(pure_simdjson_[a-zA-Z0-9_]+)\s*\(", text)
-            print("\n".join(sorted(names)))
-            PY
-            nm -gU "${{ steps.package.outputs.r2-path }}" \
-              | awk '{print $3}' \
-              | sed 's/^_//' \
-              | grep '^pure_simdjson_' \
-              | sort -u >"$exported_symbols"
-            diff -u "$expected_symbols" "$exported_symbols"
-          minimal-parse-smoke-command: |
-            set -euo pipefail
-            artifact_dir="$(dirname "${{ steps.package.outputs.r2-path }}")"
-            smoke_dir="$(mktemp -d "${RUNNER_TEMP:-/tmp}/pure-simdjson-darwin-smoke.XXXXXX")"
-            cc -Iinclude tests/smoke/minimal_parse.c \
-              -L"$artifact_dir" \
-              -lpure_simdjson \
-              -Wl,-rpath,"$artifact_dir" \
-              -o "$smoke_dir/minimal_parse"
-            "$smoke_dir/minimal_parse"
+      - name: Promote darwin manifest row for staged assembly
+        run: |
+          set -euo pipefail
+          mv "${{ steps.package.outputs.manifest-path }}" \
+            "${{ github.workspace }}/dist/${{ matrix.platform_id }}/manifest-${{ matrix.platform_id }}.json"
+
+      - name: Run CI-04 native smoke gate (ffi_export_surface.c + minimal_parse.c)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_native_smoke.sh \
+            "${{ steps.package.outputs.r2-path }}" \
+            "${{ matrix.platform_id }}"
 
       - name: Upload staged darwin artifact bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -350,48 +343,18 @@ jobs:
             Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### windows-amd64 DLL dependents`n`n```text`n$($output.TrimEnd())`n```"
           }
 
-      - name: Verify staged windows artifact
-        uses: ./.github/actions/verify-shared-artifact
-        with:
-          artifact-path: ${{ steps.package.outputs.r2-path }}
-          goos: ${{ matrix.goos }}
-          goarch: ${{ matrix.goarch }}
-          rust-target: ${{ matrix.rust_target }}
-          native-abi-smoke-command: |
-            set -euo pipefail
-            tmp_dir="$(mktemp -d)"
-            expected_symbols="$tmp_dir/expected.txt"
-            exported_symbols="$tmp_dir/exported.txt"
-            python3 - <<'PY' >"$expected_symbols"
-            from pathlib import Path
-            import re
-            text = Path("include/pure_simdjson.h").read_text(encoding="utf-8")
-            names = re.findall(r"pure_simdjson_error_code_t\s+(pure_simdjson_[a-zA-Z0-9_]+)\s*\(", text)
-            print("\n".join(sorted(names)))
-            PY
-            dumpbin /EXPORTS "${{ steps.package.outputs.r2-path }}" >"$tmp_dir/dumpbin.txt"
-            grep -oE 'pure_simdjson_[A-Za-z0-9_]+' "$tmp_dir/dumpbin.txt" | sort -u >"$exported_symbols"
-            diff -u "$expected_symbols" "$exported_symbols"
-          minimal-parse-smoke-command: |
-            set -euo pipefail
-            ps1="$(mktemp).ps1"
-            cat >"$ps1" <<'PWSH'
-            $ErrorActionPreference = 'Stop'
-            $artifactPath = '${{ steps.package.outputs.r2-path }}'
-            $artifactDir = Split-Path -Parent $artifactPath
-            $importLibPath = Join-Path $artifactDir '${{ matrix.import_library_name }}'
-            if (-not (Test-Path $importLibPath)) {
-              throw "missing import library: $importLibPath"
-            }
-            $smokeDir = Join-Path $env:RUNNER_TEMP 'pure-simdjson-windows-smoke'
-            New-Item -ItemType Directory -Force -Path $smokeDir | Out-Null
-            cl /nologo /Iinclude tests\smoke\minimal_parse.c /link /LIBPATH:$artifactDir '${{ matrix.import_library_name }}' /OUT:"$smokeDir\minimal_parse.exe"
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            $env:PATH = "$artifactDir;$env:PATH"
-            & "$smokeDir\minimal_parse.exe"
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            PWSH
-            powershell.exe -NoLogo -NoProfile -File "$(cygpath -w "$ps1")"
+      - name: Promote windows manifest row for staged assembly
+        run: |
+          set -euo pipefail
+          mv "${{ steps.package.outputs.manifest-path }}" \
+            "dist/${{ matrix.platform_id }}/manifest-${{ matrix.platform_id }}.json"
+
+      - name: Run CI-04 native smoke gate (ffi_export_surface.c + minimal_parse.c)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_native_smoke.sh \
+            "${{ steps.package.outputs.r2-path }}" \
+            "${{ matrix.platform_id }}"
 
       - name: Upload staged windows artifact bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -400,6 +363,23 @@ jobs:
           if-no-files-found: error
           path: dist/${{ matrix.platform_id }}
 
+  alpine-smoke:
+    name: alpine smoke (PURE_SIMDJSON_LIB_PATH escape hatch)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Run pinned Alpine smoke gate (PURE_SIMDJSON_LIB_PATH)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_alpine_smoke.sh --image-ref "$ALPINE_IMAGE_REF"
+
   release-prepare-staging:
     name: release prepare staging
     runs-on: ubuntu-latest
@@ -407,10 +387,32 @@ jobs:
       - linux-prepare
       - darwin-prepare
       - windows-prepare
+      - alpine-smoke
     defaults:
       run:
         shell: bash
     steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Set up Go for packaged-artifact smoke
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+
+      - name: Resolve release metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^const Version = "\(.*\)"/\1/p' internal/bootstrap/version.go)"
+          if [[ -z "$version" ]]; then
+            echo "failed to resolve bootstrap version from internal/bootstrap/version.go" >&2
+            exit 1
+          fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
       - name: Download staged release artifact bundles
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -418,14 +420,97 @@ jobs:
           path: ${{ github.workspace }}/release-prepare-staging
           merge-multiple: true
 
-      - name: Show merged staging tree
+      - name: Assemble combined manifest from staged manifest rows
         run: |
           set -euo pipefail
-          find "${{ github.workspace }}/release-prepare-staging" -type f | sort
+          python3 - "${{ github.workspace }}/release-prepare-staging" "${{ steps.metadata.outputs.version }}" "${{ github.workspace }}/release-prepare-staging/combined-manifest.json" <<'PY'
+          import json
+          import pathlib
+          import sys
 
-      - name: Upload merged release staging tree
+          root = pathlib.Path(sys.argv[1])
+          version = sys.argv[2]
+          output = pathlib.Path(sys.argv[3])
+          expected = [
+              ("linux", "amd64", "x86_64-unknown-linux-gnu"),
+              ("linux", "arm64", "aarch64-unknown-linux-gnu"),
+              ("darwin", "amd64", "x86_64-apple-darwin"),
+              ("darwin", "arm64", "aarch64-apple-darwin"),
+              ("windows", "amd64", "x86_64-pc-windows-msvc"),
+          ]
+          required_keys = {
+              "goos",
+              "goarch",
+              "rust_target",
+              "r2_key",
+              "github_asset_name",
+              "local_path",
+              "sha256",
+          }
+
+          manifest_rows = sorted(root.rglob("manifest-*.json"))
+          if len(manifest_rows) != len(expected):
+              raise SystemExit(f"expected {len(expected)} manifest rows, found {len(manifest_rows)}")
+
+          entries = {}
+          for manifest_path in manifest_rows:
+              manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+              if manifest.get("version") != version:
+                  raise SystemExit(f"manifest {manifest_path} version {manifest.get('version')!r} != {version!r}")
+              raw_entries = manifest.get("entries")
+              if not isinstance(raw_entries, list) or len(raw_entries) != 1:
+                  raise SystemExit(f"manifest {manifest_path} must contain exactly one entry")
+              entry = raw_entries[0]
+              if not isinstance(entry, dict) or set(entry.keys()) != required_keys:
+                  raise SystemExit(f"manifest {manifest_path} entry shape mismatch")
+              tuple_key = (entry["goos"], entry["goarch"], entry["rust_target"])
+              if tuple_key not in expected:
+                  raise SystemExit(f"unexpected manifest tuple {tuple_key} in {manifest_path}")
+              if tuple_key in entries:
+                  raise SystemExit(f"duplicate manifest tuple {tuple_key}")
+              entries[tuple_key] = entry
+
+          missing = [tuple_key for tuple_key in expected if tuple_key not in entries]
+          if missing:
+              raise SystemExit(f"missing manifest tuples: {missing}")
+
+          combined = {"version": version, "entries": [entries[tuple_key] for tuple_key in expected]}
+          output.write_text(json.dumps(combined, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Prepare bootstrap release state before PURE_SIMDJSON_BINARY_MIRROR smoke
+        run: |
+          set -euo pipefail
+          python3 scripts/release/update_bootstrap_release_state.py \
+            --manifest "${{ github.workspace }}/release-prepare-staging/combined-manifest.json" \
+            --version "${{ steps.metadata.outputs.version }}"
+
+      - name: Assemble staged release tree for packaged-artifact smoke
+        run: |
+          set -euo pipefail
+          bash scripts/release/assemble_staged_release_tree.sh \
+            --version "${{ steps.metadata.outputs.version }}" \
+            --manifest-dir "${{ github.workspace }}/release-prepare-staging" \
+            --artifact-dir "${{ github.workspace }}/release-prepare-staging" \
+            --staged-root "${{ github.workspace }}/release-prepare-staged-root"
+
+      - name: Run Go packaged-artifact smoke gate (PURE_SIMDJSON_BINARY_MIRROR + PURE_SIMDJSON_DISABLE_GH_FALLBACK)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_go_packaged_smoke.sh \
+            --staged-root "${{ github.workspace }}/release-prepare-staged-root" \
+            --version "${{ steps.metadata.outputs.version }}"
+
+      - name: Show assembled staged release tree
+        run: |
+          set -euo pipefail
+          find "${{ github.workspace }}/release-prepare-staged-root" -type f | sort
+
+      - name: Upload combined manifest and staged release tree
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: release-prepare-staging
           if-no-files-found: error
-          path: ${{ github.workspace }}/release-prepare-staging
+          path: |
+            ${{ github.workspace }}/release-prepare-staging/combined-manifest.json
+            ${{ github.workspace }}/release-prepare-staged-root
