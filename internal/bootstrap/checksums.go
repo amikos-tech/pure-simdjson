@@ -2,6 +2,7 @@ package bootstrap
 
 // Checksums maps path fragments "v<Version>/<os>-<arch>/<libname>" to their
 // expected SHA-256 hex digests (D-08). CI-05 generates this map at release time.
+// scripts/release/update_bootstrap_release_state.py performs that rewrite.
 // During development the map is empty; BootstrapSync returns ErrNoChecksum when
 // an entry is missing.
 var Checksums = map[string]string{
