@@ -49,9 +49,12 @@ Requirements for initial release. Each maps to roadmap phases.
 **: linux/amd64 — glibc ≥ 2.17 (manylinux2014 baseline); verified via `objdump -T`
 - [x] **PLAT-02
 **: linux/arm64 — glibc ≥ 2.17; tested on a 4K-page runner
-- [ ] **PLAT-03**: darwin/amd64 — macOS 11+; ad-hoc codesigned `.dylib`
-- [ ] **PLAT-04**: darwin/arm64 — macOS 11+; ad-hoc codesigned `.dylib`; Apple Silicon native
-- [ ] **PLAT-05**: windows/amd64 — MSVC toolchain; `.dll` named `pure_simdjson-msvc.dll`
+- [x] **PLAT-03
+**: darwin/amd64 — macOS 11+; ad-hoc codesigned `.dylib`
+- [x] **PLAT-04
+**: darwin/arm64 — macOS 11+; ad-hoc codesigned `.dylib`; Apple Silicon native
+- [x] **PLAT-05
+**: windows/amd64 — MSVC toolchain; `.dll` named `pure_simdjson-msvc.dll`
 - [ ] **PLAT-06**: musl/Alpine smoke-test CI job loading via `PURE_SIMDJSON_LIB_PATH` with a user-built `.so` (shipped-musl-artifact strategy deferred to Phase 6 research)
 
 ### Distribution
@@ -81,7 +84,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **CI-01
 **: GitHub Actions `rust-release.yml` builds all 5 target artifacts on tag push
-- [ ] **CI-02**: macOS jobs ad-hoc codesign the `.dylib` (`codesign -s - --force`)
+- [x] **CI-02
+**: macOS jobs ad-hoc codesign the `.dylib` (`codesign -s - --force`)
 - [x] **CI-03
 **: Linux jobs use manylinux2014 base image (or equivalent) for glibc baseline
 - [ ] **CI-04**: Per-platform FFI smoke test verifies all exported symbols load and one parse round-trips
