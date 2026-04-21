@@ -1,6 +1,6 @@
 /target/
 /.playwright-mcp/
-/tests/abi/__pycache__/
+__pycache__/
 
 # Go binaries built from cmd/ (e.g. `go build ./cmd/pure-simdjson-bootstrap`).
 /pure-simdjson-bootstrap
