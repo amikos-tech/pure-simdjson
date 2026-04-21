@@ -367,7 +367,14 @@ jobs:
           $output = dumpbin /DEPENDENTS "${{ steps.build.outputs.built-library-path }}" | Out-String
           $output.TrimEnd() | Out-File -FilePath $reportPath -Encoding utf8
           if ($env:GITHUB_STEP_SUMMARY) {
-            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### windows-amd64 DLL dependents`n`n```text`n$($output.TrimEnd())`n```"
+            $summary = @(
+              "### windows-amd64 DLL dependents"
+              ""
+              "```text"
+              $output.TrimEnd()
+              "```"
+            ) -join "`n"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $summary
           }
 
       - name: Promote windows manifest row for staged assembly
