@@ -58,6 +58,7 @@ runs:
       run: |
         set -euo pipefail
 
+        target="${{ inputs.target }}"
         source_date_epoch="${{ inputs.source_date_epoch }}"
         if [[ ! "$source_date_epoch" =~ ^[0-9]+$ ]]; then
           echo "source_date_epoch must be a unix timestamp, got: $source_date_epoch" >&2
@@ -71,7 +72,9 @@ runs:
             ;;
           darwin)
             library_name="libpure_simdjson.dylib"
-            link_flag="-C link-arg=-Wl,-no_uuid"
+            # Keep the dylib install name stable so reproducibility checks do
+            # not depend on Cargo's per-build temp target directory.
+            link_flag="-C link-arg=-Wl,-no_uuid -C link-arg=-Wl,-install_name,@rpath/libpure_simdjson.dylib"
             ;;
           windows)
             library_name="pure_simdjson.dll"
@@ -89,6 +92,25 @@ runs:
         echo "SOURCE_DATE_EPOCH=$source_date_epoch" >>"$GITHUB_ENV"
         echo "RUSTFLAGS=$rustflags" >>"$GITHUB_ENV"
         echo "library-name=$library_name" >>"$GITHUB_OUTPUT"
+
+        if [[ "${{ inputs.runner_kind }}" == "windows" ]]; then
+          target_env_key="${target^^}"
+          target_env_key="${target_env_key//-/_}"
+          linker_path="$(
+            python3 - <<'PY'
+        import os
+        from pathlib import PureWindowsPath
+
+        vc_tools = os.environ.get("VCToolsInstallDir", "").strip()
+        if not vc_tools:
+            raise SystemExit("VCToolsInstallDir is required on windows runners")
+
+        print(PureWindowsPath(vc_tools) / "bin" / "HostX64" / "x64" / "link.exe")
+        PY
+          )"
+
+          printf 'CARGO_TARGET_%s_LINKER=%s\n' "$target_env_key" "$linker_path" >>"$GITHUB_ENV"
+        fi
 
     - name: Install cargo-zigbuild
       if: ${{ inputs.use_zigbuild == 'true' }}
