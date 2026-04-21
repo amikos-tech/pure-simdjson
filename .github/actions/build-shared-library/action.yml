@@ -45,7 +45,7 @@ runs:
     - name: Install pinned Rust toolchain
       uses: ./.github/actions/setup-rust
       with:
-        toolchain-file: rust-toolchain.toml
+        toolchain-file: ${{ inputs.toolchain-file }}
         targets: ${{ inputs.target }}
 
     - name: Configure MSVC environment

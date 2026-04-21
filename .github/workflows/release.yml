@@ -362,7 +362,7 @@ jobs:
           goarch: ${{ matrix.goarch }}
           rust-target: ${{ matrix.rust_target }}
           version: ${{ steps.metadata.outputs.version }}
-          out-dir: dist/${{ matrix.platform_id }}
+          out-dir: ${{ github.workspace }}/dist/${{ matrix.platform_id }}
 
       - name: Assert windows artifact names
         run: |

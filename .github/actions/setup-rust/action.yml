@@ -39,26 +39,19 @@ runs:
           exit 1
         fi
 
-        channel="$(
-          python3 - "$toolchain_file" <<'PY'
-        import pathlib
-        import sys
+        channel_line="$(grep '^channel' "$toolchain_file" | head -n1 || true)"
+        if [[ -z "$channel_line" ]]; then
+          echo "missing [toolchain].channel in $toolchain_file" >&2
+          exit 1
+        fi
 
-        toolchain_file = pathlib.Path(sys.argv[1])
-        if sys.version_info >= (3, 11):
-            import tomllib
-        else:
-            import tomli as tomllib
-
-        with toolchain_file.open("rb") as fh:
-            data = tomllib.load(fh)
-
-        channel = data.get("toolchain", {}).get("channel", "").strip()
-        if not channel:
-            raise SystemExit(f"missing [toolchain].channel in {toolchain_file}")
-        print(channel)
-        PY
-        )"
+        channel="${channel_line#*=}"
+        channel="${channel//\"/}"
+        channel="$(echo "$channel" | xargs)"
+        if [[ -z "$channel" ]]; then
+          echo "missing [toolchain].channel in $toolchain_file" >&2
+          exit 1
+        fi
 
         echo "channel=$channel" >>"$GITHUB_OUTPUT"
 
