@@ -67,19 +67,21 @@ cleanup() {
 }
 trap cleanup EXIT
 
-port="$(
-  python3 - <<'PY'
-import socket
-
-sock = socket.socket()
-sock.bind(("127.0.0.1", 0))
-print(sock.getsockname()[1])
-sock.close()
-PY
-)"
-
-python3 -m http.server "$port" --bind 127.0.0.1 --directory "$server_root" >"$http_log" 2>&1 &
+python3 -u -m http.server 0 --bind 127.0.0.1 --directory "$server_root" >"$http_log" 2>&1 &
 server_pid=$!
+
+port=""
+for _ in $(seq 1 50); do
+  port="$(sed -n 's|^Serving HTTP on 127\.0\.0\.1 port \([0-9][0-9]*\).*|\1|p' "$http_log" | head -n1)"
+  [[ -n "$port" ]] && break
+  sleep 0.2
+done
+
+if [[ -z "$port" ]]; then
+  echo "failed to detect http.server port; log follows:" >&2
+  cat "$http_log" >&2
+  exit 1
+fi
 
 for _ in $(seq 1 50); do
   if python3 - "$port" <<'PY'
@@ -97,7 +99,6 @@ PY
   sleep 0.2
 done
 
-unset PURE_SIMDJSON_LIB_PATH
 if [[ -n "${PURE_SIMDJSON_LIB_PATH:-}" ]]; then
   echo "PURE_SIMDJSON_LIB_PATH must stay unset for packaged-artifact smoke" >&2
   exit 1
