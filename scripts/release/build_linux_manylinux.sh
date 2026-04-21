@@ -8,6 +8,7 @@ readonly LINUX_AMD64_IMAGE="quay.io/pypa/manylinux2014_x86_64@sha256:96412a3110b
 readonly LINUX_ARM64_PLATFORM="linux/arm64"
 readonly LINUX_ARM64_TARGET="aarch64-unknown-linux-gnu"
 readonly LINUX_ARM64_IMAGE="quay.io/pypa/manylinux2014_aarch64@sha256:2cfb8a1feca0f640b26689e27aadff0a8ff367243d2672a31207d075318d26c7"
+readonly MANYLINUX_DEVTOOLSET_BIN="/opt/rh/devtoolset-10/root/usr/bin"
 
 usage() {
   cat <<'EOF'
@@ -168,7 +169,9 @@ build_main() {
     -e HOME="$home_dir" \
     -e CARGO_HOME="$cargo_home" \
     -e RUSTUP_HOME="$rustup_home" \
-    -e PATH="$cargo_home/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    -e PATH="$cargo_home/bin:$MANYLINUX_DEVTOOLSET_BIN:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    -e CC="$MANYLINUX_DEVTOOLSET_BIN/cc" \
+    -e CXX="$MANYLINUX_DEVTOOLSET_BIN/c++" \
     -e CARGO_INCREMENTAL="${CARGO_INCREMENTAL:-0}" \
     -e SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
     -e RUSTFLAGS="$RUSTFLAGS" \
