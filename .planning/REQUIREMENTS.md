@@ -77,11 +77,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### CI & Release
 
-- [ ] **CI-01**: GitHub Actions `rust-release.yml` builds all 5 target artifacts on tag push
+- [x] **CI-01
+**: GitHub Actions `rust-release.yml` builds all 5 target artifacts on tag push
 - [ ] **CI-02**: macOS jobs ad-hoc codesign the `.dylib` (`codesign -s - --force`)
 - [ ] **CI-03**: Linux jobs use manylinux2014 base image (or equivalent) for glibc baseline
 - [ ] **CI-04**: Per-platform FFI smoke test verifies all exported symbols load and one parse round-trips
-- [ ] **CI-05**: Release pipeline computes SHA-256 for each artifact and commits `checksums.go` in a follow-up PR (or includes it in the tagged commit)
+- [x] **CI-05
+**: Release pipeline computes SHA-256 for each artifact and commits `checksums.go` in a follow-up PR (or includes it in the tagged commit)
 - [ ] **CI-06**: Version bump, changelog, and release-notes in a single tag workflow
 - [ ] **CI-07**: Alpine smoke-test job runs in an `alpine:latest` container
 

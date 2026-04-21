@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: executing
-stopped_at: Phase 6 context gathered
-last_updated: "2026-04-21T06:14:17.895Z"
-last_activity: 2026-04-21 -- Phase 06 execution started
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-04-21T06:30:39.215Z"
+last_activity: 2026-04-21
 progress:
   total_phases: 12
   completed_phases: 5
   total_plans: 28
-  completed_plans: 22
-  percent: 79
+  completed_plans: 23
+  percent: 82
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 06 (ci-release-matrix-platform-coverage) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 06
-Last activity: 2026-04-21 -- Phase 06 execution started
+Plan: 2 of 6
+Status: Ready to execute
+Last activity: 2026-04-21
 Shipping: Phase 05 complete — bootstrap pipeline wired end-to-end (human UAT partial: E2E against live R2+GH requires Phase 06 CI-05)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 82%
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Progress: [██████████] 100%
 | Phase 05 P04 | 8min | 1 tasks | 3 files |
 | Phase Phase 05 PP05 | 5min | 2 tasks | 7 files |
 | Phase Phase 05 PP06 | 9min | 2 tasks tasks | 5 files files |
+| Phase 06 P01 | 5min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -119,6 +120,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 05]: downloadOnce captures the temp path in a local createdTmp before the cleanup defer; named-return-zeroing on early return "", "", err otherwise leaves orphan *.tmp files in the cache dir on every cancelled/failed bootstrap (Plan 06 Rule 1 fix surfaced by TestBootstrapSyncCancellation).
 - [Phase 05]: T-05-04 redirect-downgrade defence is covered by three layered tests — TestRedirectDowngradeUnit (calls rejectHTTPSDowngrade with synthetic via-chain), TestRedirectDowngradeWired (asserts newHTTPClient().CheckRedirect points at the policy), and the existing TestHTTPSDowngradeRejected end-to-end via httptest.NewTLSServer; preferred over a brittle two-server httptest topology.
 - [Phase 05]: Cross-process flock test (Fault Injection Matrix item 8) is intentionally NOT added in v0.1 — flock/LockFileEx correctness is OS code, pure-onnx ships without one, and subprocess tests are flaky on Windows CI; rationale comment lives at TestConcurrentBootstrap so future contributors find it without re-discovering.
+- Pinned Rust setup lives in a local setup-rust composite action that reads rust-toolchain.toml directly.
+- verify-shared-artifact hard-fails when native ABI or minimal_parse smoke commands are missing so export audits stay supplemental.
+- Bootstrap release-state rewrites are tested in copied TemporaryDirectory workspaces so unittest never mutates the real repo.
 
 ### Pending Todos
 
@@ -131,8 +135,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T15:28:41.009Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-ci-release-matrix-platform-coverage/06-CONTEXT.md
+Last session: 2026-04-21T06:30:39.210Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: None
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z
