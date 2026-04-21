@@ -244,12 +244,166 @@ jobs:
           if-no-files-found: error
           path: ${{ github.workspace }}/dist/${{ matrix.platform_id }}
 
+  windows-build:
+    name: windows build (${{ matrix.platform_id }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform_id: windows-amd64
+            goos: windows
+            goarch: amd64
+            rust_target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            expected_r2_filename: pure_simdjson-msvc.dll
+            expected_github_asset_name: pure_simdjson-windows-amd64-msvc.dll
+            import_library_name: pure_simdjson.dll.lib
+            dependency_report_name: windows-dependents.txt
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Configure MSVC developer shell
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
+
+      - name: Enable git long paths
+        shell: pwsh
+        run: git config --system core.longpaths true
+
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Resolve release metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+
+          version="$(sed -n 's/^const Version = "\(.*\)"/\1/p' internal/bootstrap/version.go)"
+          if [[ -z "$version" ]]; then
+            echo "failed to resolve bootstrap version from internal/bootstrap/version.go" >&2
+            exit 1
+          fi
+
+          SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)"
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >>"$GITHUB_ENV"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "source-date-epoch=$SOURCE_DATE_EPOCH" >>"$GITHUB_OUTPUT"
+
+      - name: Build shared library
+        id: build
+        uses: ./.github/actions/build-shared-library
+        with:
+          target: ${{ matrix.rust_target }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          runner_kind: windows
+          source_date_epoch: ${{ steps.metadata.outputs.source-date-epoch }}
+          verify_reproducible: false
+
+      - name: Audit windows exports
+        shell: pwsh
+        run: dumpbin /EXPORTS "${{ steps.build.outputs.built-library-path }}"
+
+      - name: Package windows shared library
+        id: package
+        uses: ./.github/actions/package-shared-artifact
+        with:
+          input: ${{ steps.build.outputs.built-library-path }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          rust-target: ${{ matrix.rust_target }}
+          version: ${{ steps.metadata.outputs.version }}
+          out-dir: dist/${{ matrix.platform_id }}
+
+      - name: Assert windows artifact names
+        run: |
+          set -euo pipefail
+          test "${{ steps.package.outputs.github-asset-name }}" = "${{ matrix.expected_github_asset_name }}"
+          test "$(basename "${{ steps.package.outputs.r2-path }}")" = "${{ matrix.expected_r2_filename }}"
+
+      - name: Preserve windows import library
+        run: |
+          set -euo pipefail
+          import_lib_path="$(
+            python3 - <<'PY'
+            from pathlib import Path
+            print(Path(r"${{ steps.build.outputs.built-library-path }}").with_name("${{ matrix.import_library_name }}"))
+            PY
+          )"
+          if [[ -f "$import_lib_path" ]]; then
+            cp "$import_lib_path" "dist/${{ matrix.platform_id }}/${{ matrix.import_library_name }}"
+          fi
+
+      - name: Record windows dependent DLLs
+        shell: pwsh
+        run: |
+          $reportPath = "dist/${{ matrix.platform_id }}/${{ matrix.dependency_report_name }}"
+          $output = dumpbin /DEPENDENTS "${{ steps.build.outputs.built-library-path }}" | Out-String
+          $output.TrimEnd() | Out-File -FilePath $reportPath -Encoding utf8
+          if ($env:GITHUB_STEP_SUMMARY) {
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### windows-amd64 DLL dependents`n`n```text`n$($output.TrimEnd())`n```"
+          }
+
+      - name: Verify staged windows artifact
+        uses: ./.github/actions/verify-shared-artifact
+        with:
+          artifact-path: ${{ steps.package.outputs.r2-path }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          rust-target: ${{ matrix.rust_target }}
+          native-abi-smoke-command: |
+            set -euo pipefail
+            tmp_dir="$(mktemp -d)"
+            expected_symbols="$tmp_dir/expected.txt"
+            exported_symbols="$tmp_dir/exported.txt"
+            python3 - <<'PY' >"$expected_symbols"
+            from pathlib import Path
+            import re
+            text = Path("include/pure_simdjson.h").read_text(encoding="utf-8")
+            names = re.findall(r"pure_simdjson_error_code_t\s+(pure_simdjson_[a-zA-Z0-9_]+)\s*\(", text)
+            print("\n".join(sorted(names)))
+            PY
+            dumpbin /EXPORTS "${{ steps.package.outputs.r2-path }}" >"$tmp_dir/dumpbin.txt"
+            grep -oE 'pure_simdjson_[A-Za-z0-9_]+' "$tmp_dir/dumpbin.txt" | sort -u >"$exported_symbols"
+            diff -u "$expected_symbols" "$exported_symbols"
+          minimal-parse-smoke-command: |
+            set -euo pipefail
+            ps1="$(mktemp).ps1"
+            cat >"$ps1" <<'PWSH'
+            $ErrorActionPreference = 'Stop'
+            $artifactPath = '${{ steps.package.outputs.r2-path }}'
+            $artifactDir = Split-Path -Parent $artifactPath
+            $importLibPath = Join-Path $artifactDir '${{ matrix.import_library_name }}'
+            if (-not (Test-Path $importLibPath)) {
+              throw "missing import library: $importLibPath"
+            }
+            $smokeDir = Join-Path $env:RUNNER_TEMP 'pure-simdjson-windows-smoke'
+            New-Item -ItemType Directory -Force -Path $smokeDir | Out-Null
+            cl /nologo /Iinclude tests\smoke\minimal_parse.c /link /LIBPATH:$artifactDir '${{ matrix.import_library_name }}' /OUT:"$smokeDir\minimal_parse.exe"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $env:PATH = "$artifactDir;$env:PATH"
+            & "$smokeDir\minimal_parse.exe"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            PWSH
+            powershell.exe -NoLogo -NoProfile -File "$(cygpath -w "$ps1")"
+
+      - name: Upload staged windows artifact bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-${{ matrix.platform_id }}
+          if-no-files-found: error
+          path: dist/${{ matrix.platform_id }}
+
   release-publish-staging:
     name: release publish staging
     runs-on: ubuntu-latest
     needs:
       - linux-build
       - darwin-build
+      - windows-build
     defaults:
       run:
         shell: bash
