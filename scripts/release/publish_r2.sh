@@ -9,9 +9,12 @@ usage: publish_r2.sh \
 
 Required environment variables:
   R2_BUCKET
-  R2_ENDPOINT_URL
   AWS_ACCESS_KEY_ID
   AWS_SECRET_ACCESS_KEY
+
+One of:
+  R2_ENDPOINT_URL
+  R2_ENDPOINT
 
 Optional environment variables:
   AWS_SESSION_TOKEN
@@ -55,10 +58,12 @@ if [[ ! "$version" =~ ^v[0-9]+(\.[0-9]+){2}([-.][0-9A-Za-z.-]+)?$ ]]; then
 fi
 
 : "${R2_BUCKET:?R2_BUCKET is required}"
-: "${R2_ENDPOINT_URL:?R2_ENDPOINT_URL is required}"
 : "${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}"
 : "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}"
 export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-auto}"
+
+endpoint_url="${R2_ENDPOINT_URL:-${R2_ENDPOINT:-}}"
+: "${endpoint_url:?R2_ENDPOINT_URL or R2_ENDPOINT is required}"
 
 publish_root="${staged_root%/}/${version}"
 if [[ ! -d "$publish_root" ]]; then
@@ -68,7 +73,7 @@ fi
 
 prefix="pure-simdjson/${version}"
 existing_count="$(
-  aws --endpoint-url "$R2_ENDPOINT_URL" s3api list-objects-v2 \
+  aws --endpoint-url "$endpoint_url" s3api list-objects-v2 \
     --bucket "$R2_BUCKET" \
     --prefix "${prefix}/" \
     --max-keys 1 \
@@ -81,7 +86,7 @@ if [[ "$existing_count" != "0" && "$existing_count" != "None" ]]; then
   exit 1
 fi
 
-aws --endpoint-url "$R2_ENDPOINT_URL" s3 cp --recursive \
+aws --endpoint-url "$endpoint_url" s3 cp --recursive \
   "$publish_root" \
   "s3://${R2_BUCKET}/${prefix}/"
 

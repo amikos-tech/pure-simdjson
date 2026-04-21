@@ -3,7 +3,7 @@ status: partial
 phase: 06-ci-release-matrix-platform-coverage
 source: [06-VERIFICATION.md]
 started: 2026-04-21T08:14:31Z
-updated: 2026-04-21T08:48:32Z
+updated: 2026-04-21T10:12:00Z
 ---
 
 ## Current Test
@@ -19,7 +19,7 @@ blocked_by: release-build
 reason: No published `v*` tag exists on `origin` as of 2026-04-21, so there is no released macOS dylib to download and validate against real Gatekeeper behavior.
 
 ### 2. Review the generated GitHub release notes for a real tag
-expected: The published notes are acceptable for a public release and align with the prepared CHANGELOG entry
+expected: The published notes are acceptable for a public release and align with the committed CHANGELOG entry
 result: blocked
 blocked_by: release-build
 reason: No published `v*` tag exists on `origin` as of 2026-04-21, so there is no real GitHub release page or generated notes to review.

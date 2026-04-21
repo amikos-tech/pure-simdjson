@@ -7,11 +7,10 @@ no `go generate` step is required at consumer build time.
 
 ## Release Operators
 
-Phase 6 release prep, tag publication, published URL layout, `SHA256SUMS`,
-cosign verification, and the CI-only publish sequence now live in
-[`docs/releases.md`](./releases.md). Use that runbook for prep branch -> main
--> tag sequencing and publish-time verification instead of reconstructing the
-process from workflow YAML.
+Tag publication, published URL layout, `SHA256SUMS`, cosign verification, and
+the CI-only publish sequence now live in [`docs/releases.md`](./releases.md).
+Use that runbook for the tag-driven release sequence instead of reconstructing
+the process from workflow YAML.
 
 ## How It Works
 
@@ -22,10 +21,11 @@ Resolution order on `NewParser()`:
 2. **Cache hit.** Look for the artifact in the OS user cache (override base
    with `PURE_SIMDJSON_CACHE_DIR`). If present, load it. No SHA-256 re-verify
    on cache hit — verification happened at install time.
-3. **Bootstrap.** Download from CloudFlare R2 (primary). Verify SHA-256 against
-   the table embedded in the Go source. Atomically install into the cache
-   with `0700` permissions on unix. An exclusive flock guards the install so
-   concurrent callers collapse into a single download.
+3. **Bootstrap.** Download from CloudFlare R2 (primary). Resolve the expected
+   SHA-256 from published `SHA256SUMS` metadata for the requested tag, then
+   atomically install into the cache with `0700` permissions on unix. An
+   exclusive flock guards the install so concurrent callers collapse into a
+   single download.
 4. **GitHub Releases fallback.** If R2 is unreachable or returns a non-success
    status, fall back to `github.com/amikos-tech/pure-simdjson/releases`. Set
    `PURE_SIMDJSON_DISABLE_GH_FALLBACK=1` to suppress this for hermetic
@@ -238,17 +238,17 @@ env-var overrides.
 What now lives outside this bootstrap document:
 
 - The Phase 6 release operator flow in [`docs/releases.md`](./releases.md):
-  `release-prepare.yml`, `release.yml`, publish-time verification, and
-  `SHA256SUMS` / cosign commands.
+  `release.yml`, publish-time verification, and `SHA256SUMS` / cosign
+  commands.
 - Fresh-runner public validation against the live
   `releases.amikos.tech` CDN and the
   `github.com/amikos-tech/pure-simdjson/releases` mirror. That follow-up is
   Phase `06.1`, not part of the publish runbook itself.
 
-On ordinary development branches, `BootstrapSync` against unstaged `v0.1.0`
-artifacts still returns `bootstrap.ErrNoChecksum` because the `Checksums` map
-is empty until `release-prepare.yml` writes prepared release state. Developers
-working inside this repository set
+On ordinary development branches, `BootstrapSync` against an unpublished
+version still returns `bootstrap.ErrNoChecksum` because no published
+`SHA256SUMS` entry exists for that tag yet. Developers working inside this
+repository set
 `PURE_SIMDJSON_LIB_PATH` to their local `target/release/libpure_simdjson.<ext>`
 build output to bypass the download pipeline. The repository's `TestMain` in
 `testmain_test.go` does this automatically when the cargo artifact is present.

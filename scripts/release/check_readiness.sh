@@ -8,11 +8,11 @@ usage: check_readiness.sh [--strict] [--version <semver-without-v>]
 Checks repository-local release readiness before creating a tag.
 
 Basic mode:
-  Verifies the release workflows and docs/releases.md exist.
+  Verifies the release workflow and docs/releases.md exist.
 
 Strict mode:
-  Also validates committed bootstrap source state, committed Cargo.lock state,
-  and that the current commit is anchored on origin/main.
+  Also validates bootstrap.Version, committed Cargo.lock state, and that the
+  current commit is anchored on origin/main.
 EOF
 }
 
@@ -68,7 +68,6 @@ require_tracked_file() {
   fi
 }
 
-require_file ".github/workflows/release-prepare.yml"
 require_file ".github/workflows/release.yml"
 require_file "docs/releases.md"
 require_tracked_file "Cargo.lock"
@@ -78,7 +77,15 @@ if [[ "$strict" != true ]]; then
   exit 0
 fi
 
-python3 scripts/release/assert_prepared_state.py --check-source --version "$version"
+source_version="$(sed -n 's/^const Version = "\(.*\)"$/\1/p' internal/bootstrap/version.go)"
+if [[ -z "$source_version" ]]; then
+  echo "failed to resolve bootstrap.Version from internal/bootstrap/version.go" >&2
+  exit 1
+fi
+if [[ "$source_version" != "$version" ]]; then
+  echo "bootstrap.Version $source_version does not match requested version $version" >&2
+  exit 1
+fi
 cargo metadata --format-version 1 --locked >/dev/null
 git fetch origin main --depth=1
 git merge-base --is-ancestor HEAD origin/main

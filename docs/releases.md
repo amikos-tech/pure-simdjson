@@ -1,63 +1,19 @@
 # Release Runbook
 
-`docs/releases.md` is the authoritative Phase 6 release runbook for this
-repository. `release-prepare.yml`, `release.yml`, and
-`scripts/release/check_readiness.sh` are the only supported publish path. Do
-not hand-upload artifacts, rewrite checksum state by hand, or bypass CI for
-publication.
+`docs/releases.md` is the authoritative release runbook for this repository.
+`release.yml`, `scripts/release/check_readiness.sh`, and the CI matrix are the
+only supported publish path. Do not hand-upload artifacts or bypass CI.
 
-## Required GitHub Configuration
+## Org-Standard Flow
 
-`release.yml` publishes to R2 through `scripts/release/publish_r2.sh` and then
-creates the GitHub Release. Configure the repository before attempting a
-release:
+`pure-simdjson` now follows the same operator pattern as `pure-onnx` and
+`pure-tokenizers`:
 
-- GitHub Actions secret: `AWS_ACCESS_KEY_ID`
-- GitHub Actions secret: `AWS_SECRET_ACCESS_KEY`
-- GitHub Actions secret, if your R2 credentials are session-based:
-  `AWS_SESSION_TOKEN`
-- GitHub Actions variable or secret: `R2_BUCKET`
-- GitHub Actions variable or secret: `R2_ENDPOINT_URL`
-- Optional GitHub Actions variable: `AWS_DEFAULT_REGION=auto`
-
-No cosign private key is required. `release.yml` uses GitHub OIDC keyless
-signing, so the workflow must keep `id-token: write` and `contents: write`.
-
-## Pre-Tag Readiness Gate
-
-Before a human or agent recommends pushing a tag, run:
-
-```bash
-VERSION=0.1.0
-bash scripts/release/check_readiness.sh --strict --version "${VERSION}"
-```
-
-`--strict` is the release gate. It fails if:
-
-- `python3 scripts/release/assert_prepared_state.py --check-source --version <semver-without-v>` fails
-- `cargo metadata --format-version 1 --locked` fails
-- `git fetch origin main --depth=1 && git merge-base --is-ancestor HEAD origin/main` fails
-- `Cargo.lock` is missing from the repo or not tracked by git
-- `.github/workflows/release-prepare.yml` is missing
-- `.github/workflows/release.yml` is missing
-- `docs/releases.md` is missing
-
-## Supported Release Sequence
-
-Only one sequencing is supported:
-
-1. Dispatch `release-prepare.yml` with `version=<semver-without-v>`.
-   Example: `gh workflow run release-prepare.yml -f version=0.1.0`
-2. Inspect the uploaded prep artifacts before merging anything:
-   `release-prepare-staging` must contain `combined-manifest.json` and the
-   staged tree under `release-prepare-staged-root/v<version>/...`.
-   The per-platform `release-prepare-<platform>` artifacts must each contain
-   the packaged raw library plus the single-row manifest used to build the
-   combined manifest.
-3. Open a PR from `release-prep/v<version>` into `main`.
-4. Merge that PR into `main`.
-5. Create an annotated tag `v<version>` on the merged `main` commit only, then
-   push that tag.
+1. Land the release commit on `main`.
+2. Run the strict readiness gate for the intended version.
+3. Create an annotated `v<version>` tag on that `main` commit.
+4. Push the tag.
+5. Let `release.yml` build, sign, verify, and publish the release.
 
 Example:
 
@@ -70,32 +26,68 @@ git tag -a "v${VERSION}" -m "v${VERSION}"
 git push origin "v${VERSION}"
 ```
 
-Tagging `release-prep/v<version>` directly is unsupported. The release source
-of truth is `release-prep/v<version> -> main -> tag on merged main commit`.
+## Required GitHub Configuration
 
-## What `release.yml` Enforces
+The org-standard names are:
 
-The tag workflow rejects off-main releases before any publish step begins:
+- GitHub Actions secret: `R2_ACCESS_KEY_ID`
+- GitHub Actions secret: `R2_SECRET_ACCESS_KEY`
+- GitHub Actions secret, if your R2 credentials are session-based:
+  `AWS_SESSION_TOKEN`
+- GitHub Actions variable or secret: `R2_ENDPOINT`
+- Optional GitHub Actions variable or secret: `R2_BUCKET`
+  Default: `releases`
+- Optional GitHub Actions variable: `AWS_DEFAULT_REGION`
+  Default: `auto`
+- Optional GitHub Actions variable: `RELEASES_DOMAIN`
+  Default: `releases.amikos.tech`
+- Optional GitHub Actions variable: `RELEASE_INDEX_ENABLED=1`
+- Optional GitHub Actions variable: `CF_ZONE_ID`
+- Optional GitHub Actions secret: `CLOUDFLARE_API_TOKEN`
+
+Legacy `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `R2_ENDPOINT_URL`
+inputs are still accepted for compatibility, but new repos should use the
+org-standard names above.
+
+No cosign private key is required. `release.yml` uses GitHub OIDC keyless
+signing, so the workflow must keep `id-token: write` and `contents: write`.
+
+## Pre-Tag Readiness Gate
+
+Before recommending or pushing a tag, run:
 
 ```bash
-git fetch --no-tags origin main:refs/remotes/origin/main
-git merge-base --is-ancestor "$GITHUB_SHA" "origin/main"
+VERSION=0.1.0
+bash scripts/release/check_readiness.sh --strict --version "${VERSION}"
 ```
 
-It also re-runs the prepared-state contract check:
+`--strict` fails if:
 
-```bash
-python3 scripts/release/assert_prepared_state.py \
-  --manifest "${GITHUB_WORKSPACE}/release-staging/combined-manifest.json" \
-  --version "${VERSION}"
-```
+- `internal/bootstrap/version.go` does not match `<version>`
+- `cargo metadata --format-version 1 --locked` fails
+- `git fetch origin main --depth=1 && git merge-base --is-ancestor HEAD origin/main` fails
+- `Cargo.lock` is missing from the repo or not tracked by git
+- `.github/workflows/release.yml` is missing
+- `docs/releases.md` is missing
 
-That means `release.yml` only publishes a tag that is:
+## What `release.yml` Does
 
-- anchored on `origin/main`
-- coherent with committed `internal/bootstrap/version.go`
-- coherent with committed `internal/bootstrap/checksums.go`
-- rebuilt, smoke-tested, and signed inside CI
+On a pushed `v*` tag, the workflow:
+
+- verifies the tag is a semver and the commit is anchored on `origin/main`
+- verifies `internal/bootstrap/version.go` matches the tag version
+- builds the five supported platform artifacts
+- runs native smoke gates and packaged-artifact smoke gates
+- generates `SHA256SUMS`
+- keylessly signs raw artifacts and `SHA256SUMS` with cosign
+- uploads the immutable raw release tree to R2
+- publishes `latest.json`
+- optionally updates and signs `releases.json`
+- publishes the flat GitHub Release assets
+
+Runtime checksum verification no longer depends on a generated prep-branch
+source rewrite. The Go bootstrap path resolves expected digests from the
+published `SHA256SUMS` metadata for the requested tag.
 
 ## Published Artifact Layout
 
@@ -125,6 +117,12 @@ GitHub Releases publishes the same bytes under flat asset names:
 - `libpure_simdjson-darwin-arm64.dylib`
 - `pure_simdjson-windows-amd64-msvc.dll`
 - `SHA256SUMS`
+
+The metadata endpoints follow the org-standard convention:
+
+- `https://releases.amikos.tech/pure-simdjson/latest.json`
+- `https://releases.amikos.tech/pure-simdjson/releases.json`
+  when `RELEASE_INDEX_ENABLED=1`
 
 ## Cosign Verification
 
@@ -182,9 +180,6 @@ download, remove the quarantine attribute and retry:
 xattr -d com.apple.quarantine <path-to-dylib>
 ```
 
-This exact operator step is the one referenced by Phase 6 Success Criterion 5
-and `06-VALIDATION.md`.
-
 For a repeatable local approximation of the downloaded-artifact load path on a
 macOS workstation, run:
 
@@ -192,15 +187,8 @@ macOS workstation, run:
 bash scripts/release/check_macos_downloaded_dylib.sh --build-local
 ```
 
-That script builds or copies a local `.dylib`, re-signs a temp copy, applies a
-synthetic `com.apple.quarantine` xattr, runs the native and Go smoke paths
-before and after `xattr -d`, and records the current host's `spctl` result.
-Treat it as a repo-local artifact revalidation probe, not a replacement for
-the real published-artifact/fresh-machine UAT.
-
 ## Phase 06.1 Boundary
 
-Phase `06.1` is where post-publish fresh-runner / fresh-machine public
-validation happens. Phase 6 ends when the prep-then-tag CI release path, the
-signatures, the checksum manifest, and this runbook are coherent. Do not turn
-Phase 6 into manual workstation validation.
+Phase `06.1` is where post-publish fresh-runner or fresh-machine public
+validation happens. This release runbook ends at a successful tag-driven CI
+publish plus signature and metadata verification.
