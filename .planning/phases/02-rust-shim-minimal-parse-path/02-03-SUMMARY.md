@@ -98,7 +98,7 @@ No separate metadata commit was created here because the orchestrator owns `STAT
 
 ## Issues Encountered
 
-- `gh auth status` returned non-zero because of an unrelated timeout on `redacted-github-host.invalid`; repository-host verification was instead done with `gh auth status -h github.com`, which succeeded.
+- `gh auth status` returned non-zero because of an unrelated timeout on another configured GitHub host; repository-host verification was instead done with `gh auth status -h github.com`, which succeeded.
 - GitHub Actions emitted Node 20 deprecation annotations for `actions/checkout@v4` and `ilammy/msvc-dev-cmd@v1`, but the smoke workflow still completed successfully.
 
 ## Threat Flags
