@@ -45,12 +45,18 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Platform Support
 
-- [ ] **PLAT-01**: linux/amd64 — glibc ≥ 2.17 (manylinux2014 baseline); verified via `objdump -T`
-- [ ] **PLAT-02**: linux/arm64 — glibc ≥ 2.17; tested on a 4K-page runner
-- [ ] **PLAT-03**: darwin/amd64 — macOS 11+; ad-hoc codesigned `.dylib`
-- [ ] **PLAT-04**: darwin/arm64 — macOS 11+; ad-hoc codesigned `.dylib`; Apple Silicon native
-- [ ] **PLAT-05**: windows/amd64 — MSVC toolchain; `.dll` named `pure_simdjson-msvc.dll`
-- [ ] **PLAT-06**: musl/Alpine smoke-test CI job loading via `PURE_SIMDJSON_LIB_PATH` with a user-built `.so` (shipped-musl-artifact strategy deferred to Phase 6 research)
+- [x] **PLAT-01
+**: linux/amd64 — glibc ≥ 2.17 (manylinux2014 baseline); verified via `objdump -T`
+- [x] **PLAT-02
+**: linux/arm64 — glibc ≥ 2.17; tested on a 4K-page runner
+- [x] **PLAT-03
+**: darwin/amd64 — macOS 11+; ad-hoc codesigned `.dylib`
+- [x] **PLAT-04
+**: darwin/arm64 — macOS 11+; ad-hoc codesigned `.dylib`; Apple Silicon native
+- [x] **PLAT-05
+**: windows/amd64 — MSVC toolchain; `.dll` named `pure_simdjson-msvc.dll`
+- [x] **PLAT-06
+**: musl/Alpine smoke-test CI job loading via `PURE_SIMDJSON_LIB_PATH` with a user-built `.so` (shipped-musl-artifact strategy deferred to Phase 6 research)
 
 ### Distribution
 
@@ -77,13 +83,20 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### CI & Release
 
-- [ ] **CI-01**: GitHub Actions `rust-release.yml` builds all 5 target artifacts on tag push
-- [ ] **CI-02**: macOS jobs ad-hoc codesign the `.dylib` (`codesign -s - --force`)
-- [ ] **CI-03**: Linux jobs use manylinux2014 base image (or equivalent) for glibc baseline
-- [ ] **CI-04**: Per-platform FFI smoke test verifies all exported symbols load and one parse round-trips
-- [ ] **CI-05**: Release pipeline computes SHA-256 for each artifact and commits `checksums.go` in a follow-up PR (or includes it in the tagged commit)
-- [ ] **CI-06**: Version bump, changelog, and release-notes in a single tag workflow
-- [ ] **CI-07**: Alpine smoke-test job runs in an `alpine:latest` container
+- [x] **CI-01
+**: GitHub Actions `rust-release.yml` builds all 5 target artifacts on tag push
+- [x] **CI-02
+**: macOS jobs ad-hoc codesign the `.dylib` (`codesign -s - --force`)
+- [x] **CI-03
+**: Linux jobs use manylinux2014 base image (or equivalent) for glibc baseline
+- [x] **CI-04
+**: Per-platform FFI smoke test verifies all exported symbols load and one parse round-trips
+- [x] **CI-05
+**: Release pipeline computes SHA-256 for each artifact and commits `checksums.go` in a follow-up PR (or includes it in the tagged commit)
+- [x] **CI-06
+**: Version bump, changelog, and release-notes in a single tag workflow
+- [x] **CI-07
+**: Alpine smoke-test job runs in an `alpine:latest` container
 
 ### Benchmarks & Correctness
 
@@ -186,8 +199,8 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | API-10 | Phase 3 | Complete |
 | API-11 | Phase 3 | Complete |
 | API-12 | Phase 3 | Complete |
-| PLAT-01 | Phase 6 | Pending |
-| PLAT-02 | Phase 6 | Pending |
+| PLAT-01 | Phase 6 | Complete |
+| PLAT-02 | Phase 6 | Complete |
 | PLAT-03 | Phase 6 | Pending |
 | PLAT-04 | Phase 6 | Pending |
 | PLAT-05 | Phase 6 | Pending |
@@ -202,12 +215,12 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | DIST-08 | Phase 5 | Pending |
 | DIST-09 | Phase 5 | Pending |
 | DIST-10 | Phase 5 | Pending |
-| CI-01 | Phase 6 | Pending |
+| CI-01 | Phase 6 | Complete |
 | CI-02 | Phase 6 | Pending |
-| CI-03 | Phase 6 | Pending |
+| CI-03 | Phase 6 | Complete |
 | CI-04 | Phase 6 | Pending |
-| CI-05 | Phase 6 | Pending |
-| CI-06 | Phase 6 | Pending |
+| CI-05 | Phase 6 | Complete |
+| CI-06 | Phase 6 | Complete |
 | CI-07 | Phase 6 | Pending |
 | BENCH-01 | Phase 7 | Pending |
 | BENCH-02 | Phase 7 | Pending |
