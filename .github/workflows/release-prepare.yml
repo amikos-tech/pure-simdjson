@@ -367,13 +367,16 @@ jobs:
           $output = dumpbin /DEPENDENTS "${{ steps.build.outputs.built-library-path }}" | Out-String
           $output.TrimEnd() | Out-File -FilePath $reportPath -Encoding utf8
           if ($env:GITHUB_STEP_SUMMARY) {
-            $summary = @(
-              "### windows-amd64 DLL dependents"
-              ""
-              "```text"
-              $output.TrimEnd()
-              "```"
-            ) -join "`n"
+            $summary = [string]::Join(
+              [Environment]::NewLine,
+              @(
+                '### windows-amd64 DLL dependents'
+                ''
+                '```text'
+                $output.TrimEnd()
+                '```'
+              )
+            )
             Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $summary
           }
 
