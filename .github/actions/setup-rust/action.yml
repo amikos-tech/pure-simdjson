@@ -1,0 +1,123 @@
+name: setup-rust
+description: Install the repo-pinned Rust toolchain from rust-toolchain.toml.
+
+inputs:
+  toolchain-file:
+    description: Path to the repo-pinned Rust toolchain file.
+    required: false
+    default: rust-toolchain.toml
+  targets:
+    description: Comma-separated Rust target triples to install.
+    required: false
+    default: ""
+  install-linux-helpers:
+    description: Install Linux helper packages needed by downstream release actions.
+    required: false
+    default: "true"
+  linux-helper-packages:
+    description: Space-separated apt packages for Linux release helpers.
+    required: false
+    default: "binutils gcc g++ make pkg-config"
+
+outputs:
+  channel:
+    description: Rust channel resolved from the toolchain file.
+    value: ${{ steps.resolve-toolchain.outputs.channel }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve pinned toolchain channel
+      id: resolve-toolchain
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        toolchain_file="${{ inputs.toolchain-file }}"
+        if [[ ! -f "$toolchain_file" ]]; then
+          echo "toolchain file not found: $toolchain_file" >&2
+          exit 1
+        fi
+
+        channel="$(
+          python3 - "$toolchain_file" <<'PY'
+import pathlib
+import sys
+
+toolchain_file = pathlib.Path(sys.argv[1])
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
+with toolchain_file.open("rb") as fh:
+    data = tomllib.load(fh)
+
+channel = data.get("toolchain", {}).get("channel", "").strip()
+if not channel:
+    raise SystemExit(f"missing [toolchain].channel in {toolchain_file}")
+print(channel)
+PY
+        )"
+
+        echo "channel=$channel" >>"$GITHUB_OUTPUT"
+
+    - name: Ensure rustup is available
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if command -v rustup >/dev/null 2>&1; then
+          exit 0
+        fi
+
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+          | sh -s -- -y --profile minimal
+        echo "$HOME/.cargo/bin" >>"$GITHUB_PATH"
+
+    - name: Install Linux release helper packages
+      if: ${{ runner.os == 'Linux' && inputs.install-linux-helpers == 'true' && inputs.linux-helper-packages != '' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if command -v sudo >/dev/null 2>&1; then
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ${{ inputs.linux-helper-packages }}
+        else
+          apt-get update
+          apt-get install -y --no-install-recommends ${{ inputs.linux-helper-packages }}
+        fi
+
+    - name: Install pinned Rust toolchain
+      shell: bash
+      env:
+        CHANNEL: ${{ steps.resolve-toolchain.outputs.channel }}
+      run: |
+        set -euo pipefail
+
+        rustup toolchain install "$CHANNEL" --profile minimal
+        rustup override set "$CHANNEL"
+        rustup show active-toolchain
+
+    - name: Install requested Rust targets
+      if: ${{ inputs.targets != '' }}
+      shell: bash
+      env:
+        CHANNEL: ${{ steps.resolve-toolchain.outputs.channel }}
+      run: |
+        set -euo pipefail
+
+        IFS=',' read -ra targets <<<"${{ inputs.targets }}"
+        for target in "${targets[@]}"; do
+          trimmed="$(echo "$target" | xargs)"
+          [[ -n "$trimmed" ]] || continue
+          rustup target add --toolchain "$CHANNEL" "$trimmed"
+        done
+
+    - name: Show installed Rust tools
+      shell: bash
+      run: |
+        set -euo pipefail
+        rustc --version --verbose
+        cargo --version

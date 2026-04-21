@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
-status: "Phase 5 shipped — PR #6"
-stopped_at: Completed 05-06
-last_updated: "2026-04-20T14:12:54.876Z"
-last_activity: 2026-04-20
+status: verifying
+stopped_at: Completed 06-06-PLAN.md
+last_updated: "2026-04-21T07:55:44.237Z"
+last_activity: 2026-04-21
 progress:
   total_phases: 12
-  completed_phases: 5
-  total_plans: 22
-  completed_plans: 22
+  completed_phases: 6
+  total_plans: 28
+  completed_plans: 28
   percent: 100
 ---
 
@@ -21,15 +21,15 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-15)
 
 **Core value:** Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, precision-preserving parser that does not require cgo at consumer build time.
-**Current focus:** Phase 06 — ci-release-matrix-platform-coverage
+**Current focus:** Phase 06 verification complete; next follow-up is Phase 06.1 fresh-machine live bootstrap validation
 
 ## Current Position
 
-Phase: 06 (ci-release-matrix-platform-coverage) — READY TO PLAN
-Plan: Not started
-Status: Phase 5 shipped — PR #6
-Last activity: 2026-04-20
-Shipping: Phase 05 complete — bootstrap pipeline wired end-to-end (human UAT partial: E2E against live R2+GH requires Phase 06 CI-05)
+Phase: 06 (ci-release-matrix-platform-coverage) — VERIFYING
+Plan: 6 of 6
+Status: Phase complete — ready for verification
+Last activity: 2026-04-21
+Shipping: Phase 06 complete — CI release path, runbook, readiness gate, and repo-local release skill are in place; Phase 06.1 remains for fresh-runner live-artifact validation
 
 Progress: [██████████] 100%
 
@@ -67,8 +67,18 @@ Progress: [██████████] 100%
 | Phase 05 P04 | 8min | 1 tasks | 3 files |
 | Phase Phase 05 PP05 | 5min | 2 tasks | 7 files |
 | Phase Phase 05 PP06 | 9min | 2 tasks tasks | 5 files files |
+| Phase 06 P01 | 5min | 2 tasks | 10 files |
+| Phase 06 P02 | 11min | 2 tasks | 5 files |
+| Phase 06 P03 | 15min | 2 tasks | 5 files |
+| Phase 06 P04 | 44min | 2 tasks | 8 files |
+| Phase 06 P05 | 15min | 2 tasks | 6 files |
+| Phase 06 P06 | 7min | 2 tasks | 4 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 06.1 inserted after Phase 06: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (promoted from backlog item 999.4)
 
 ### Decisions
 
@@ -115,6 +125,24 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 05]: downloadOnce captures the temp path in a local createdTmp before the cleanup defer; named-return-zeroing on early return "", "", err otherwise leaves orphan *.tmp files in the cache dir on every cancelled/failed bootstrap (Plan 06 Rule 1 fix surfaced by TestBootstrapSyncCancellation).
 - [Phase 05]: T-05-04 redirect-downgrade defence is covered by three layered tests — TestRedirectDowngradeUnit (calls rejectHTTPSDowngrade with synthetic via-chain), TestRedirectDowngradeWired (asserts newHTTPClient().CheckRedirect points at the policy), and the existing TestHTTPSDowngradeRejected end-to-end via httptest.NewTLSServer; preferred over a brittle two-server httptest topology.
 - [Phase 05]: Cross-process flock test (Fault Injection Matrix item 8) is intentionally NOT added in v0.1 — flock/LockFileEx correctness is OS code, pure-onnx ships without one, and subprocess tests are flaky on Windows CI; rationale comment lives at TestConcurrentBootstrap so future contributors find it without re-discovering.
+- Pinned Rust setup lives in a local setup-rust composite action that reads rust-toolchain.toml directly.
+- verify-shared-artifact hard-fails when native ABI or minimal_parse smoke commands are missing so export audits stay supplemental.
+- Bootstrap release-state rewrites are tested in copied TemporaryDirectory workspaces so unittest never mutates the real repo.
+- The shared build action now hands manylinux execution to scripts/release/build_linux_manylinux.sh so workflow YAML does not duplicate docker mount logic or arm64 page-size enforcement.
+- linux/arm64 page-size proof runs as both an explicit workflow step and a builder-side guard; the prep workflow also uploads linux-arm64-pagesize.txt with the staged artifact bundle.
+- verify_glibc_floor.sh derives the expected pure_simdjson export set from include/pure_simdjson.h instead of freezing a separate symbol list in CI.
+- The darwin workflow matrix now carries the expected public asset names and asserts them after packaging, so the bootstrap naming contract is executable in CI.
+- The windows release bundle preserves pure_simdjson.dll.lib and a dumpbin /DEPENDENTS report alongside the staged DLL so later plans can reuse that evidence without rebuilding.
+- The shared release helpers now emit forward-slash artifact paths and Python-created temp directories so the same bash-based composite actions work on windows runners without a separate packaging path.
+- CI-04 now runs through scripts/release/run_native_smoke.sh so every platform executes one shared audit -> ffi_export_surface.c -> minimal_parse.c sequence.
+- Staged bootstrap smoke consumes one exact v<version>/<os>-<arch>/<libname> tree assembled from per-platform manifest rows and staged artifacts.
+- Both staging jobs rewrite bootstrap release state from the combined manifest before go run so packaged-artifact smoke uses real checksum data.
+- Release prep now rewrites version.go, checksums.go, and CHANGELOG.md on a release-prep/v<version> branch before any tag is created.
+- Tag publication now starts with a verify-tag-source gate that rejects off-main tags and validates committed bootstrap source state before any build begins.
+- The publish workflow signs and verifies the raw staged blobs first, then copies those bytes into flat GitHub Release asset names so R2 and GitHub Releases carry the same signed payload.
+- docs/releases.md is the single human-readable source of truth for the Phase 6 release-prep -> main -> tag sequence, required repo configuration, artifact layout, and cosign verification commands.
+- scripts/release/check_readiness.sh --strict reuses assert_prepared_state.py --check-source and adds origin/main ancestry checks instead of re-implementing release-state validation in shell.
+- docs/bootstrap.md now points operators at the release runbook and mirrors the exact xattr Gatekeeper workaround, while Phase 06.1 owns the fresh-runner public validation boundary.
 
 ### Pending Todos
 
@@ -127,8 +155,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T12:28:36.969Z
-Stopped at: Completed 05-06
+Last session: 2026-04-21T07:55:44.232Z
+Stopped at: Completed 06-06-PLAN.md
 Resume file: None
 
-**Planned Phase:** 05 (bootstrap-distribution) — 6 plans — 2026-04-20T11:21:15.134Z
+**Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z

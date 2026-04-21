@@ -1,0 +1,623 @@
+name: release-prepare
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version without the leading v (example: 0.1.0)"
+        required: true
+        type: string
+
+concurrency:
+  group: release-prepare-${{ inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  ALPINE_IMAGE_REF: alpine:latest@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
+
+jobs:
+  linux-prepare:
+    name: linux prepare (${{ matrix.platform_id }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform_id: linux-amd64
+            goos: linux
+            goarch: amd64
+            rust_target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+            manylinux_image: quay.io/pypa/manylinux2014_x86_64@sha256:96412a3110ba598851ba1cd9bfa66b74c2903bfec1af978f5e55def5f0f1912c
+          - platform_id: linux-arm64
+            goos: linux
+            goarch: arm64
+            rust_target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+            manylinux_image: quay.io/pypa/manylinux2014_aarch64@sha256:2cfb8a1feca0f640b26689e27aadff0a8ff367243d2672a31207d075318d26c7
+    defaults:
+      run:
+        shell: bash
+    env:
+      PURE_SIMDJSON_PAGESIZE_PROOF_OUTPUT: ${{ github.workspace }}/linux-arm64-pagesize.txt
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Set up pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: 1.89.0
+          targets: ${{ matrix.rust_target }}
+
+      - name: Resolve release metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+
+          version="${{ inputs.version }}"
+          if [[ ! "$version" =~ ^[0-9]+(\.[0-9]+){2}([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "workflow_dispatch version must be a semver without leading v, got: $version" >&2
+            exit 1
+          fi
+
+          SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)"
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >>"$GITHUB_ENV"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "source-date-epoch=$SOURCE_DATE_EPOCH" >>"$GITHUB_OUTPUT"
+
+      - name: Record linux/arm64 4K page-size proof
+        if: ${{ matrix.platform_id == 'linux-arm64' }}
+        run: |
+          set -euo pipefail
+          bash scripts/release/build_linux_manylinux.sh prove-pagesize \
+            --linux-platform linux/arm64 \
+            --output linux-arm64-pagesize.txt
+
+      - name: Build shared library
+        id: build
+        uses: ./.github/actions/build-shared-library
+        with:
+          target: ${{ matrix.rust_target }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          runner_kind: linux
+          manylinux_image: ${{ matrix.manylinux_image }}
+          source_date_epoch: ${{ steps.metadata.outputs.source-date-epoch }}
+          verify_reproducible: true
+          # Escape hatch stays explicit: keep use_zigbuild false unless a later
+          # manual path proves manylinux is blocked.
+          use_zigbuild: "false"
+
+      - name: Verify glibc floor and linux export surface
+        run: |
+          set -euo pipefail
+          bash scripts/release/verify_glibc_floor.sh "${{ steps.build.outputs.built-library-path }}"
+
+      - name: Package linux shared library
+        id: package
+        uses: ./.github/actions/package-shared-artifact
+        with:
+          input: ${{ steps.build.outputs.built-library-path }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          rust-target: ${{ matrix.rust_target }}
+          version: ${{ steps.metadata.outputs.version }}
+          out-dir: ${{ github.workspace }}/dist/${{ matrix.platform_id }}
+
+      - name: Attach linux/arm64 page-size proof to staged artifact
+        if: ${{ matrix.platform_id == 'linux-arm64' }}
+        run: |
+          set -euo pipefail
+          cp linux-arm64-pagesize.txt "${{ github.workspace }}/dist/${{ matrix.platform_id }}/linux-arm64-pagesize.txt"
+
+      - name: Promote linux manifest row for staged assembly
+        run: |
+          set -euo pipefail
+          mv "${{ steps.package.outputs.manifest-path }}" \
+            "${{ github.workspace }}/dist/${{ matrix.platform_id }}/manifest-${{ matrix.platform_id }}.json"
+
+      - name: Run CI-04 native smoke gate (ffi_export_surface.c + minimal_parse.c)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_native_smoke.sh \
+            "${{ steps.package.outputs.r2-path }}" \
+            "${{ matrix.platform_id }}"
+
+      - name: Upload staged linux artifact bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-prepare-${{ matrix.platform_id }}
+          if-no-files-found: error
+          path: ${{ github.workspace }}/dist/${{ matrix.platform_id }}
+
+  darwin-prepare:
+    name: darwin prepare (${{ matrix.platform_id }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform_id: darwin-amd64
+            goos: darwin
+            goarch: amd64
+            rust_target: x86_64-apple-darwin
+            runner: macos-15-intel
+            expected_file_arch: x86_64
+            expected_r2_filename: libpure_simdjson.dylib
+            expected_github_asset_name: libpure_simdjson-darwin-amd64.dylib
+          - platform_id: darwin-arm64
+            goos: darwin
+            goarch: arm64
+            rust_target: aarch64-apple-darwin
+            runner: macos-15
+            expected_file_arch: arm64
+            expected_r2_filename: libpure_simdjson.dylib
+            expected_github_asset_name: libpure_simdjson-darwin-arm64.dylib
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Set up pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: 1.89.0
+          targets: ${{ matrix.rust_target }}
+
+      - name: Resolve release metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+
+          version="${{ inputs.version }}"
+          if [[ ! "$version" =~ ^[0-9]+(\.[0-9]+){2}([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "workflow_dispatch version must be a semver without leading v, got: $version" >&2
+            exit 1
+          fi
+
+          SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)"
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >>"$GITHUB_ENV"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "source-date-epoch=$SOURCE_DATE_EPOCH" >>"$GITHUB_OUTPUT"
+
+      - name: Build shared library
+        id: build
+        uses: ./.github/actions/build-shared-library
+        with:
+          target: ${{ matrix.rust_target }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          runner_kind: darwin
+          source_date_epoch: ${{ steps.metadata.outputs.source-date-epoch }}
+          verify_reproducible: true
+
+      - name: Ad-hoc codesign darwin dylib
+        run: |
+          set -euo pipefail
+          codesign -s - --force --timestamp=none "${{ steps.build.outputs.built-library-path }}"
+          codesign --verify --verbose "${{ steps.build.outputs.built-library-path }}"
+
+      - name: Verify darwin dylib is thin
+        run: |
+          set -euo pipefail
+          file_output="$(file "${{ steps.build.outputs.built-library-path }}")"
+          echo "$file_output"
+          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            printf '### %s file output\n\n```\n%s\n```\n' "${{ matrix.platform_id }}" "$file_output" >>"$GITHUB_STEP_SUMMARY"
+          fi
+          if grep -Eiq 'fat|universal' <<<"$file_output"; then
+            echo "expected a thin darwin binary, got: $file_output" >&2
+            exit 1
+          fi
+          if ! grep -q "${{ matrix.expected_file_arch }}" <<<"$file_output"; then
+            echo "expected darwin binary for arch ${{ matrix.expected_file_arch }}, got: $file_output" >&2
+            exit 1
+          fi
+
+      - name: Package darwin shared library
+        id: package
+        uses: ./.github/actions/package-shared-artifact
+        with:
+          input: ${{ steps.build.outputs.built-library-path }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          rust-target: ${{ matrix.rust_target }}
+          version: ${{ steps.metadata.outputs.version }}
+          out-dir: ${{ github.workspace }}/dist/${{ matrix.platform_id }}
+
+      - name: Assert darwin artifact names
+        run: |
+          set -euo pipefail
+          test "${{ steps.package.outputs.github-asset-name }}" = "${{ matrix.expected_github_asset_name }}"
+          test "$(basename "${{ steps.package.outputs.r2-path }}")" = "${{ matrix.expected_r2_filename }}"
+
+      - name: Promote darwin manifest row for staged assembly
+        run: |
+          set -euo pipefail
+          mv "${{ steps.package.outputs.manifest-path }}" \
+            "${{ github.workspace }}/dist/${{ matrix.platform_id }}/manifest-${{ matrix.platform_id }}.json"
+
+      - name: Run CI-04 native smoke gate (ffi_export_surface.c + minimal_parse.c)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_native_smoke.sh \
+            "${{ steps.package.outputs.r2-path }}" \
+            "${{ matrix.platform_id }}"
+
+      - name: Upload staged darwin artifact bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-prepare-${{ matrix.platform_id }}
+          if-no-files-found: error
+          path: ${{ github.workspace }}/dist/${{ matrix.platform_id }}
+
+  windows-prepare:
+    name: windows prepare (${{ matrix.platform_id }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform_id: windows-amd64
+            goos: windows
+            goarch: amd64
+            rust_target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            expected_r2_filename: pure_simdjson-msvc.dll
+            expected_github_asset_name: pure_simdjson-windows-amd64-msvc.dll
+            import_library_name: pure_simdjson.dll.lib
+            dependency_report_name: windows-dependents.txt
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Configure MSVC developer shell
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
+
+      - name: Enable git long paths
+        shell: pwsh
+        run: git config --system core.longpaths true
+
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Set up pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: 1.89.0
+          targets: ${{ matrix.rust_target }}
+
+      - name: Resolve release metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+
+          version="${{ inputs.version }}"
+          if [[ ! "$version" =~ ^[0-9]+(\.[0-9]+){2}([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "workflow_dispatch version must be a semver without leading v, got: $version" >&2
+            exit 1
+          fi
+
+          SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)"
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >>"$GITHUB_ENV"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "source-date-epoch=$SOURCE_DATE_EPOCH" >>"$GITHUB_OUTPUT"
+
+      - name: Build shared library
+        id: build
+        uses: ./.github/actions/build-shared-library
+        with:
+          target: ${{ matrix.rust_target }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          runner_kind: windows
+          source_date_epoch: ${{ steps.metadata.outputs.source-date-epoch }}
+          verify_reproducible: true
+
+      - name: Audit windows exports
+        shell: pwsh
+        run: dumpbin /EXPORTS "${{ steps.build.outputs.built-library-path }}"
+
+      - name: Package windows shared library
+        id: package
+        uses: ./.github/actions/package-shared-artifact
+        with:
+          input: ${{ steps.build.outputs.built-library-path }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          rust-target: ${{ matrix.rust_target }}
+          version: ${{ steps.metadata.outputs.version }}
+          out-dir: dist/${{ matrix.platform_id }}
+
+      - name: Assert windows artifact names
+        run: |
+          set -euo pipefail
+          test "${{ steps.package.outputs.github-asset-name }}" = "${{ matrix.expected_github_asset_name }}"
+          test "$(basename "${{ steps.package.outputs.r2-path }}")" = "${{ matrix.expected_r2_filename }}"
+
+      - name: Preserve windows import library
+        run: |
+          set -euo pipefail
+          import_lib_path="$(
+            python3 - <<'PY'
+            from pathlib import Path
+            print(Path(r"${{ steps.build.outputs.built-library-path }}").with_name("${{ matrix.import_library_name }}"))
+            PY
+          )"
+          if [[ -f "$import_lib_path" ]]; then
+            cp "$import_lib_path" "dist/${{ matrix.platform_id }}/${{ matrix.import_library_name }}"
+          fi
+
+      - name: Record windows dependent DLLs
+        shell: pwsh
+        run: |
+          $reportPath = "dist/${{ matrix.platform_id }}/${{ matrix.dependency_report_name }}"
+          $output = dumpbin /DEPENDENTS "${{ steps.build.outputs.built-library-path }}" | Out-String
+          $output.TrimEnd() | Out-File -FilePath $reportPath -Encoding utf8
+          if ($env:GITHUB_STEP_SUMMARY) {
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### windows-amd64 DLL dependents`n`n```text`n$($output.TrimEnd())`n```"
+          }
+
+      - name: Promote windows manifest row for staged assembly
+        run: |
+          set -euo pipefail
+          mv "${{ steps.package.outputs.manifest-path }}" \
+            "dist/${{ matrix.platform_id }}/manifest-${{ matrix.platform_id }}.json"
+
+      - name: Run CI-04 native smoke gate (ffi_export_surface.c + minimal_parse.c)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_native_smoke.sh \
+            "${{ steps.package.outputs.r2-path }}" \
+            "${{ matrix.platform_id }}"
+
+      - name: Upload staged windows artifact bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-prepare-${{ matrix.platform_id }}
+          if-no-files-found: error
+          path: dist/${{ matrix.platform_id }}
+
+  alpine-smoke:
+    name: alpine smoke (PURE_SIMDJSON_LIB_PATH escape hatch)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Run pinned Alpine smoke gate (PURE_SIMDJSON_LIB_PATH)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_alpine_smoke.sh --image-ref "$ALPINE_IMAGE_REF"
+
+  release-prepare-staging:
+    name: release prepare staging
+    runs-on: ubuntu-latest
+    needs:
+      - linux-prepare
+      - darwin-prepare
+      - windows-prepare
+      - alpine-smoke
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Set up Go for packaged-artifact smoke
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+
+      - name: Resolve release metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+          version="${{ inputs.version }}"
+          if [[ ! "$version" =~ ^[0-9]+(\.[0-9]+){2}([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "workflow_dispatch version must be a semver without leading v, got: $version" >&2
+            exit 1
+          fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+      - name: Download staged release artifact bundles
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: release-prepare-*
+          path: ${{ github.workspace }}/release-prepare-staging
+          merge-multiple: true
+
+      - name: Assemble combined manifest from staged manifest rows
+        run: |
+          set -euo pipefail
+          python3 - "${{ github.workspace }}/release-prepare-staging" "${{ steps.metadata.outputs.version }}" "${{ github.workspace }}/release-prepare-staging/combined-manifest.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          version = sys.argv[2]
+          output = pathlib.Path(sys.argv[3])
+          expected = [
+              ("linux", "amd64", "x86_64-unknown-linux-gnu"),
+              ("linux", "arm64", "aarch64-unknown-linux-gnu"),
+              ("darwin", "amd64", "x86_64-apple-darwin"),
+              ("darwin", "arm64", "aarch64-apple-darwin"),
+              ("windows", "amd64", "x86_64-pc-windows-msvc"),
+          ]
+          required_keys = {
+              "goos",
+              "goarch",
+              "rust_target",
+              "r2_key",
+              "github_asset_name",
+              "local_path",
+              "sha256",
+          }
+
+          manifest_rows = sorted(root.rglob("manifest-*.json"))
+          if len(manifest_rows) != len(expected):
+              raise SystemExit(f"expected {len(expected)} manifest rows, found {len(manifest_rows)}")
+
+          entries = {}
+          for manifest_path in manifest_rows:
+              manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+              if manifest.get("version") != version:
+                  raise SystemExit(f"manifest {manifest_path} version {manifest.get('version')!r} != {version!r}")
+              raw_entries = manifest.get("entries")
+              if not isinstance(raw_entries, list) or len(raw_entries) != 1:
+                  raise SystemExit(f"manifest {manifest_path} must contain exactly one entry")
+              entry = raw_entries[0]
+              if not isinstance(entry, dict) or set(entry.keys()) != required_keys:
+                  raise SystemExit(f"manifest {manifest_path} entry shape mismatch")
+              tuple_key = (entry["goos"], entry["goarch"], entry["rust_target"])
+              if tuple_key not in expected:
+                  raise SystemExit(f"unexpected manifest tuple {tuple_key} in {manifest_path}")
+              if tuple_key in entries:
+                  raise SystemExit(f"duplicate manifest tuple {tuple_key}")
+              entries[tuple_key] = entry
+
+          missing = [tuple_key for tuple_key in expected if tuple_key not in entries]
+          if missing:
+              raise SystemExit(f"missing manifest tuples: {missing}")
+
+          combined = {"version": version, "entries": [entries[tuple_key] for tuple_key in expected]}
+          output.write_text(json.dumps(combined, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Prepare bootstrap release state before PURE_SIMDJSON_BINARY_MIRROR smoke
+        run: |
+          set -euo pipefail
+          python3 scripts/release/update_bootstrap_release_state.py \
+            --manifest "${{ github.workspace }}/release-prepare-staging/combined-manifest.json" \
+            --version "${{ steps.metadata.outputs.version }}"
+
+      - name: Create or update CHANGELOG.md for the release-prep branch
+        run: |
+          set -euo pipefail
+          python3 - "${{ steps.metadata.outputs.version }}" CHANGELOG.md <<'PY'
+          from __future__ import annotations
+
+          from datetime import date
+          import pathlib
+          import re
+          import sys
+
+          version = sys.argv[1]
+          changelog_path = pathlib.Path(sys.argv[2])
+          release_heading = f"## [{version}] - {date.today().isoformat()}"
+          release_section = (
+              f"{release_heading}\n\n"
+              "### Changed\n"
+              f"- Release artifacts prepared by CI for `v{version}` before tagging.\n"
+          )
+
+          if not changelog_path.exists():
+              changelog_path.write_text(
+                  "# Changelog\n\n"
+                  "All notable changes to this project will be documented in this file.\n\n"
+                  "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),\n"
+                  "and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n"
+                  "## [Unreleased]\n\n"
+                  "### Changed\n"
+                  "- Pending updates for the next release.\n\n"
+                  f"{release_section}\n",
+                  encoding="utf-8",
+              )
+              raise SystemExit(0)
+
+          text = changelog_path.read_text(encoding="utf-8")
+          if "Keep a Changelog" not in text or "## [Unreleased]" not in text:
+              raise SystemExit("CHANGELOG.md must follow Keep a Changelog format with an Unreleased section")
+          if f"## [{version}]" in text:
+              raise SystemExit(0)
+
+          unreleased_match = re.search(r"(## \[Unreleased\]\n(?:.*?\n)*?)(?=\n## \[|\Z)", text, re.S)
+          if not unreleased_match:
+              raise SystemExit("failed to locate the Unreleased section in CHANGELOG.md")
+
+          insert_at = unreleased_match.end(1)
+          updated = text[:insert_at] + "\n" + release_section + "\n" + text[insert_at:]
+          changelog_path.write_text(updated, encoding="utf-8")
+          PY
+
+      - name: Validate prepared source state
+        run: |
+          set -euo pipefail
+          python3 scripts/release/assert_prepared_state.py \
+            --check-source \
+            --version "${{ steps.metadata.outputs.version }}"
+
+      - name: Assemble staged release tree for packaged-artifact smoke
+        run: |
+          set -euo pipefail
+          bash scripts/release/assemble_staged_release_tree.sh \
+            --version "${{ steps.metadata.outputs.version }}" \
+            --manifest-dir "${{ github.workspace }}/release-prepare-staging" \
+            --artifact-dir "${{ github.workspace }}/release-prepare-staging" \
+            --staged-root "${{ github.workspace }}/release-prepare-staged-root"
+
+      - name: Run Go packaged-artifact smoke gate (PURE_SIMDJSON_BINARY_MIRROR + PURE_SIMDJSON_DISABLE_GH_FALLBACK)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_go_packaged_smoke.sh \
+            --staged-root "${{ github.workspace }}/release-prepare-staged-root" \
+            --version "${{ steps.metadata.outputs.version }}"
+
+      - name: Commit prepared release state to release-prep branch
+        run: |
+          set -euo pipefail
+          branch="release-prep/v${{ steps.metadata.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$branch"
+          git add internal/bootstrap/version.go
+          git add internal/bootstrap/checksums.go
+          git add CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No source changes to commit for $branch"
+          else
+            git commit -m "chore(release): prepare v${{ steps.metadata.outputs.version }}"
+          fi
+          git push --force-with-lease origin "HEAD:refs/heads/$branch"
+
+      - name: Show assembled staged release tree
+        run: |
+          set -euo pipefail
+          find "${{ github.workspace }}/release-prepare-staged-root" -type f | sort
+
+      - name: Upload combined manifest and staged release tree
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-prepare-staging
+          if-no-files-found: error
+          path: |
+            ${{ github.workspace }}/release-prepare-staging/combined-manifest.json
+            ${{ github.workspace }}/release-prepare-staged-root
+
+      - name: Write release-prep handoff summary
+        run: |
+          set -euo pipefail
+          printf '%s\n' 'open a PR from `release-prep/v${{ steps.metadata.outputs.version }}` into `main`, merge it, then create `v${{ steps.metadata.outputs.version }}` on the merged `main` commit' >>"$GITHUB_STEP_SUMMARY"
