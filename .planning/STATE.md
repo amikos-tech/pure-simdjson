@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: executing
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-04-21T07:05:27.546Z"
+stopped_at: Completed 06-04-PLAN.md
+last_updated: "2026-04-21T07:29:33.654Z"
 last_activity: 2026-04-21
 progress:
   total_phases: 12
   completed_phases: 5
   total_plans: 28
-  completed_plans: 25
-  percent: 89
+  completed_plans: 26
+  percent: 93
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 06 (ci-release-matrix-platform-coverage) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-04-21
 Shipping: Phase 05 complete — bootstrap pipeline wired end-to-end (human UAT partial: E2E against live R2+GH requires Phase 06 CI-05)
 
-Progress: [█████████░] 89%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ Progress: [█████████░] 89%
 | Phase 06 P01 | 5min | 2 tasks | 10 files |
 | Phase 06 P02 | 11min | 2 tasks | 5 files |
 | Phase 06 P03 | 15min | 2 tasks | 5 files |
+| Phase 06 P04 | 44min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -131,6 +132,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - The darwin workflow matrix now carries the expected public asset names and asserts them after packaging, so the bootstrap naming contract is executable in CI.
 - The windows release bundle preserves pure_simdjson.dll.lib and a dumpbin /DEPENDENTS report alongside the staged DLL so later plans can reuse that evidence without rebuilding.
 - The shared release helpers now emit forward-slash artifact paths and Python-created temp directories so the same bash-based composite actions work on windows runners without a separate packaging path.
+- CI-04 now runs through scripts/release/run_native_smoke.sh so every platform executes one shared audit -> ffi_export_surface.c -> minimal_parse.c sequence.
+- Staged bootstrap smoke consumes one exact v<version>/<os>-<arch>/<libname> tree assembled from per-platform manifest rows and staged artifacts.
+- Both staging jobs rewrite bootstrap release state from the combined manifest before go run so packaged-artifact smoke uses real checksum data.
 
 ### Pending Todos
 
@@ -143,8 +147,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T07:05:27.541Z
-Stopped at: Completed 06-03-PLAN.md
+Last session: 2026-04-21T07:29:33.649Z
+Stopped at: Completed 06-04-PLAN.md
 Resume file: None
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z

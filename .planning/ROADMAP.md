@@ -272,7 +272,7 @@ Plans:
 - [x] `06-01-PLAN.md` — Shared release tooling scaffold: composite actions, packaging helpers, and bootstrap-state generator
 - [x] `06-02-PLAN.md` — Linux GNU release builds in manylinux containers with glibc-floor proof
 - [x] `06-03-PLAN.md` — macOS and Windows release builds with codesign, long-path handling, and export verification
-- [ ] `06-04-PLAN.md` — Native + Go packaged-artifact smoke gates, including Alpine escape-hatch validation
+- [x] `06-04-PLAN.md` — Native + Go packaged-artifact smoke gates, including Alpine escape-hatch validation
 - [ ] `06-05-PLAN.md` — Release-prep and tag-publish workflows with checksum/tag coherence, cosign, and R2/GitHub publish
 - [ ] `06-06-PLAN.md` — Release runbook, readiness gate, and repo-local release skill
 
