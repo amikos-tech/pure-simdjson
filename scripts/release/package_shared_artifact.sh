@@ -122,10 +122,10 @@ PY
 
 abs_path() {
   python3 - "$1" <<'PY'
-import os
+import pathlib
 import sys
 
-print(os.path.abspath(sys.argv[1]))
+print(pathlib.Path(sys.argv[1]).resolve().as_posix())
 PY
 }
 
