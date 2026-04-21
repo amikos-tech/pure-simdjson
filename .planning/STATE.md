@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: executing
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-04-21T06:45:04.746Z"
+stopped_at: Completed 06-03-PLAN.md
+last_updated: "2026-04-21T07:05:27.546Z"
 last_activity: 2026-04-21
 progress:
   total_phases: 12
   completed_phases: 5
   total_plans: 28
-  completed_plans: 24
-  percent: 86
+  completed_plans: 25
+  percent: 89
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 06 (ci-release-matrix-platform-coverage) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-04-21
 Shipping: Phase 05 complete — bootstrap pipeline wired end-to-end (human UAT partial: E2E against live R2+GH requires Phase 06 CI-05)
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Progress: [█████████░] 86%
 | Phase Phase 05 PP06 | 9min | 2 tasks tasks | 5 files files |
 | Phase 06 P01 | 5min | 2 tasks | 10 files |
 | Phase 06 P02 | 11min | 2 tasks | 5 files |
+| Phase 06 P03 | 15min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - The shared build action now hands manylinux execution to scripts/release/build_linux_manylinux.sh so workflow YAML does not duplicate docker mount logic or arm64 page-size enforcement.
 - linux/arm64 page-size proof runs as both an explicit workflow step and a builder-side guard; the prep workflow also uploads linux-arm64-pagesize.txt with the staged artifact bundle.
 - verify_glibc_floor.sh derives the expected pure_simdjson export set from include/pure_simdjson.h instead of freezing a separate symbol list in CI.
+- The darwin workflow matrix now carries the expected public asset names and asserts them after packaging, so the bootstrap naming contract is executable in CI.
+- The windows release bundle preserves pure_simdjson.dll.lib and a dumpbin /DEPENDENTS report alongside the staged DLL so later plans can reuse that evidence without rebuilding.
+- The shared release helpers now emit forward-slash artifact paths and Python-created temp directories so the same bash-based composite actions work on windows runners without a separate packaging path.
 
 ### Pending Todos
 
@@ -139,8 +143,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T06:45:04.740Z
-Stopped at: Completed 06-02-PLAN.md
+Last session: 2026-04-21T07:05:27.541Z
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z
