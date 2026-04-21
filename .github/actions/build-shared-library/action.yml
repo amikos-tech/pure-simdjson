@@ -16,7 +16,7 @@ inputs:
     description: GOARCH for the packaged platform.
     required: true
   runner_kind:
-    description: Host runner kind: linux, darwin, or windows.
+    description: "Host runner kind: linux, darwin, or windows."
     required: true
   manylinux_image:
     description: Optional manylinux container image for Linux builds.
@@ -106,6 +106,8 @@ runs:
         set -euo pipefail
 
         target="${{ inputs.target }}"
+        goos="${{ inputs.goos }}"
+        goarch="${{ inputs.goarch }}"
         runner_kind="${{ inputs.runner_kind }}"
         manylinux_image="${{ inputs.manylinux_image }}"
         use_zigbuild="${{ inputs.use_zigbuild }}"
@@ -140,26 +142,11 @@ PY
 
         build_once_manylinux() {
           local target_dir="$1"
-          if ! command -v docker >/dev/null 2>&1; then
-            echo "manylinux_image requires docker on the runner" >&2
-            exit 1
-          fi
-
-          local home_dir="${HOME:?HOME is required}"
-          docker run --rm \
-            --user "$(id -u):$(id -g)" \
-            -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
-            -v "$home_dir/.cargo:$home_dir/.cargo" \
-            -v "$home_dir/.rustup:$home_dir/.rustup" \
-            -w "$GITHUB_WORKSPACE" \
-            -e HOME="$home_dir" \
-            -e PATH="$home_dir/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-            -e CARGO_INCREMENTAL="$CARGO_INCREMENTAL" \
-            -e SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
-            -e RUSTFLAGS="$RUSTFLAGS" \
-            -e CARGO_TARGET_DIR="$target_dir" \
-            "$manylinux_image" \
-            bash -lc "rustup show active-toolchain >/dev/null && ${cargo_command[*]}"
+          bash "$GITHUB_WORKSPACE/scripts/release/build_linux_manylinux.sh" build \
+            --linux-platform "${goos}/${goarch}" \
+            --rust-target "$target" \
+            --manylinux-image "$manylinux_image" \
+            --target-dir "$target_dir"
         }
 
         build_once() {
