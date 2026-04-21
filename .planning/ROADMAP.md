@@ -241,16 +241,16 @@ Plans:
 **Requirements:** PLAT-01, PLAT-02, PLAT-03, PLAT-04, PLAT-05, PLAT-06, CI-01, CI-02, CI-03, CI-04, CI-05, CI-06, CI-07
 
 **Must-haves:**
-- `.github/workflows/rust-release.yml` builds all five target artifacts on tag push
+- `.github/workflows/release-prepare.yml` prepares version/checksum source state before tagging, and `.github/workflows/release.yml` builds all five target artifacts on tag push
 - linux/amd64 and linux/arm64: glibc baseline ≤ 2.17 (manylinux2014 base or equivalent); `objdump -T` verification step (PLAT-01, PLAT-02, pitfall 14)
 - darwin/amd64 and darwin/arm64: macOS 11+; ad-hoc codesign via `codesign -s - --force`; thin per-arch (no `lipo`) (pitfall 15, 30)
 - windows/amd64: MSVC toolchain; artifact named `pure_simdjson-msvc.dll`; long-paths enabled in CI (PLAT-05, pitfall 29)
 - Per-platform FFI smoke test job: load the artifact, call every exported symbol once, parse one literal document — gate the release on this (CI-04, pitfall 8, 9)
 - Alpine smoke-test job (`alpine:latest` container) loads via `PURE_SIMDJSON_LIB_PATH` with a user-built `.so`; documents the chosen musl strategy (PLAT-06, CI-07, pitfall 21)
 - Cosign keyless OIDC signing on every artifact
-- SHA-256 manifest computed in CI and committed back as `internal/bootstrap/checksums.go` either in the tagged commit or a follow-up PR (CI-05)
+- SHA-256 manifest computed in CI and committed back as `internal/bootstrap/checksums.go` in the tagged-commit path (CI-05)
 - GitHub Release asset upload step renames platform binaries to their platform-tagged form (`libpure_simdjson-<goos>-<goarch>.ext` / `pure_simdjson-windows-amd64-msvc.dll`) per Phase 5 H1 contract to avoid flat-namespace collision (CI-05)
-- Single tag workflow handles version bump, changelog stub, and release-notes (CI-06)
+- Pre-tag prep flow handles version/checksum source updates; tag workflow generates release notes and publishes that exact prepared state (CI-06)
 - `-static-libstdc++ -static-libgcc` verified via `nm` showing only `extern "C"` exports (pitfall 22)
 
 **Nice-to-haves:**
@@ -264,9 +264,17 @@ Plans:
 4. `objdump -T` on the linux artifacts shows no glibc symbols newer than 2.17
 5. macOS artifacts open without Gatekeeper blocking after the documented `xattr -d com.apple.quarantine` workaround
 
-**Plans:** TBD
+**Plans:** 6 plans
 
 **Research flag:** YES — spawn `/gsd-research-phase` during planning. The musl/Alpine strategy (static-link-into-glibc-so vs ship `.a` with documented relink vs smoke-test-only with escape hatch) is unresolved per SUMMARY.md decision 5; manylinux vs zig-cc choice and final target matrix also need a focused study before CI is written.
+
+Plans:
+- [ ] `06-01-PLAN.md` — Shared release tooling scaffold: composite actions, packaging helpers, and bootstrap-state generator
+- [ ] `06-02-PLAN.md` — Linux GNU release builds in manylinux containers with glibc-floor proof
+- [ ] `06-03-PLAN.md` — macOS and Windows release builds with codesign, long-path handling, and export verification
+- [ ] `06-04-PLAN.md` — Native + Go packaged-artifact smoke gates, including Alpine escape-hatch validation
+- [ ] `06-05-PLAN.md` — Release-prep and tag-publish workflows with checksum/tag coherence, cosign, and R2/GitHub publish
+- [ ] `06-06-PLAN.md` — Release runbook, readiness gate, and repo-local release skill
 
 ---
 
@@ -381,7 +389,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 3. Go API + purego Happy Path | 5/5 | Complete | 2026-04-16 |
 | 4. Full Typed Accessor Surface | 5/5 | Complete | 2026-04-17 |
 | 5. Bootstrap + Distribution | 6/6 | Complete | 2026-04-20 |
-| 6. CI Release Matrix | 0/? | Not started | — |
+| 6. CI Release Matrix | 0/6 | Not started | — |
 | 7. Benchmarks + v0.1 Release | 0/? | Not started | — |
 
 Plan counts populated by `/gsd-plan-phase`.
