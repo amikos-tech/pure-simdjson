@@ -5,6 +5,14 @@ first call to `NewParser()`, the library automatically downloads, verifies
 (SHA-256), caches, and loads the correct binary for your platform. No cgo and
 no `go generate` step is required at consumer build time.
 
+## Release Operators
+
+Phase 6 release prep, tag publication, published URL layout, `SHA256SUMS`,
+cosign verification, and the CI-only publish sequence now live in
+[`docs/releases.md`](./releases.md). Use that runbook for prep branch -> main
+-> tag sequencing and publish-time verification instead of reconstructing the
+process from workflow YAML.
+
 ## How It Works
 
 Resolution order on `NewParser()`:
@@ -133,6 +141,18 @@ platform-tagged to avoid collision:
 The bootstrap library handles this transparently; you only see the R2-style
 name on disk after the library caches the download.
 
+## Downloaded macOS Dylibs
+
+The published macOS `.dylib` artifacts are ad-hoc signed in CI. If Gatekeeper
+blocks a downloaded dylib on first load, remove the quarantine attribute and
+retry:
+
+```bash
+xattr -d com.apple.quarantine <path-to-dylib>
+```
+
+This is the same operator guidance captured in [`docs/releases.md`](./releases.md).
+
 ## Verifying Artifact Integrity (Cosign)
 
 Release artifacts are signed with cosign keyless OIDC signing. Verification is
@@ -212,20 +232,20 @@ end-to-end: URL construction, retry cascade, GitHub fallback, SHA-256
 verification, atomic rename, flock concurrency, context cancellation, and
 env-var overrides.
 
-What is deferred to **Phase 6 / CI-05**:
+What now lives outside this bootstrap document:
 
-- Real R2-hosted artifacts with real SHA-256 digests in
-  `internal/bootstrap/checksums.go`. Phase 6 CI-05 populates this map at
-  release time.
-- End-to-end bootstrap from a clean workstation against the live
+- The Phase 6 release operator flow in [`docs/releases.md`](./releases.md):
+  `release-prepare.yml`, `release.yml`, publish-time verification, and
+  `SHA256SUMS` / cosign commands.
+- Fresh-runner public validation against the live
   `releases.amikos.tech` CDN and the
-  `github.com/amikos-tech/pure-simdjson/releases` mirror.
-- cosign signing of release artifacts (currently documented; the signing job
-  materializes in Phase 6).
+  `github.com/amikos-tech/pure-simdjson/releases` mirror. That follow-up is
+  Phase `06.1`, not part of the publish runbook itself.
 
-Until Phase 6 ships, `BootstrapSync` against the unstaged `v0.1.0` artifacts
-returns `bootstrap.ErrNoChecksum` because the `Checksums` map is empty during
-development. Developers working inside this repository set
+On ordinary development branches, `BootstrapSync` against unstaged `v0.1.0`
+artifacts still returns `bootstrap.ErrNoChecksum` because the `Checksums` map
+is empty until `release-prepare.yml` writes prepared release state. Developers
+working inside this repository set
 `PURE_SIMDJSON_LIB_PATH` to their local `target/release/libpure_simdjson.<ext>`
 build output to bypass the download pipeline. The repository's `TestMain` in
 `testmain_test.go` does this automatically when the cargo artifact is present.
