@@ -352,10 +352,9 @@ jobs:
         run: |
           set -euo pipefail
           import_lib_path="$(
-            python3 - <<'PY'
-            from pathlib import Path
-            print(Path(r"${{ steps.build.outputs.built-library-path }}").with_name("${{ matrix.import_library_name }}"))
-            PY
+            python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).with_name(sys.argv[2]))' \
+              '${{ steps.build.outputs.built-library-path }}' \
+              '${{ matrix.import_library_name }}'
           )"
           if [[ -f "$import_lib_path" ]]; then
             cp "$import_lib_path" "dist/${{ matrix.platform_id }}/${{ matrix.import_library_name }}"
