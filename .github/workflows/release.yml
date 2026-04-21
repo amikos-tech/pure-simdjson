@@ -589,20 +589,18 @@ jobs:
       - name: Sign raw shared-library assets and SHA256SUMS
         run: |
           set -euo pipefail
-          mapfile -t sign_targets < <(
-            python3 - "${{ github.workspace }}/release-staging/combined-manifest.json" "${{ github.workspace }}/release-staged-root" <<'PY'
-            import json
-            import pathlib
-            import sys
+          mapfile -t sign_targets < <(python3 -c '
+          import json
+          import pathlib
+          import sys
 
-            manifest_path = pathlib.Path(sys.argv[1])
-            staged_root = pathlib.Path(sys.argv[2])
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            for entry in manifest["entries"]:
-                print((staged_root / entry["r2_key"]).resolve())
-            print((staged_root / f'v{manifest["version"]}' / "SHA256SUMS").resolve())
-            PY
-          )
+          manifest_path = pathlib.Path(sys.argv[1])
+          staged_root = pathlib.Path(sys.argv[2])
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          for entry in manifest["entries"]:
+              print((staged_root / entry["r2_key"]).resolve())
+          print((staged_root / ("v" + manifest["version"]) / "SHA256SUMS").resolve())
+          ' "${{ github.workspace }}/release-staging/combined-manifest.json" "${{ github.workspace }}/release-staged-root")
           for target in "${sign_targets[@]}"; do
             cosign sign-blob --yes \
               --output-signature "${target}.sig" \
@@ -614,20 +612,18 @@ jobs:
         run: |
           set -euo pipefail
           identity="https://github.com/amikos-tech/pure-simdjson/.github/workflows/release.yml@refs/tags/${{ github.ref_name }}"
-          mapfile -t verify_targets < <(
-            python3 - "${{ github.workspace }}/release-staging/combined-manifest.json" "${{ github.workspace }}/release-staged-root" <<'PY'
-            import json
-            import pathlib
-            import sys
+          mapfile -t verify_targets < <(python3 -c '
+          import json
+          import pathlib
+          import sys
 
-            manifest_path = pathlib.Path(sys.argv[1])
-            staged_root = pathlib.Path(sys.argv[2])
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            for entry in manifest["entries"]:
-                print((staged_root / entry["r2_key"]).resolve())
-            print((staged_root / f'v{manifest["version"]}' / "SHA256SUMS").resolve())
-            PY
-          )
+          manifest_path = pathlib.Path(sys.argv[1])
+          staged_root = pathlib.Path(sys.argv[2])
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          for entry in manifest["entries"]:
+              print((staged_root / entry["r2_key"]).resolve())
+          print((staged_root / ("v" + manifest["version"]) / "SHA256SUMS").resolve())
+          ' "${{ github.workspace }}/release-staging/combined-manifest.json" "${{ github.workspace }}/release-staged-root")
           for target in "${verify_targets[@]}"; do
             cosign verify-blob \
               --certificate "${target}.pem" \

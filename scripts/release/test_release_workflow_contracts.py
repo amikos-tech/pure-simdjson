@@ -96,6 +96,18 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             "release publish must generate SHA256SUMS before bootstrap smoke consumes the staged mirror",
         )
 
+    def test_release_publish_sign_and_verify_target_resolution_avoid_heredocs(self) -> None:
+        workflow_text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+        sign_section = workflow_text.split("- name: Sign raw shared-library assets and SHA256SUMS", 1)[1]
+        sign_section = sign_section.split("- name: Verify cosign signatures before upload", 1)[0]
+        verify_section = workflow_text.split("- name: Verify cosign signatures before upload", 1)[1]
+        verify_section = verify_section.split("- name: Prepare flat GitHub Release assets", 1)[0]
+
+        self.assertIn("mapfile -t sign_targets < <(python3 -c", sign_section)
+        self.assertNotIn("<<'PY'", sign_section)
+        self.assertIn("mapfile -t verify_targets < <(python3 -c", verify_section)
+        self.assertNotIn("<<'PY'", verify_section)
+
 
 if __name__ == "__main__":
     unittest.main()
