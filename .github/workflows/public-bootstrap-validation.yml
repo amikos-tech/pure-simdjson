@@ -229,7 +229,7 @@ jobs:
           EOF
           )"
 
-          existing_number="$(gh issue list --state open --limit 100 --json number,title | python3 -c 'import json, os, sys; title = os.environ["ISSUE_TITLE"]; issues = json.load(sys.stdin); match = next((issue["number"] for issue in issues if issue["title"] == title), ""); print(match)' )"
+          existing_number="$(gh issue list --state open --search "in:title \"$ISSUE_TITLE\"" --limit 1000 --json number,title | python3 -c 'import json, os, sys; title = os.environ["ISSUE_TITLE"]; issues = json.load(sys.stdin); match = next((issue["number"] for issue in issues if issue["title"] == title), ""); print(match)' )"
 
           if [[ -n "$existing_number" ]]; then
             gh issue comment "$existing_number" --body "$body"
