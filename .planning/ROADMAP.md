@@ -327,9 +327,9 @@ Plans:
 
 Plans:
 - [x] `07-01-PLAN.md` — Vendor benchmark corpus and correctness-oracle foundation
-- [ ] `07-02-PLAN.md` — Comparator surface, Tier 1 harness, cold/warm families, and benchstat helper
-- [ ] `07-03-PLAN.md` — Native allocator telemetry ABI, bindings, and contract updates
-- [ ] `07-04-PLAN.md` — Tier 2/Tier 3 benchmark families plus native metrics
+- [x] `07-02-PLAN.md` — Comparator surface, Tier 1 harness, cold/warm families, and benchstat helper
+- [x] `07-03-PLAN.md` — Native allocator telemetry ABI, bindings, and contract updates
+- [x] `07-04-PLAN.md` — Tier 2/Tier 3 benchmark families plus native metrics
 - [ ] `07-05-PLAN.md` — Benchmark evidence, README/docs, changelog, and licensing artifacts
 - [ ] `07-06-PLAN.md` — Non-autonomous `0.1.1` release closeout and public validation
 

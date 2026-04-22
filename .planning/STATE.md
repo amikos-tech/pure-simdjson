@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: executing
-stopped_at: Completed 07-03-PLAN.md
-last_updated: "2026-04-22T19:58:43.989Z"
+stopped_at: Completed 07-04-PLAN.md
+last_updated: "2026-04-22T20:14:07.467Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 12
   completed_phases: 7
   total_plans: 37
-  completed_plans: 34
-  percent: 92
+  completed_plans: 35
+  percent: 95
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 07 (benchmarks-v0.1-release) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-04-22
 Shipping: `v0.1.0` is already published and Phase 06.1 is shipped; Phase 07 now owns the benchmark harness, correctness oracle, README/LICENSE/NOTICE work, and a non-autonomous patch-release closeout path if the new public artifacts must ship under a fresh tag
 
-Progress: [█████████░] 89%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Progress: [█████████░] 89%
 | Phase 07 P01 | 12 min | 2 tasks | 328 files |
 | Phase 07 P02 | 15min | 2 tasks | 12 files |
 | Phase 07 P03 | 20min | 2 tasks | 17 files |
+| Phase 07 P04 | 4min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -158,6 +159,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 07]: Native allocator telemetry is epoch-based: reset excludes pre-existing live allocations from later snapshots instead of claiming process-wide totals.
 - [Phase 07]: The allocator stats surface remains diagnostic-only and is published strictly as reset/snapshot exports plus a fixed four-field struct.
 - [Phase 07]: Header-audit verification must work both through Makefile rules and the planner's direct python3 tests/abi/check_header.py include/pure_simdjson.h command.
+- [Phase 07]: Tier 2 uses shared schema structs across supported comparators; pure-simdjson reaches them through DOM traversal only.
+- [Phase 07]: Tier 3 remains explicitly scoped as a DOM-era placeholder and does not imply a v0.1 On-Demand API.
+- [Phase 07]: Tier 1 and cold/warm benchmark outputs publish native-bytes/op, native-allocs/op, and native-live-bytes beside Go benchmem data.
 
 ### Pending Todos
 
@@ -170,8 +174,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T19:58:43.919Z
-Stopped at: Completed 07-03-PLAN.md
+Last session: 2026-04-22T20:14:00.547Z
+Stopped at: Completed 07-04-PLAN.md
 Resume file: None
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z
