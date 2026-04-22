@@ -4,8 +4,8 @@ milestone: v0.1
 milestone_name: Release
 status: executing
 stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-04-22T19:05:06.960Z"
-last_activity: 2026-04-22
+last_updated: "2026-04-22T19:06:03Z"
+last_activity: 2026-04-22 -- Completed 07-01 benchmark corpus/oracle foundation
 progress:
   total_phases: 12
   completed_phases: 7
@@ -26,9 +26,9 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 07 (benchmarks-v0.1-release) — EXECUTING
-Plan: 3 of 6
-Status: Ready to execute
-Last activity: 2026-04-22
+Plan: 2 of 6
+Status: Executing Phase 07
+Last activity: 2026-04-22 -- Completed 07-01 benchmark corpus/oracle foundation
 Shipping: `v0.1.0` is already published and Phase 06.1 is shipped; Phase 07 now owns the benchmark harness, correctness oracle, README/LICENSE/NOTICE work, and a non-autonomous patch-release closeout path if the new public artifacts must ship under a fresh tag
 
 Progress: [█████████░] 86%
