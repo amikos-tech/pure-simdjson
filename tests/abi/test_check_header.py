@@ -18,6 +18,10 @@ SURFACE_SIGNATURES = {
         "size_t dst_cap",
         "size_t *out_written",
     ],
+    "pure_simdjson_native_alloc_stats_reset": [],
+    "pure_simdjson_native_alloc_stats_snapshot": [
+        "struct pure_simdjson_native_alloc_stats_t *out_stats",
+    ],
     "pure_simdjson_parser_new": ["pure_simdjson_parser_t *out_parser"],
     "pure_simdjson_parser_free": ["pure_simdjson_parser_t parser"],
     "pure_simdjson_parser_parse": [
@@ -101,6 +105,14 @@ SURFACE_SIGNATURES = {
         "struct pure_simdjson_value_view_t *out_value",
     ],
 }
+NATIVE_ALLOC_STATS_STRUCT = """
+typedef struct pure_simdjson_native_alloc_stats_t {
+  uint64_t live_bytes;
+  uint64_t total_alloc_bytes;
+  uint64_t alloc_count;
+  uint64_t free_count;
+} pure_simdjson_native_alloc_stats_t;
+""".strip()
 
 SPEC = importlib.util.spec_from_file_location("check_header", CHECK_HEADER_PATH)
 assert SPEC is not None and SPEC.loader is not None
@@ -143,7 +155,8 @@ def make_surface_header(
     for symbol in check_header.REQUIRED_SYMBOLS:
         if symbol not in signatures:
             continue
-        params = ", ".join(signatures[symbol])
+        params_list = signatures[symbol]
+        params = "void" if not params_list else ", ".join(params_list)
         lines.append(f"{return_type} {symbol}({params});")
 
     if extra_lines:
@@ -241,6 +254,7 @@ class RealHeaderRuleTests(unittest.TestCase):
 
         check_header.rule_required_symbols(prototypes, header_text)
         check_header.rule_error_code_outparams(prototypes, header_text)
+        check_header.rule_native_alloc_surface(prototypes, header_text)
 
 
 class NoMixedFloatIntRuleTests(unittest.TestCase):
@@ -321,6 +335,37 @@ class DiagSurfaceRuleTests(unittest.TestCase):
 
         self.assertIn(
             "pure_simdjson_parser_get_last_error_offset: expected",
+            str(excinfo.exception),
+        )
+
+
+class NativeAllocSurfaceRuleTests(unittest.TestCase):
+    def test_accepts_expected_native_alloc_surface(self) -> None:
+        header_text = make_surface_header(extra_lines=[NATIVE_ALLOC_STATS_STRUCT])
+        prototypes = check_header.parse_prototypes(header_text)
+
+        check_header.rule_native_alloc_surface(prototypes, header_text)
+
+    def test_rejects_wrong_field_order(self) -> None:
+        header_text = make_surface_header(
+            extra_lines=[
+                """
+typedef struct pure_simdjson_native_alloc_stats_t {
+  uint64_t total_alloc_bytes;
+  uint64_t live_bytes;
+  uint64_t alloc_count;
+  uint64_t free_count;
+} pure_simdjson_native_alloc_stats_t;
+""".strip()
+            ]
+        )
+        prototypes = check_header.parse_prototypes(header_text)
+
+        with self.assertRaises(SystemExit) as excinfo:
+            check_header.rule_native_alloc_surface(prototypes, header_text)
+
+        self.assertIn(
+            "expected fields [live_bytes, total_alloc_bytes, alloc_count, free_count] in order",
             str(excinfo.exception),
         )
 

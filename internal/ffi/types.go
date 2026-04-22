@@ -73,3 +73,10 @@ type ObjectIter struct {
 	Tag      uint16
 	Reserved uint16
 }
+
+type NativeAllocStats struct {
+	LiveBytes       uint64
+	TotalAllocBytes uint64
+	AllocCount      uint64
+	FreeCount       uint64
+}

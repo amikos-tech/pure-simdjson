@@ -258,7 +258,7 @@ pure_simdjson_error_code_t psimdjson_native_alloc_stats_reset(void) noexcept {
 }
 
 pure_simdjson_error_code_t psimdjson_native_alloc_stats_snapshot(
-    struct pure_simdjson_native_alloc_stats_t *out_stats
+    pure_simdjson_native_alloc_stats_t *out_stats
 ) noexcept {
   try {
     return psimdjson::native_alloc_telemetry::snapshot(out_stats);

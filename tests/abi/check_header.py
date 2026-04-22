@@ -23,16 +23,30 @@ STRUCT_TYPES = (
     "struct pure_simdjson_value_view_t",
     "struct pure_simdjson_array_iter_t",
     "struct pure_simdjson_object_iter_t",
+    "struct pure_simdjson_native_alloc_stats_t",
     "pure_simdjson_value_view_t",
     "pure_simdjson_array_iter_t",
     "pure_simdjson_object_iter_t",
+    "pure_simdjson_native_alloc_stats_t",
     "pure_simdjson_handle_parts_t",
+)
+
+NATIVE_ALLOC_STATS_STRUCT_RE = re.compile(
+    r"typedef\s+struct\s+pure_simdjson_native_alloc_stats_t\s*\{\s*"
+    r"uint64_t\s+live_bytes;\s*"
+    r"uint64_t\s+total_alloc_bytes;\s*"
+    r"uint64_t\s+alloc_count;\s*"
+    r"uint64_t\s+free_count;\s*"
+    r"\}\s+pure_simdjson_native_alloc_stats_t\s*;",
+    re.S,
 )
 
 REQUIRED_SYMBOLS = (
     "pure_simdjson_get_abi_version",
     "pure_simdjson_get_implementation_name_len",
     "pure_simdjson_copy_implementation_name",
+    "pure_simdjson_native_alloc_stats_reset",
+    "pure_simdjson_native_alloc_stats_snapshot",
     "pure_simdjson_parser_new",
     "pure_simdjson_parser_free",
     "pure_simdjson_parser_parse",
@@ -231,12 +245,40 @@ def rule_diag_surface(
     require_symbol(prototypes, "pure_simdjson_bytes_free")
 
 
+def rule_native_alloc_surface(
+    prototypes: dict[str, tuple[str, list[str]]], header_text: str
+) -> None:
+    if not NATIVE_ALLOC_STATS_STRUCT_RE.search(strip_comments(header_text)):
+        fail(
+            "pure_simdjson_native_alloc_stats_t: expected fields "
+            "[live_bytes, total_alloc_bytes, alloc_count, free_count] in order"
+        )
+
+    _, reset_params = require_symbol(prototypes, "pure_simdjson_native_alloc_stats_reset")
+    if reset_params != []:
+        fail(
+            "pure_simdjson_native_alloc_stats_reset: expected no parameters, "
+            f"found {reset_params}"
+        )
+
+    _, snapshot_params = require_symbol(
+        prototypes, "pure_simdjson_native_alloc_stats_snapshot"
+    )
+    expected_snapshot = ["struct pure_simdjson_native_alloc_stats_t *out_stats"]
+    if snapshot_params != expected_snapshot:
+        fail(
+            "pure_simdjson_native_alloc_stats_snapshot: expected "
+            f"{expected_snapshot}, found {snapshot_params}"
+        )
+
+
 RULES: dict[str, Callable[[dict[str, tuple[str, list[str]]], str], None]] = {
     "error-code-outparams": rule_error_code_outparams,
     "no-mixed-float-int": rule_no_mixed_float_int,
     "required-symbols": rule_required_symbols,
     "string-copy-ownership": rule_string_copy_ownership,
     "diag-surface": rule_diag_surface,
+    "native-alloc-surface": rule_native_alloc_surface,
 }
 
 
@@ -248,17 +290,18 @@ def main() -> int:
         dest="rules",
         action="append",
         choices=sorted(RULES),
-        required=True,
+        required=False,
         help="Rule name to execute; may be passed multiple times.",
     )
     args = parser.parse_args()
 
     header_text = args.header.read_text(encoding="utf-8")
     prototypes = parse_prototypes(header_text)
-    for rule_name in args.rules:
+    selected_rules = args.rules or list(RULES)
+    for rule_name in selected_rules:
         RULES[rule_name](prototypes, header_text)
 
-    print(f"ok: {args.header} ({', '.join(args.rules)})")
+    print(f"ok: {args.header} ({', '.join(selected_rules)})")
     return 0
 
 

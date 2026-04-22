@@ -14,13 +14,6 @@
 #include <malloc.h>
 #endif
 
-struct pure_simdjson_native_alloc_stats_t {
-  std::uint64_t live_bytes;
-  std::uint64_t total_alloc_bytes;
-  std::uint64_t alloc_count;
-  std::uint64_t free_count;
-};
-
 namespace {
 
 constexpr std::size_t kDefaultAlignment = alignof(std::max_align_t);
@@ -208,7 +201,7 @@ void reset() noexcept {
   state.free_count.store(0, std::memory_order_relaxed);
 }
 
-pure_simdjson_error_code_t snapshot(struct pure_simdjson_native_alloc_stats_t *out_stats) noexcept {
+pure_simdjson_error_code_t snapshot(pure_simdjson_native_alloc_stats_t *out_stats) noexcept {
   if (out_stats == nullptr) {
     return PURE_SIMDJSON_ERR_INVALID_ARGUMENT;
   }

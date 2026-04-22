@@ -14,7 +14,9 @@ use pure_simdjson::{
         PURE_SIMDJSON_ERR_PARSER_BUSY, PURE_SIMDJSON_ERR_WRONG_TYPE, PURE_SIMDJSON_OK,
     },
     pure_simdjson_get_abi_version, pure_simdjson_get_implementation_name_len,
-    pure_simdjson_handle_t, pure_simdjson_parser_copy_last_error, pure_simdjson_parser_free,
+    pure_simdjson_handle_t, pure_simdjson_native_alloc_stats_reset,
+    pure_simdjson_native_alloc_stats_snapshot, pure_simdjson_native_alloc_stats_t,
+    pure_simdjson_parser_copy_last_error, pure_simdjson_parser_free,
     pure_simdjson_parser_get_last_error_len, pure_simdjson_parser_get_last_error_offset,
     pure_simdjson_parser_new, pure_simdjson_parser_parse, pure_simdjson_parser_t,
     pure_simdjson_test_force_cpp_exception_for_tests,
@@ -101,6 +103,18 @@ fn parser_last_error_offset(parser: pure_simdjson_handle_t) -> u64 {
     offset
 }
 
+fn native_alloc_stats_reset() {
+    let rc = unsafe { pure_simdjson_native_alloc_stats_reset() };
+    assert_eq!(rc, PURE_SIMDJSON_OK);
+}
+
+fn native_alloc_stats_snapshot() -> pure_simdjson_native_alloc_stats_t {
+    let mut stats = pure_simdjson_native_alloc_stats_t::default();
+    let rc = unsafe { pure_simdjson_native_alloc_stats_snapshot(&mut stats) };
+    assert_eq!(rc, PURE_SIMDJSON_OK);
+    stats
+}
+
 fn pack_handle(slot: u32, generation: u32) -> pure_simdjson_handle_t {
     u64::from(slot) | (u64::from(generation) << 32)
 }
@@ -121,6 +135,67 @@ fn implementation_name_round_trip_uses_real_bridge_name() {
 
     assert!(!name.is_empty());
     assert_ne!(name, b"contract-only");
+}
+
+#[test]
+fn native_alloc_stats_snapshot_null_out_is_invalid_argument() {
+    let rc = unsafe { pure_simdjson_native_alloc_stats_snapshot(ptr::null_mut()) };
+    assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_ARGUMENT);
+}
+
+#[test]
+fn native_alloc_stats_round_trip_before_and_after_parse_activity() {
+    let parser = parser_new();
+    native_alloc_stats_reset();
+
+    let before = native_alloc_stats_snapshot();
+    assert_eq!(before.live_bytes, 0);
+    assert_eq!(before.total_alloc_bytes, 0);
+    assert_eq!(before.alloc_count, 0);
+    assert_eq!(before.free_count, 0);
+
+    let doc = parser_parse_literal(parser, br#"{"value":[1,2,3],"label":"hello"}"#);
+    let during = native_alloc_stats_snapshot();
+    assert!(during.live_bytes > 0);
+    assert!(during.total_alloc_bytes >= during.live_bytes);
+    assert!(during.alloc_count > 0);
+
+    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
+    assert_eq!(
+        unsafe { pure_simdjson_parser_free(parser) },
+        PURE_SIMDJSON_OK
+    );
+
+    let after = native_alloc_stats_snapshot();
+    assert_eq!(after.live_bytes, 0);
+    assert!(after.free_count > 0);
+}
+
+#[test]
+fn native_alloc_stats_reset_excludes_preexisting_live_allocations() {
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, b"[1,2,3]");
+    let warm = native_alloc_stats_snapshot();
+    assert!(warm.live_bytes > 0);
+
+    native_alloc_stats_reset();
+    let reset = native_alloc_stats_snapshot();
+    assert_eq!(reset.live_bytes, 0);
+    assert_eq!(reset.total_alloc_bytes, 0);
+    assert_eq!(reset.alloc_count, 0);
+    assert_eq!(reset.free_count, 0);
+
+    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
+    assert_eq!(
+        unsafe { pure_simdjson_parser_free(parser) },
+        PURE_SIMDJSON_OK
+    );
+
+    let after = native_alloc_stats_snapshot();
+    assert_eq!(after.live_bytes, 0);
+    assert_eq!(after.total_alloc_bytes, 0);
+    assert_eq!(after.alloc_count, 0);
+    assert_eq!(after.free_count, 0);
 }
 
 #[test]

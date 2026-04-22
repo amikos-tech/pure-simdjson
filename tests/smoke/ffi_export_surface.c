@@ -23,6 +23,8 @@ enum export_index {
   EXPORT_GET_ABI_VERSION = 0,
   EXPORT_GET_IMPLEMENTATION_NAME_LEN,
   EXPORT_COPY_IMPLEMENTATION_NAME,
+  EXPORT_NATIVE_ALLOC_STATS_RESET,
+  EXPORT_NATIVE_ALLOC_STATS_SNAPSHOT,
   EXPORT_PARSER_NEW,
   EXPORT_PARSER_FREE,
   EXPORT_PARSER_PARSE,
@@ -51,6 +53,8 @@ static const char *EXPORT_NAMES[EXPORT_COUNT] = {
     "pure_simdjson_get_abi_version",
     "pure_simdjson_get_implementation_name_len",
     "pure_simdjson_copy_implementation_name",
+    "pure_simdjson_native_alloc_stats_reset",
+    "pure_simdjson_native_alloc_stats_snapshot",
     "pure_simdjson_parser_new",
     "pure_simdjson_parser_free",
     "pure_simdjson_parser_parse",
@@ -77,6 +81,8 @@ static const char *EXPORT_NAMES[EXPORT_COUNT] = {
 typedef pure_simdjson_error_code_t (*fn_get_abi_version)(uint32_t *);
 typedef pure_simdjson_error_code_t (*fn_get_implementation_name_len)(size_t *);
 typedef pure_simdjson_error_code_t (*fn_copy_implementation_name)(uint8_t *, size_t, size_t *);
+typedef pure_simdjson_error_code_t (*fn_native_alloc_stats_reset)(void);
+typedef pure_simdjson_error_code_t (*fn_native_alloc_stats_snapshot)(pure_simdjson_native_alloc_stats_t *);
 typedef pure_simdjson_error_code_t (*fn_parser_new)(pure_simdjson_parser_t *);
 typedef pure_simdjson_error_code_t (*fn_parser_free)(pure_simdjson_parser_t);
 typedef pure_simdjson_error_code_t (*fn_parser_parse)(pure_simdjson_parser_t,
@@ -130,6 +136,8 @@ struct export_table {
   fn_get_abi_version get_abi_version;
   fn_get_implementation_name_len get_implementation_name_len;
   fn_copy_implementation_name copy_implementation_name;
+  fn_native_alloc_stats_reset native_alloc_stats_reset;
+  fn_native_alloc_stats_snapshot native_alloc_stats_snapshot;
   fn_parser_new parser_new;
   fn_parser_free parser_free;
   fn_parser_parse parser_parse;
@@ -248,6 +256,12 @@ static int resolve_exports(const char *library_path, struct export_table *export
           EXPORT_GET_IMPLEMENTATION_NAME_LEN,
           fn_get_implementation_name_len);
   RESOLVE(copy_implementation_name, EXPORT_COPY_IMPLEMENTATION_NAME, fn_copy_implementation_name);
+  RESOLVE(native_alloc_stats_reset,
+          EXPORT_NATIVE_ALLOC_STATS_RESET,
+          fn_native_alloc_stats_reset);
+  RESOLVE(native_alloc_stats_snapshot,
+          EXPORT_NATIVE_ALLOC_STATS_SNAPSHOT,
+          fn_native_alloc_stats_snapshot);
   RESOLVE(parser_new, EXPORT_PARSER_NEW, fn_parser_new);
   RESOLVE(parser_free, EXPORT_PARSER_FREE, fn_parser_free);
   RESOLVE(parser_parse, EXPORT_PARSER_PARSE, fn_parser_parse);
@@ -330,6 +344,7 @@ int main(int argc, char **argv)
   size_t impl_len = 0;
   size_t impl_written = 0;
   uint8_t *impl_name = NULL;
+  pure_simdjson_native_alloc_stats_t alloc_stats = {0};
   uint32_t root_kind = PURE_SIMDJSON_VALUE_KIND_INVALID;
   int64_t int_value = 0;
   uint64_t uint_value = 0;
@@ -397,6 +412,31 @@ int main(int argc, char **argv)
     goto cleanup;
   }
 
+  mark_called(&exports, EXPORT_NATIVE_ALLOC_STATS_RESET);
+  if (expect_status("pure_simdjson_native_alloc_stats_reset(initial)",
+                    exports.native_alloc_stats_reset(),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+
+  mark_called(&exports, EXPORT_NATIVE_ALLOC_STATS_SNAPSHOT);
+  if (expect_status("pure_simdjson_native_alloc_stats_snapshot(initial)",
+                    exports.native_alloc_stats_snapshot(&alloc_stats),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (alloc_stats.live_bytes != 0 || alloc_stats.total_alloc_bytes != 0 ||
+      alloc_stats.alloc_count != 0 || alloc_stats.free_count != 0) {
+    rc = failf("pure_simdjson_native_alloc_stats_snapshot(initial)",
+               "expected zeroed stats, got live=%" PRIu64 " total=%" PRIu64 " allocs=%" PRIu64
+               " frees=%" PRIu64,
+               alloc_stats.live_bytes,
+               alloc_stats.total_alloc_bytes,
+               alloc_stats.alloc_count,
+               alloc_stats.free_count);
+    goto cleanup;
+  }
+
   mark_called(&exports, EXPORT_PARSER_NEW);
   if (expect_status("pure_simdjson_parser_new",
                     exports.parser_new(&parser),
@@ -408,6 +448,28 @@ int main(int argc, char **argv)
     goto cleanup;
   }
 
+  if (expect_status("pure_simdjson_native_alloc_stats_reset(parser-ready)",
+                    exports.native_alloc_stats_reset(),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (expect_status("pure_simdjson_native_alloc_stats_snapshot(parser-ready)",
+                    exports.native_alloc_stats_snapshot(&alloc_stats),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (alloc_stats.live_bytes != 0 || alloc_stats.total_alloc_bytes != 0 ||
+      alloc_stats.alloc_count != 0 || alloc_stats.free_count != 0) {
+    rc = failf("pure_simdjson_native_alloc_stats_snapshot(parser-ready)",
+               "expected zeroed parser-ready stats, got live=%" PRIu64 " total=%" PRIu64
+               " allocs=%" PRIu64 " frees=%" PRIu64,
+               alloc_stats.live_bytes,
+               alloc_stats.total_alloc_bytes,
+               alloc_stats.alloc_count,
+               alloc_stats.free_count);
+    goto cleanup;
+  }
+
   mark_called(&exports, EXPORT_PARSER_PARSE);
   if (expect_status("pure_simdjson_parser_parse(valid)",
                     exports.parser_parse(parser, sample_json, sizeof(sample_json) - 1, &doc),
@@ -416,6 +478,21 @@ int main(int argc, char **argv)
   }
   if (doc == 0) {
     rc = failf("pure_simdjson_parser_parse(valid)", "document handle was zero");
+    goto cleanup;
+  }
+
+  if (expect_status("pure_simdjson_native_alloc_stats_snapshot(after-parse)",
+                    exports.native_alloc_stats_snapshot(&alloc_stats),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (alloc_stats.live_bytes == 0 || alloc_stats.total_alloc_bytes < alloc_stats.live_bytes ||
+      alloc_stats.alloc_count == 0) {
+    rc = failf("pure_simdjson_native_alloc_stats_snapshot(after-parse)",
+               "unexpected parse stats live=%" PRIu64 " total=%" PRIu64 " allocs=%" PRIu64,
+               alloc_stats.live_bytes,
+               alloc_stats.total_alloc_bytes,
+               alloc_stats.alloc_count);
     goto cleanup;
   }
 
@@ -685,6 +762,19 @@ int main(int argc, char **argv)
     goto cleanup;
   }
   parser = 0;
+
+  if (expect_status("pure_simdjson_native_alloc_stats_snapshot(after-free)",
+                    exports.native_alloc_stats_snapshot(&alloc_stats),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (alloc_stats.live_bytes != 0 || alloc_stats.free_count == 0) {
+    rc = failf("pure_simdjson_native_alloc_stats_snapshot(after-free)",
+               "expected post-free live=0 and frees>0, got live=%" PRIu64 " frees=%" PRIu64,
+               alloc_stats.live_bytes,
+               alloc_stats.free_count);
+    goto cleanup;
+  }
 
   rc = require_called(&exports);
   if (rc != 0) {
