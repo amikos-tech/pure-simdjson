@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: executing
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-04-22T19:06:03Z"
-last_activity: 2026-04-22 -- Completed 07-01 benchmark corpus/oracle foundation
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-04-22T19:35:38.099Z"
+last_activity: 2026-04-22 -- Completed 07-02 Tier 1 benchmark harness and cold/warm surface
 progress:
   total_phases: 12
   completed_phases: 7
   total_plans: 37
-  completed_plans: 32
-  percent: 86
+  completed_plans: 33
+  percent: 89
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 07 (benchmarks-v0.1-release) — EXECUTING
-Plan: 2 of 6
-Status: Executing Phase 07
-Last activity: 2026-04-22 -- Completed 07-01 benchmark corpus/oracle foundation
+Plan: 3 of 6
+Status: Ready to execute
+Last activity: 2026-04-22 -- Completed 07-02 Tier 1 benchmark harness and cold/warm surface
 Shipping: `v0.1.0` is already published and Phase 06.1 is shipped; Phase 07 now owns the benchmark harness, correctness oracle, README/LICENSE/NOTICE work, and a non-autonomous patch-release closeout path if the new public artifacts must ship under a fresh tag
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -74,6 +74,7 @@ Progress: [█████████░] 86%
 | Phase 06 P05 | 15min | 2 tasks | 6 files |
 | Phase 06 P06 | 7min | 2 tasks | 4 files |
 | Phase 07 P01 | 12 min | 2 tasks | 328 files |
+| Phase 07 P02 | 15min | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -150,6 +151,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - docs/bootstrap.md now points operators at the release runbook and mirrors the exact xattr Gatekeeper workaround, while Phase 06.1 owns the fresh-runner public validation boundary.
 - [Phase 07]: Benchmark fixtures must be loaded only by exact filename from testdata/bench so later plans cannot drift back to third_party or network inputs.
 - [Phase 07]: The JSONTestSuite oracle uses expectations.tsv as the only runtime source of truth and fails on both missing and extra vendored case files.
+- [Phase 07]: Tier 1 benchmarks use per-fixture top-level benchmark functions with comparator sub-benchmarks to keep names stable for benchstat and README reporting.
+- [Phase 07]: Cold-start means first Parse after NewParser inside an already loaded process; bootstrap and download time stay out of this benchmark family.
+- [Phase 07]: Comparator availability is registered once and split by build tags so unsupported libraries are omitted structurally with human-readable reasons.
 
 ### Pending Todos
 
@@ -162,8 +166,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T19:05:06.957Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-04-22T19:35:37.910Z
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z
