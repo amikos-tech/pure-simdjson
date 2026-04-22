@@ -1,4 +1,4 @@
-.PHONY: generate-header verify-contract verify-docs phase2-smoke-linux phase2-smoke-windows phase2-verify-exports phase3-go-test phase3-go-race phase3-go-wrapper-remote
+.PHONY: generate-header verify-contract verify-docs phase2-smoke-linux phase2-smoke-windows phase2-verify-exports phase3-go-test phase3-go-race phase3-go-wrapper-remote bench-phase7 bench-phase7-cold bench-phase7-compare
 
 generate-header:
 	cbindgen --config cbindgen.toml --crate pure_simdjson --output include/pure_simdjson.h
@@ -56,3 +56,12 @@ phase3-go-race:
 
 phase3-go-wrapper-remote:
 	./scripts/phase3-go-wrapper-smoke.sh
+
+bench-phase7:
+	go test ./... -run '^$$' -bench 'Benchmark(Tier1|Tier2|Tier3)_' -benchmem -count=5
+
+bench-phase7-cold:
+	go test ./... -run '^$$' -bench 'Benchmark(ColdStart|Warm)_' -benchmem -count=5
+
+bench-phase7-compare:
+	./scripts/bench/run_benchstat.sh --old "$(OLD)" --new "$(NEW)"
