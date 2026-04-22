@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: executing
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-04-22T19:35:38.099Z"
-last_activity: 2026-04-22 -- Completed 07-02 Tier 1 benchmark harness and cold/warm surface
+stopped_at: Completed 07-03-PLAN.md
+last_updated: "2026-04-22T19:58:43.989Z"
+last_activity: 2026-04-22
 progress:
   total_phases: 12
   completed_phases: 7
   total_plans: 37
-  completed_plans: 33
-  percent: 89
+  completed_plans: 34
+  percent: 92
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 07 (benchmarks-v0.1-release) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
-Last activity: 2026-04-22 -- Completed 07-02 Tier 1 benchmark harness and cold/warm surface
+Last activity: 2026-04-22
 Shipping: `v0.1.0` is already published and Phase 06.1 is shipped; Phase 07 now owns the benchmark harness, correctness oracle, README/LICENSE/NOTICE work, and a non-autonomous patch-release closeout path if the new public artifacts must ship under a fresh tag
 
 Progress: [█████████░] 89%
@@ -75,6 +75,7 @@ Progress: [█████████░] 89%
 | Phase 06 P06 | 7min | 2 tasks | 4 files |
 | Phase 07 P01 | 12 min | 2 tasks | 328 files |
 | Phase 07 P02 | 15min | 2 tasks | 12 files |
+| Phase 07 P03 | 20min | 2 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -154,6 +155,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 07]: Tier 1 benchmarks use per-fixture top-level benchmark functions with comparator sub-benchmarks to keep names stable for benchstat and README reporting.
 - [Phase 07]: Cold-start means first Parse after NewParser inside an already loaded process; bootstrap and download time stay out of this benchmark family.
 - [Phase 07]: Comparator availability is registered once and split by build tags so unsupported libraries are omitted structurally with human-readable reasons.
+- [Phase 07]: Native allocator telemetry is epoch-based: reset excludes pre-existing live allocations from later snapshots instead of claiming process-wide totals.
+- [Phase 07]: The allocator stats surface remains diagnostic-only and is published strictly as reset/snapshot exports plus a fixed four-field struct.
+- [Phase 07]: Header-audit verification must work both through Makefile rules and the planner's direct python3 tests/abi/check_header.py include/pure_simdjson.h command.
 
 ### Pending Todos
 
@@ -166,8 +170,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T19:35:37.910Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-04-22T19:58:43.919Z
+Stopped at: Completed 07-03-PLAN.md
 Resume file: None
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z
