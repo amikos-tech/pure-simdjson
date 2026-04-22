@@ -18,3 +18,7 @@ func benchmarkMaterializeBytedanceSonic(_ string, data []byte) (any, error) {
 	}
 	return value, nil
 }
+
+func benchmarkDecodeSharedSchemaBytedanceSonic(fixtureName string, data []byte) (any, error) {
+	return benchmarkDecodeSharedSchema(sonic.Unmarshal, fixtureName, data)
+}

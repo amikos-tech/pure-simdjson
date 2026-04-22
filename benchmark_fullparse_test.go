@@ -24,15 +24,15 @@ func runTier1FullParseBenchmark(b *testing.B, fixtureName string) {
 		b.Run(comparator.key, func(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
-				value, err := comparator.materialize(fixtureName, data)
-				if err != nil {
-					b.Fatalf("%s materialize(%s): %v", comparator.key, fixtureName, err)
+			benchmarkRunWithNativeAllocMetrics(b, func() {
+				for i := 0; i < b.N; i++ {
+					value, err := comparator.materialize(fixtureName, data)
+					if err != nil {
+						b.Fatalf("%s materialize(%s): %v", comparator.key, fixtureName, err)
+					}
+					benchmarkTier1Result = value
 				}
-				benchmarkTier1Result = value
-			}
+			})
 		})
 	}
 }

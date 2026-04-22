@@ -36,28 +36,30 @@ func runColdStartBenchmark(b *testing.B, fixtureName string) {
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
 
-	for i := 0; i < b.N; i++ {
-		parser, err := NewParser()
-		if err != nil {
-			b.Fatalf("NewParser(%s): %v", fixtureName, err)
-		}
+	benchmarkRunWithNativeAllocMetrics(b, func() {
+		for i := 0; i < b.N; i++ {
+			parser, err := NewParser()
+			if err != nil {
+				b.Fatalf("NewParser(%s): %v", fixtureName, err)
+			}
 
-		doc, err := parser.Parse(data)
-		if err != nil {
-			_ = parser.Close()
-			b.Fatalf("Parse(%s): %v", fixtureName, err)
-		}
+			doc, err := parser.Parse(data)
+			if err != nil {
+				_ = parser.Close()
+				b.Fatalf("Parse(%s): %v", fixtureName, err)
+			}
 
-		benchmarkParserResult = doc.Root()
+			benchmarkParserResult = doc.Root()
 
-		if err := doc.Close(); err != nil {
-			_ = parser.Close()
-			b.Fatalf("doc.Close(%s): %v", fixtureName, err)
+			if err := doc.Close(); err != nil {
+				_ = parser.Close()
+				b.Fatalf("doc.Close(%s): %v", fixtureName, err)
+			}
+			if err := parser.Close(); err != nil {
+				b.Fatalf("parser.Close(%s): %v", fixtureName, err)
+			}
 		}
-		if err := parser.Close(); err != nil {
-			b.Fatalf("parser.Close(%s): %v", fixtureName, err)
-		}
-	}
+	})
 }
 
 // Warm benchmarks do one warm-up parse before ResetTimer and then reuse the parser.
@@ -81,22 +83,20 @@ func runWarmBenchmark(b *testing.B, fixtureName string) {
 
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
-	b.ResetTimer()
+	benchmarkRunWithNativeAllocMetrics(b, func() {
+		for i := 0; i < b.N; i++ {
+			doc, err := parser.Parse(data)
+			if err != nil {
+				b.Fatalf("Parse(%s): %v", fixtureName, err)
+			}
 
-	for i := 0; i < b.N; i++ {
-		doc, err := parser.Parse(data)
-		if err != nil {
-			b.Fatalf("Parse(%s): %v", fixtureName, err)
+			benchmarkParserResult = doc.Root()
+
+			if err := doc.Close(); err != nil {
+				b.Fatalf("doc.Close(%s): %v", fixtureName, err)
+			}
 		}
-
-		benchmarkParserResult = doc.Root()
-
-		if err := doc.Close(); err != nil {
-			b.Fatalf("doc.Close(%s): %v", fixtureName, err)
-		}
-	}
-
-	b.StopTimer()
+	})
 	if err := parser.Close(); err != nil {
 		b.Fatalf("parser.Close(%s): %v", fixtureName, err)
 	}

@@ -2,6 +2,12 @@
 
 package purejson
 
+import "fmt"
+
 func init() {
 	registerOmittedBenchmarkComparator(benchmarkComparatorBytedanceSonic, "unsupported on this toolchain")
+}
+
+func benchmarkDecodeSharedSchemaBytedanceSonic(_ string, _ []byte) (any, error) {
+	return nil, fmt.Errorf("%s shared-schema decode unavailable on this toolchain", benchmarkComparatorBytedanceSonic)
 }

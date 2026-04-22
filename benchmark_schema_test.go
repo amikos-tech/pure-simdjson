@@ -16,8 +16,10 @@ type benchTwitterStatus struct {
 	CreatedAt     string               `json:"created_at"`
 	Entities      benchTwitterEntities `json:"entities"`
 	FavoriteCount int64                `json:"favorite_count"`
+	Favorited     bool                 `json:"favorited"`
 	ID            int64                `json:"id"`
 	RetweetCount  int64                `json:"retweet_count"`
+	Retweeted     bool                 `json:"retweeted"`
 	Text          string               `json:"text"`
 	User          benchTwitterUser     `json:"user"`
 }
@@ -42,6 +44,7 @@ type benchTwitterUserMention struct {
 
 type benchTwitterUser struct {
 	ID         int64  `json:"id"`
+	Name       string `json:"name"`
 	ScreenName string `json:"screen_name"`
 	Verified   bool   `json:"verified"`
 }
