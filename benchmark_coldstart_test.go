@@ -30,6 +30,8 @@ func BenchmarkWarm_canada_json(b *testing.B) {
 
 // cold-start here means first Parse after NewParser inside an already loaded process.
 // It intentionally excludes bootstrap or download time.
+// Both cold and warm families report native-bytes/op, native-allocs/op, and
+// native-live-bytes through benchmarkRunWithNativeAllocMetrics.
 func runColdStartBenchmark(b *testing.B, fixtureName string) {
 	data := loadBenchmarkFixture(b, fixtureName)
 

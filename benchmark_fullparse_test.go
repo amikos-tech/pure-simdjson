@@ -16,6 +16,9 @@ func BenchmarkTier1FullParse_canada_json(b *testing.B) {
 	runTier1FullParseBenchmark(b, benchmarkFixtureCanada)
 }
 
+// Tier 1 reports native-bytes/op, native-allocs/op, and native-live-bytes via
+// benchmarkRunWithNativeAllocMetrics so the published rows include native and
+// Go allocation signals together.
 func runTier1FullParseBenchmark(b *testing.B, fixtureName string) {
 	data := loadBenchmarkFixture(b, fixtureName)
 
