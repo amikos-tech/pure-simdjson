@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
-status: shipped
-stopped_at: Shipped Phase 06.1 in PR #17
-last_updated: "2026-04-22T13:27:51Z"
+status: planned
+stopped_at: Planned Phase 07 (5 plans)
+last_updated: "2026-04-22T16:55:31Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 12
-  completed_phases: 6
-  total_plans: 31
+  completed_phases: 7
+  total_plans: 36
   completed_plans: 31
-  percent: 100
+  percent: 86
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-15)
 
 **Core value:** Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, precision-preserving parser that does not require cgo at consumer build time.
-**Current focus:** Phase 06.1 is shipped in PR #17; the remaining sign-off step is a hosted-runner dispatch of `public-bootstrap-validation.yml` against a published tag and review of the hosted matrix evidence
+**Current focus:** Phase 07 is now planned and ready to execute: benchmark corpus + oracle, three-tier benchmark harness, public docs/legal artifacts, and a release-close path that respects the already-published `v0.1.0` history.
 
 ## Current Position
 
-Phase: 06.1 (fresh-machine-end-to-end-bootstrap-uat-against-live-r2-githu) — SHIPPED
-Plan: 3 of 3
-Status: Phase 06.1 shipped — PR #17; hosted-runner workflow execution still pending for final sign-off
+Phase: 07 (benchmarks-v0.1-release) — PLANNED
+Plan: 0 of 5
+Status: Phase 07 planned — ready to execute
 Last activity: 2026-04-22
-Shipping: PR #17 carries the live-public bootstrap wrapper, rerunnable validation workflow, contract tests, docs, and hosted UAT checklist; the next step is to dispatch `public-bootstrap-validation.yml` against a published tag and review the matrix results
+Shipping: `v0.1.0` is already published and Phase 06.1 is shipped; Phase 07 now owns the benchmark harness, correctness oracle, README/LICENSE/NOTICE work, and a non-autonomous patch-release closeout path if the new public artifacts must ship under a fresh tag
 
-Progress: [██████████] 100%
+Progress: [████████░░] 86%
 
 ## Performance Metrics
 
@@ -80,6 +80,7 @@ Progress: [██████████] 100%
 
 - Phase 06.1 inserted after Phase 06: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (promoted from backlog item 999.4)
 - Phase 06.1 execution produced the public bootstrap wrapper, hosted-runner validation workflow, contract tests, and operator runbook updates, and was shipped in PR #17; hosted GitHub Actions execution remains pending
+- Phase 07 is now planned as five plans: corpus/oracle foundation, Tier 1 + cold/warm harness, Tier 2/Tier 3 + allocator telemetry, public docs/legal artifacts, and a non-autonomous release-close plan
 
 ### Decisions
 
