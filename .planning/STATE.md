@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
-status: verifying
-stopped_at: Completed 06.1-03-PLAN.md
-last_updated: "2026-04-22T11:56:03Z"
+status: shipped
+stopped_at: Shipped Phase 06.1 in PR #17
+last_updated: "2026-04-22T13:27:51Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 12
@@ -21,15 +21,15 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-15)
 
 **Core value:** Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, precision-preserving parser that does not require cgo at consumer build time.
-**Current focus:** Phase 06.1 implementation is complete locally; the remaining sign-off step is a hosted-runner dispatch of `public-bootstrap-validation.yml` against a published tag
+**Current focus:** Phase 06.1 is shipped in PR #17; the remaining sign-off step is a hosted-runner dispatch of `public-bootstrap-validation.yml` against a published tag and review of the hosted matrix evidence
 
 ## Current Position
 
-Phase: 06.1 (fresh-machine-end-to-end-bootstrap-uat-against-live-r2-githu) — VERIFYING
+Phase: 06.1 (fresh-machine-end-to-end-bootstrap-uat-against-live-r2-githu) — SHIPPED
 Plan: 3 of 3
-Status: Plan execution complete — hosted-runner workflow execution still pending for final sign-off
+Status: Phase 06.1 shipped — PR #17; hosted-runner workflow execution still pending for final sign-off
 Last activity: 2026-04-22
-Shipping: Phase 06.1 added the live-public bootstrap wrapper, rerunnable validation workflow, contract tests, and docs; the next step is to commit, push, and dispatch `public-bootstrap-validation.yml` against a published tag
+Shipping: PR #17 carries the live-public bootstrap wrapper, rerunnable validation workflow, contract tests, docs, and hosted UAT checklist; the next step is to dispatch `public-bootstrap-validation.yml` against a published tag and review the matrix results
 
 Progress: [██████████] 100%
 
@@ -79,7 +79,7 @@ Progress: [██████████] 100%
 ### Roadmap Evolution
 
 - Phase 06.1 inserted after Phase 06: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (promoted from backlog item 999.4)
-- Phase 06.1 execution produced the public bootstrap wrapper, hosted-runner validation workflow, contract tests, and operator runbook updates; hosted GitHub Actions execution remains pending
+- Phase 06.1 execution produced the public bootstrap wrapper, hosted-runner validation workflow, contract tests, and operator runbook updates, and was shipped in PR #17; hosted GitHub Actions execution remains pending
 
 ### Decisions
 
