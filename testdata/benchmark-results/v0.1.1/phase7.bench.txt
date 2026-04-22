@@ -1,0 +1,8 @@
+PASS
+ok  	github.com/amikos-tech/pure-simdjson	0.465s
+PASS
+ok  	github.com/amikos-tech/pure-simdjson/cmd/pure-simdjson-bootstrap	0.334s
+PASS
+ok  	github.com/amikos-tech/pure-simdjson/internal/bootstrap	0.326s
+PASS
+ok  	github.com/amikos-tech/pure-simdjson/internal/ffi	0.307s
