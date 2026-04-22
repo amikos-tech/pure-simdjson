@@ -10,7 +10,6 @@ import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "public-bootstrap-validation.yml"
-WRAPPER = REPO_ROOT / "scripts" / "release" / "run_public_bootstrap_smoke.sh"
 RELEASES_DOC = REPO_ROOT / "docs" / "releases.md"
 BOOTSTRAP_DOC = REPO_ROOT / "docs" / "bootstrap.md"
 
@@ -217,36 +216,6 @@ class PublicBootstrapValidationContractTests(unittest.TestCase):
         self.assertIn("gh issue list", notify_step["run"])
         self.assertIn("gh issue comment", notify_step["run"])
         self.assertIn("gh issue create", notify_step["run"])
-
-    def test_wrapper_clears_cache_and_proves_expected_path(self) -> None:
-        wrapper_text = WRAPPER.read_text(encoding="utf-8")
-
-        self.assertTrue(WRAPPER.exists())
-        for snippet in (
-            "validate_semver_version",
-            "refusing unsafe cache dir",
-            'rm -rf -- "$cache_dir"',
-            "go run ./tests/smoke/go_bootstrap_smoke.go",
-            "validate_cached_artifact_checksum",
-            'if [[ ! -s "$expected_cache_path" ]]; then',
-        ):
-            self.assertIn(snippet, wrapper_text)
-
-    def test_wrapper_proves_fallback_404s_checksums_and_unix_permissions(self) -> None:
-        wrapper_text = WRAPPER.read_text(encoding="utf-8")
-
-        for snippet in (
-            "PURE_SIMDJSON_DISABLE_GH_FALLBACK=1",
-            'PURE_SIMDJSON_BINARY_MIRROR="https://releases.amikos.tech/pure-simdjson-does-not-exist"',
-            "--max-time 15 --connect-timeout 5 --retry 2 --retry-connrefused",
-            "refusing existing cache dir outside RUNNER_TEMP",
-            "SHA256SUMS",
-            "sha256_file",
-            'broken_checksums_status" != "404"',
-            'broken_artifact_status" != "404"',
-            'if [[ "$mode_bits" != "700" ]]; then',
-        ):
-            self.assertIn(snippet, wrapper_text)
 
     def test_docs_define_phase_06_1_boundary_and_entrypoint(self) -> None:
         releases_text = RELEASES_DOC.read_text(encoding="utf-8")

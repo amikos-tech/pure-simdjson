@@ -188,7 +188,14 @@ fetch_url() {
 }
 
 probe_http_code() {
-  curl -sS -o /dev/null -w '%{http_code}' --max-time 15 --connect-timeout 5 --retry 2 --retry-connrefused "$1"
+  local code
+  code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 --connect-timeout 5 --retry 2 --retry-connrefused "$1")" || return $?
+  # curl -sS can exit 0 and emit 000 on DNS/TLS failures; reject anything that is not a real HTTP status.
+  if [[ ! "$code" =~ ^[1-5][0-9]{2}$ ]]; then
+    echo "probe_http_code: invalid HTTP status '$code' for $1" >&2
+    return 1
+  fi
+  printf '%s' "$code"
 }
 
 sha256_file() {

@@ -38,6 +38,14 @@ class RunPublicBootstrapSmokeBehaviorTests(unittest.TestCase):
         self.write_fake_sha256sum()
 
         self.base_env = os.environ.copy()
+        # Ambient dev overrides would either abort the wrapper or mask the path under test.
+        for leaked in (
+            "PURE_SIMDJSON_LIB_PATH",
+            "PURE_SIMDJSON_BINARY_MIRROR",
+            "PURE_SIMDJSON_DISABLE_GH_FALLBACK",
+            "PURE_SIMDJSON_CACHE_DIR",
+        ):
+            self.base_env.pop(leaked, None)
         self.base_env.update(
             {
                 "HOME": str(self.home),
@@ -222,6 +230,78 @@ class RunPublicBootstrapSmokeBehaviorTests(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("expected cache artifact missing or empty", result.stderr)
+
+    def test_detects_sha256_mismatch_when_artifact_tampered(self) -> None:
+        # SHA256SUMS advertises the digest of the *expected* bytes, but the fake `go`
+        # writes different content — as a tampered mirror would. The wrapper's
+        # independent re-hash must catch the mismatch.
+        cache_dir = self.runner_temp / "tamper-cache"
+        expected_digest = hashlib.sha256(b"bootstrap smoke artifact").hexdigest()
+        checksums_body = f"{expected_digest}  v1.2.3/linux-amd64/libpure_simdjson.so\n"
+
+        result = self.run_script(
+            mode="r2",
+            cache_dir=cache_dir,
+            extra_env={
+                "TEST_ARTIFACT_CONTENT": "tampered bytes",
+                "TEST_SHA256SUMS_BODY": checksums_body,
+            },
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("cached artifact digest mismatch", result.stderr)
+
+    def test_rejects_missing_checksum_entry(self) -> None:
+        cache_dir = self.runner_temp / "missing-entry-cache"
+        artifact_digest = hashlib.sha256(b"bootstrap smoke artifact").hexdigest()
+        checksums_body = f"{artifact_digest}  v1.2.3/linux-amd64/some-other-lib.so\n"
+
+        result = self.run_script(
+            mode="r2",
+            cache_dir=cache_dir,
+            extra_env={"TEST_SHA256SUMS_BODY": checksums_body},
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("checksum entry not found", result.stderr)
+
+    def test_rejects_malformed_checksum_entry(self) -> None:
+        cache_dir = self.runner_temp / "malformed-entry-cache"
+
+        result = self.run_script(
+            mode="r2",
+            cache_dir=cache_dir,
+            extra_env={
+                "TEST_SHA256SUMS_BODY": "1234  v1.2.3/linux-amd64/libpure_simdjson.so\n",
+            },
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("is not a lowercase SHA-256 digest", result.stderr)
+
+    def test_refuses_unsafe_raw_cache_dir_inputs(self) -> None:
+        for raw in (".", "..", "/"):
+            with self.subTest(raw=raw):
+                result = self.run_script(
+                    mode="r2",
+                    cache_dir=pathlib.Path(raw),
+                    extra_env={"TEST_SHA256SUMS_BODY": "deadbeef  entry\n"},
+                )
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("refusing unsafe cache dir", result.stderr)
+
+    def test_refuses_home_and_repo_root_as_cache_dir(self) -> None:
+        for label, path in (("home", self.home), ("repo-root", self.repo_root)):
+            with self.subTest(label=label):
+                result = self.run_script(
+                    mode="r2",
+                    cache_dir=path,
+                    extra_env={"TEST_SHA256SUMS_BODY": "deadbeef  entry\n"},
+                )
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("refusing unsafe cache dir", result.stderr)
 
     def test_rejects_incorrect_unix_permissions(self) -> None:
         cache_dir = self.runner_temp / "bad-perms-cache"
