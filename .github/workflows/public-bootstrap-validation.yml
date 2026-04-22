@@ -1,0 +1,241 @@
+name: public bootstrap validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: published version without the leading v, for example 0.1.0
+        required: true
+        type: string
+  schedule:
+    - cron: "23 6 * * *"
+
+concurrency:
+  # Queue runs instead of cancelling them so each latest.json snapshot keeps its own validation signal.
+  group: public-bootstrap-validation-${{ github.event_name == 'workflow_dispatch' && inputs.version || 'scheduled' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  resolve-version:
+    name: resolve validation version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Resolve target version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          version="${INPUT_VERSION:-}"
+
+          if [[ "${GITHUB_EVENT_NAME}" == "schedule" ]]; then
+            latest_json="$(curl -fsSL --max-time 15 --connect-timeout 5 --retry 2 --retry-connrefused https://releases.amikos.tech/pure-simdjson/latest.json)"
+            version="$(printf '%s' "$latest_json" | python3 -c 'import json, sys; version = str(json.load(sys.stdin)["version"]).strip(); print(version[1:] if version.startswith("v") else version)')"
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
+            echo "validation version must match <major>.<minor>.<patch>[-suffix], got: ${version}" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+  validate-r2:
+    name: validate r2 (${{ matrix.platform_id }})
+    runs-on: ${{ matrix.runner }}
+    needs: resolve-version
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform_id: linux-amd64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - platform_id: linux-arm64
+            runner: ubuntu-24.04-arm
+            goos: linux
+            goarch: arm64
+          - platform_id: darwin-amd64
+            runner: macos-15-intel
+            goos: darwin
+            goarch: amd64
+          - platform_id: darwin-arm64
+            runner: macos-15
+            goos: darwin
+            goarch: arm64
+          - platform_id: windows-amd64
+            runner: windows-latest
+            goos: windows
+            goarch: amd64
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.resolve-version.outputs.version }}
+    steps:
+      - name: Check out current branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Check out published tag into target-src
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: refs/tags/v${{ needs.resolve-version.outputs.version }}
+          path: target-src
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Validate target tag source
+        run: |
+          set -euo pipefail
+          test -f target-src/go.mod
+          test -f target-src/tests/smoke/go_bootstrap_smoke.go
+          grep -F "const Version = \"$VERSION\"" target-src/internal/bootstrap/version.go
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: target-src/go.mod
+
+      - name: Run public bootstrap smoke (r2)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_public_bootstrap_smoke.sh \
+            --repo-root "$GITHUB_WORKSPACE/target-src" \
+            --version "$VERSION" \
+            --goos "${{ matrix.goos }}" \
+            --goarch "${{ matrix.goarch }}" \
+            --mode r2 \
+            --cache-dir "$RUNNER_TEMP/pure-simdjson-cache"
+
+  validate-gh-fallback:
+    name: validate github fallback (${{ matrix.platform_id }})
+    runs-on: ${{ matrix.runner }}
+    needs: resolve-version
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform_id: linux-amd64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - platform_id: darwin-arm64
+            runner: macos-15
+            goos: darwin
+            goarch: arm64
+          - platform_id: windows-amd64
+            runner: windows-latest
+            goos: windows
+            goarch: amd64
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.resolve-version.outputs.version }}
+    steps:
+      - name: Check out current branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Check out published tag into target-src
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: refs/tags/v${{ needs.resolve-version.outputs.version }}
+          path: target-src
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Validate target tag source
+        run: |
+          set -euo pipefail
+          test -f target-src/go.mod
+          test -f target-src/tests/smoke/go_bootstrap_smoke.go
+          grep -F "const Version = \"$VERSION\"" target-src/internal/bootstrap/version.go
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: target-src/go.mod
+
+      - name: Run public bootstrap smoke (github-fallback)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_public_bootstrap_smoke.sh \
+            --repo-root "$GITHUB_WORKSPACE/target-src" \
+            --version "$VERSION" \
+            --goos "${{ matrix.goos }}" \
+            --goarch "${{ matrix.goarch }}" \
+            --mode github-fallback \
+            --cache-dir "$RUNNER_TEMP/pure-simdjson-cache"
+
+  notify-scheduled-failure:
+    name: notify scheduled validation failure
+    runs-on: ubuntu-latest
+    needs:
+      - resolve-version
+      - validate-r2
+      - validate-gh-fallback
+    if: >-
+      ${{
+        always() &&
+        github.event_name == 'schedule' &&
+        (
+          needs.resolve-version.result == 'failure' ||
+          needs.validate-r2.result == 'failure' ||
+          needs.validate-gh-fallback.result == 'failure'
+        )
+      }}
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.resolve-version.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Open or update scheduled validation issue
+        run: |
+          set -euo pipefail
+          version="${VERSION:-unresolved}"
+          title="scheduled public bootstrap validation failed for ${version}"
+          body="$(cat <<EOF
+          Scheduled public bootstrap validation failed.
+
+          - version: \`${version}\`
+          - run: ${RUN_URL}
+          - triggered-at: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          This issue is maintained by \`.github/workflows/public-bootstrap-validation.yml\`.
+          EOF
+          )"
+
+          existing_number="$(gh issue list --state open --search "in:title \"$ISSUE_TITLE\"" --limit 1000 --json number,title | python3 -c 'import json, os, sys; title = os.environ["ISSUE_TITLE"]; issues = json.load(sys.stdin); match = next((issue["number"] for issue in issues if issue["title"] == title), ""); print(match)' )"
+
+          if [[ -n "$existing_number" ]]; then
+            gh issue comment "$existing_number" --body "$body"
+            exit 0
+          fi
+
+          gh issue create --title "$title" --body "$body"
+        env:
+          ISSUE_TITLE: scheduled public bootstrap validation failed for ${{ needs.resolve-version.outputs.version || 'unresolved' }}

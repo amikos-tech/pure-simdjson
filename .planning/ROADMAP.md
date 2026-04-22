@@ -280,14 +280,17 @@ Plans:
 
 ### Phase 06.1: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (INSERTED)
 
-**Goal:** Execute the Phase 5 human UAT that could not be exercised during Phase 5 because the `internal/bootstrap/checksums.go` map is populated only at release time by Phase 6 CI-05. On a fresh machine with `~/Library/Caches/pure-simdjson` cleared, `NewParser()` should download a real artifact from `releases.amikos.tech`, verify SHA-256 against the populated `Checksums` map, cache with 0700 perms, and parse a sample document successfully on each of the 5 target platforms (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64). Validates Success Criterion 1 from ROADMAP.md.
+**Goal:** Execute the Phase 5 human UAT that could not be exercised during Phase 5 because the live `SHA256SUMS` metadata only exists after Phase 6 publishes a real release. On a fresh machine with `~/Library/Caches/pure-simdjson` cleared, `NewParser()` should download a real artifact from `releases.amikos.tech`, verify SHA-256 against the published release metadata for that tag, cache with 0700 perms, and parse a sample document successfully on each of the 5 target platforms (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64). Validates Success Criterion 1 from ROADMAP.md.
 
 **Requirements:** TBD — lifted from backlog item 999.4 after Phase 5 deferred the live-artifact bootstrap UAT pending Phase 6 CI-05. See `.planning/phases/05-bootstrap-distribution/05-HUMAN-UAT.md` for original context.
 **Depends on:** Phase 6
-**Plans:** 0 plans
+**Plans:** 3 plans
+**Research flag:** YES — this phase now depends on tag checkout, live published `SHA256SUMS` resolution, and explicit source-ladder forcing that changed after the original Phase 5 deferral wording.
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 06.1 to break down)
+- [x] `06.1-01-PLAN.md` — Reusable live-public bootstrap smoke wrapper with empty-cache, cache-path, and unix-permission assertions
+- [x] `06.1-02-PLAN.md` — Dedicated rerunnable public-bootstrap validation workflow for five-target R2 coverage plus GitHub-fallback subset coverage
+- [x] `06.1-03-PLAN.md` — Post-publish operator docs for the Phase 06.1 workflow and release/bootstrap handoff
 
 ### Phase 7: Benchmarks + v0.1 Release
 

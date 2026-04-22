@@ -228,22 +228,26 @@ library makes to consumers.
 
 ## Testing and Release Scope (v0.1)
 
-The fresh-machine bootstrap flow is exercised in the `internal/bootstrap` test
-suite via `net/http/httptest` with staged fake artifacts and synthetic SHA-256
-values injected into `bootstrap.Checksums`. This validates the pipeline
-end-to-end: URL construction, retry cascade, GitHub fallback, SHA-256
-verification, atomic rename, flock concurrency, context cancellation, and
-env-var overrides.
+The local bootstrap test suite still exercises the pipeline through
+`net/http/httptest` with staged fake artifacts and optional synthetic
+SHA-256 values injected through `bootstrap.Checksums`. That validates the
+bootstrap control flow end-to-end: URL construction, retry cascade, GitHub
+fallback, SHA-256 verification, atomic rename, flock concurrency, context
+cancellation, and env-var overrides.
 
 What now lives outside this bootstrap document:
 
 - The Phase 6 release operator flow in [`docs/releases.md`](./releases.md):
   `release.yml`, publish-time verification, and `SHA256SUMS` / cosign
   commands.
-- Fresh-runner public validation against the live
-  `releases.amikos.tech` CDN and the
-  `github.com/amikos-tech/pure-simdjson/releases` mirror. That follow-up is
-  Phase `06.1`, not part of the publish runbook itself.
+- Live public validation against published `SHA256SUMS` plus the public
+  `releases.amikos.tech` R2 tree and the
+  `github.com/amikos-tech/pure-simdjson/releases` fallback mirror. That
+  follow-up is owned by Phase `06.1` through
+  `public-bootstrap-validation.yml`, not by the publish workflow itself.
+- Live public validation runs the workflow from the current branch, but the
+  validated source is checked out into `target-src/` from the published tag
+  so reruns follow the released source tree instead of the moving branch tip.
 
 On ordinary development branches, `BootstrapSync` against an unpublished
 version still returns `bootstrap.ErrNoChecksum` because no published
