@@ -41,10 +41,19 @@ SAMPLE_CHANGELOG = textwrap.dedent(
 
 
 class RenderReleaseNotesTests(unittest.TestCase):
-    def write_sample_changelog(self, tmpdir: str) -> pathlib.Path:
-        changelog_path = pathlib.Path(tmpdir) / "CHANGELOG.md"
-        changelog_path.write_text(SAMPLE_CHANGELOG, encoding="utf-8")
-        return changelog_path
+    def write_text_file(self, tmpdir: str, name: str, contents: str) -> pathlib.Path:
+        path = pathlib.Path(tmpdir) / name
+        path.write_text(contents, encoding="utf-8")
+        return path
+
+    def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["python3", str(SCRIPT_PATH), *args],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
 
     def test_normalize_version_accepts_tag_prefixes(self) -> None:
         self.assertEqual(MODULE.normalize_version("1.2.0"), "1.2.0")
@@ -59,26 +68,44 @@ class RenderReleaseNotesTests(unittest.TestCase):
             "## [1.2.0] - 2026-04-22\n\n### Added\n- Brand new thing.\n",
         )
 
+    def test_extract_release_section_rejects_duplicate_headings(self) -> None:
+        duplicate = SAMPLE_CHANGELOG + textwrap.dedent(
+            """\
+
+            ## [1.2.0] - 2026-04-20
+
+            ### Fixed
+            - Duplicate heading.
+            """
+        )
+
+        with self.assertRaisesRegex(ValueError, "duplicate changelog headings"):
+            MODULE.extract_release_section(duplicate, "1.2.0")
+
+    def test_extract_release_section_rejects_heading_without_body(self) -> None:
+        changelog = textwrap.dedent(
+            """\
+            # Changelog
+
+            ## [1.2.0] - 2026-04-22
+            """
+        )
+
+        with self.assertRaisesRegex(ValueError, "has no body"):
+            MODULE.extract_release_section(changelog, "1.2.0")
+
     def test_cli_writes_requested_changelog_entry(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            changelog_path = self.write_sample_changelog(tmpdir)
+            changelog_path = self.write_text_file(tmpdir, "CHANGELOG.md", SAMPLE_CHANGELOG)
             output_path = pathlib.Path(tmpdir) / "release-notes.md"
 
-            result = subprocess.run(
-                [
-                    "python3",
-                    str(SCRIPT_PATH),
-                    "--changelog",
-                    str(changelog_path),
-                    "--version",
-                    "refs/tags/v1.1.0",
-                    "--output",
-                    str(output_path),
-                ],
-                cwd=REPO_ROOT,
-                check=False,
-                capture_output=True,
-                text=True,
+            result = self.run_cli(
+                "--changelog",
+                str(changelog_path),
+                "--version",
+                "refs/tags/v1.1.0",
+                "--output",
+                str(output_path),
             )
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
@@ -89,25 +116,75 @@ class RenderReleaseNotesTests(unittest.TestCase):
 
     def test_cli_reports_missing_version(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            changelog_path = self.write_sample_changelog(tmpdir)
+            changelog_path = self.write_text_file(tmpdir, "CHANGELOG.md", SAMPLE_CHANGELOG)
 
-            result = subprocess.run(
-                [
-                    "python3",
-                    str(SCRIPT_PATH),
-                    "--changelog",
-                    str(changelog_path),
-                    "--version",
-                    "v9.9.9",
-                ],
-                cwd=REPO_ROOT,
-                check=False,
-                capture_output=True,
-                text=True,
+            result = self.run_cli(
+                "--changelog",
+                str(changelog_path),
+                "--version",
+                "v9.9.9",
             )
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("version '9.9.9' not found in changelog", result.stderr)
+
+    def test_cli_reports_missing_changelog_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing_path = pathlib.Path(tmpdir) / "MISSING.md"
+
+            result = self.run_cli("--changelog", str(missing_path), "--version", "1.2.0")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("render_release_notes.py:", result.stderr)
+            self.assertIn("MISSING.md", result.stderr)
+
+    def test_cli_reports_malformed_heading_as_missing_version(self) -> None:
+        malformed = textwrap.dedent(
+            """\
+            # Changelog
+
+            ## [1.2.0 - 2026-04-22
+
+            ### Added
+            - Broken heading.
+            """
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            changelog_path = self.write_text_file(tmpdir, "CHANGELOG.md", malformed)
+
+            result = self.run_cli("--changelog", str(changelog_path), "--version", "1.2.0")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("version '1.2.0' not found in changelog", result.stderr)
+
+    def test_cli_reports_non_utf8_changelog(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            changelog_path = pathlib.Path(tmpdir) / "CHANGELOG.md"
+            changelog_path.write_bytes(b"\xff\xfe\xfd")
+
+            result = self.run_cli("--changelog", str(changelog_path), "--version", "1.2.0")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("render_release_notes.py:", result.stderr)
+
+    def test_cli_reports_output_write_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            changelog_path = self.write_text_file(tmpdir, "CHANGELOG.md", SAMPLE_CHANGELOG)
+            output_path = pathlib.Path(tmpdir) / "missing-dir" / "release-notes.md"
+
+            result = self.run_cli(
+                "--changelog",
+                str(changelog_path),
+                "--version",
+                "1.2.0",
+                "--output",
+                str(output_path),
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("render_release_notes.py:", result.stderr)
+            self.assertIn("missing-dir", result.stderr)
 
 
 if __name__ == "__main__":

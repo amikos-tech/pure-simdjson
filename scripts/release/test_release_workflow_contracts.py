@@ -108,7 +108,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         self.assertIn("mapfile -t verify_targets < <(python3 -c", verify_section)
         self.assertNotIn("<<'PY'", verify_section)
 
-    def test_release_publish_prepends_changelog_body_to_generated_notes(self) -> None:
+    def test_release_publish_uses_rendered_changelog_body_without_auto_generated_notes(self) -> None:
         workflow_text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
 
         render_idx = workflow_text.index("- name: Render release notes from CHANGELOG.md")
@@ -121,13 +121,15 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
 
         render_section = workflow_text.split("- name: Render release notes from CHANGELOG.md", 1)[1]
         render_section = render_section.split("- name: Publish GitHub release", 1)[0]
+        self.assertIn("if: startsWith(github.ref, 'refs/tags/')", render_section)
         self.assertIn("python3 scripts/release/render_release_notes.py", render_section)
         self.assertIn('--version "${{ github.ref_name }}"', render_section)
         self.assertIn('--output "${{ github.workspace }}/release-notes.md"', render_section)
 
         publish_section = workflow_text.split("- name: Publish GitHub release", 1)[1]
+        self.assertIn("if: startsWith(github.ref, 'refs/tags/')", publish_section)
         self.assertIn("body_path: ${{ github.workspace }}/release-notes.md", publish_section)
-        self.assertIn("generate_release_notes: true", publish_section)
+        self.assertNotIn("generate_release_notes:", publish_section)
 
 
 if __name__ == "__main__":

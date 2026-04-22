@@ -24,9 +24,13 @@ def extract_release_section(changelog_text: str, version: str) -> str:
         rf"^## \[{re.escape(version)}\](?:\s+-\s+.+)?$",
         re.MULTILINE,
     )
-    heading_match = heading_pattern.search(changelog_text)
-    if heading_match is None:
+    heading_matches = list(heading_pattern.finditer(changelog_text))
+    if not heading_matches:
         raise ValueError(f"version {version!r} not found in changelog")
+    if len(heading_matches) > 1:
+        raise ValueError(f"duplicate changelog headings found for version {version!r}")
+
+    heading_match = heading_matches[0]
 
     next_heading_pattern = re.compile(r"^## \[", re.MULTILINE)
     next_heading_match = next_heading_pattern.search(changelog_text, heading_match.end())
@@ -35,6 +39,8 @@ def extract_release_section(changelog_text: str, version: str) -> str:
     section = changelog_text[heading_match.start():section_end].strip()
     if not section:
         raise ValueError(f"changelog entry for version {version!r} is empty")
+    if section == heading_match.group(0):
+        raise ValueError(f"changelog entry for version {version!r} has no body")
 
     return f"{section}\n"
 
@@ -73,16 +79,16 @@ def main() -> int:
 
     try:
         rendered = render_release_notes(changelog_path, args.version)
-    except (OSError, ValueError) as exc:
+        if args.output == "-":
+            sys.stdout.write(rendered)
+            return 0
+
+        output_path = pathlib.Path(args.output)
+        output_path.write_text(rendered, encoding="utf-8")
+    except (OSError, UnicodeError, ValueError) as exc:
         print(f"render_release_notes.py: {exc}", file=sys.stderr)
         return 1
 
-    if args.output == "-":
-        sys.stdout.write(rendered)
-        return 0
-
-    output_path = pathlib.Path(args.output)
-    output_path.write_text(rendered, encoding="utf-8")
     return 0
 
 
