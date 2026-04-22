@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
-status: planned
-stopped_at: Planned Phase 07 (5 plans)
-last_updated: "2026-04-22T16:55:31Z"
-last_activity: 2026-04-22
+status: executing
+stopped_at: Completed 06-06-PLAN.md
+last_updated: "2026-04-22T18:46:08.707Z"
+last_activity: 2026-04-22 -- Phase 07 execution started
 progress:
   total_phases: 12
   completed_phases: 7
-  total_plans: 36
+  total_plans: 37
   completed_plans: 31
-  percent: 86
+  percent: 84
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-15)
 
 **Core value:** Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, precision-preserving parser that does not require cgo at consumer build time.
-**Current focus:** Phase 07 is now planned and ready to execute: benchmark corpus + oracle, three-tier benchmark harness, public docs/legal artifacts, and a release-close path that respects the already-published `v0.1.0` history.
+**Current focus:** Phase 07 — benchmarks-v0.1-release
 
 ## Current Position
 
-Phase: 07 (benchmarks-v0.1-release) — PLANNED
-Plan: 0 of 5
-Status: Phase 07 planned — ready to execute
-Last activity: 2026-04-22
+Phase: 07 (benchmarks-v0.1-release) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 07
+Last activity: 2026-04-22 -- Phase 07 execution started
 Shipping: `v0.1.0` is already published and Phase 06.1 is shipped; Phase 07 now owns the benchmark harness, correctness oracle, README/LICENSE/NOTICE work, and a non-autonomous patch-release closeout path if the new public artifacts must ship under a fresh tag
 
-Progress: [████████░░] 86%
+Progress: [████████░░] 84%
 
 ## Performance Metrics
 
@@ -80,7 +80,7 @@ Progress: [████████░░] 86%
 
 - Phase 06.1 inserted after Phase 06: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (promoted from backlog item 999.4)
 - Phase 06.1 execution produced the public bootstrap wrapper, hosted-runner validation workflow, contract tests, and operator runbook updates, and was shipped in PR #17; hosted GitHub Actions execution remains pending
-- Phase 07 is now planned as five plans: corpus/oracle foundation, Tier 1 + cold/warm harness, Tier 2/Tier 3 + allocator telemetry, public docs/legal artifacts, and a non-autonomous release-close plan
+- Phase 07 is now planned as six plans: corpus/oracle foundation, Tier 1 + cold/warm harness, allocator telemetry surface, Tier 2/Tier 3 benchmark consumers, public docs/legal artifacts with committed evidence, and a non-autonomous release-close plan
 
 ### Decisions
 
