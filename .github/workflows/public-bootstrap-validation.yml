@@ -1,0 +1,146 @@
+name: public bootstrap validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: published version without the leading v, for example 0.1.0
+        required: true
+        type: string
+
+concurrency:
+  group: public-bootstrap-validation-${{ inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  validate-r2:
+    name: validate r2 (${{ matrix.platform_id }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform_id: linux-amd64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - platform_id: linux-arm64
+            runner: ubuntu-24.04-arm
+            goos: linux
+            goarch: arm64
+          - platform_id: darwin-amd64
+            runner: macos-15-intel
+            goos: darwin
+            goarch: amd64
+          - platform_id: darwin-arm64
+            runner: macos-15
+            goos: darwin
+            goarch: arm64
+          - platform_id: windows-amd64
+            runner: windows-latest
+            goos: windows
+            goarch: amd64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out current branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Check out published tag into target-src
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: refs/tags/v${{ inputs.version }}
+          path: target-src
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Validate target tag source
+        run: |
+          set -euo pipefail
+          test -f target-src/go.mod
+          test -f target-src/tests/smoke/go_bootstrap_smoke.go
+          grep -F "const Version = \"${{ inputs.version }}\"" target-src/internal/bootstrap/version.go
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: target-src/go.mod
+
+      - name: Run public bootstrap smoke (r2)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_public_bootstrap_smoke.sh \
+            --repo-root "$GITHUB_WORKSPACE/target-src" \
+            --version "${{ inputs.version }}" \
+            --goos "${{ matrix.goos }}" \
+            --goarch "${{ matrix.goarch }}" \
+            --mode r2 \
+            --cache-dir "$RUNNER_TEMP/pure-simdjson-cache"
+
+  validate-gh-fallback:
+    name: validate github fallback (${{ matrix.platform_id }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform_id: linux-amd64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - platform_id: darwin-arm64
+            runner: macos-15
+            goos: darwin
+            goarch: arm64
+          - platform_id: windows-amd64
+            runner: windows-latest
+            goos: windows
+            goarch: amd64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out current branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Check out published tag into target-src
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: refs/tags/v${{ inputs.version }}
+          path: target-src
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Validate target tag source
+        run: |
+          set -euo pipefail
+          test -f target-src/go.mod
+          test -f target-src/tests/smoke/go_bootstrap_smoke.go
+          grep -F "const Version = \"${{ inputs.version }}\"" target-src/internal/bootstrap/version.go
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: target-src/go.mod
+
+      - name: Run public bootstrap smoke (github-fallback)
+        run: |
+          set -euo pipefail
+          bash scripts/release/run_public_bootstrap_smoke.sh \
+            --repo-root "$GITHUB_WORKSPACE/target-src" \
+            --version "${{ inputs.version }}" \
+            --goos "${{ matrix.goos }}" \
+            --goarch "${{ matrix.goarch }}" \
+            --mode github-fallback \
+            --cache-dir "$RUNNER_TEMP/pure-simdjson-cache"

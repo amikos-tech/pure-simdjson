@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: verifying
-stopped_at: Completed 06-06-PLAN.md
-last_updated: "2026-04-21T07:55:44.237Z"
-last_activity: 2026-04-21
+stopped_at: Completed 06.1-03-PLAN.md
+last_updated: "2026-04-22T11:56:03Z"
+last_activity: 2026-04-22
 progress:
   total_phases: 12
   completed_phases: 6
-  total_plans: 28
-  completed_plans: 28
+  total_plans: 31
+  completed_plans: 31
   percent: 100
 ---
 
@@ -21,15 +21,15 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-15)
 
 **Core value:** Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, precision-preserving parser that does not require cgo at consumer build time.
-**Current focus:** Phase 06 verification complete; next follow-up is Phase 06.1 fresh-machine live bootstrap validation
+**Current focus:** Phase 06.1 implementation is complete locally; the remaining sign-off step is a hosted-runner dispatch of `public-bootstrap-validation.yml` against a published tag
 
 ## Current Position
 
-Phase: 06 (ci-release-matrix-platform-coverage) — VERIFYING
-Plan: 6 of 6
-Status: Phase complete — ready for verification
-Last activity: 2026-04-21
-Shipping: Phase 06 complete — CI release path, runbook, readiness gate, and repo-local release skill are in place; Phase 06.1 remains for fresh-runner live-artifact validation
+Phase: 06.1 (fresh-machine-end-to-end-bootstrap-uat-against-live-r2-githu) — VERIFYING
+Plan: 3 of 3
+Status: Plan execution complete — hosted-runner workflow execution still pending for final sign-off
+Last activity: 2026-04-22
+Shipping: Phase 06.1 added the live-public bootstrap wrapper, rerunnable validation workflow, contract tests, and docs; the next step is to commit, push, and dispatch `public-bootstrap-validation.yml` against a published tag
 
 Progress: [██████████] 100%
 
@@ -79,6 +79,7 @@ Progress: [██████████] 100%
 ### Roadmap Evolution
 
 - Phase 06.1 inserted after Phase 06: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (promoted from backlog item 999.4)
+- Phase 06.1 execution produced the public bootstrap wrapper, hosted-runner validation workflow, contract tests, and operator runbook updates; hosted GitHub Actions execution remains pending
 
 ### Decisions
 
