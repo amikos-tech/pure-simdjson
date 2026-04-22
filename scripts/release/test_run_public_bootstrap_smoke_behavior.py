@@ -203,6 +203,23 @@ class RunPublicBootstrapSmokeBehaviorTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("requires explicit broken-mirror 404 proof", result.stderr)
 
+    def test_github_fallback_mode_validates_checksum_from_github(self) -> None:
+        cache_dir = self.runner_temp / "fallback-happy-cache"
+        artifact_digest = hashlib.sha256(b"bootstrap smoke artifact").hexdigest()
+        checksums_body = f"{artifact_digest}  v1.2.3/linux-amd64/libpure_simdjson.so\n"
+
+        result = self.run_script(
+            mode="github-fallback",
+            cache_dir=cache_dir,
+            extra_env={"TEST_SHA256SUMS_BODY": checksums_body},
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        summary = self.summary_path.read_text(encoding="utf-8")
+        self.assertIn("mode: `github-fallback`", summary)
+        self.assertIn("broken-mirror checksum probe: `404`", summary)
+        self.assertIn("broken-mirror artifact probe: `404`", summary)
+
     def test_refuses_existing_cache_dir_outside_runner_temp(self) -> None:
         cache_dir = self.root / "existing-cache"
         cache_dir.mkdir()
