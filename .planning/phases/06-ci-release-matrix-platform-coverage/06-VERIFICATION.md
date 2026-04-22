@@ -1,16 +1,9 @@
 ---
 phase: 06-ci-release-matrix-platform-coverage
-verified: 2026-04-21T08:11:45Z
-status: human_needed
-score: 7/8 must-haves verified
+verified: 2026-04-22T10:03:09Z
+status: passed
+score: 8/8 must-haves verified
 overrides_applied: 0
-human_verification:
-  - test: "Download a published macOS dylib and clear quarantine"
-    expected: "After `xattr -d com.apple.quarantine <path-to-dylib>`, the downloaded dylib loads successfully on a fresh macOS host"
-    why_human: "Requires a real downloaded release artifact plus Gatekeeper behavior; the repo's own 06-VALIDATION.md marks this manual-only"
-  - test: "Review the generated GitHub release notes for a real tag"
-    expected: "The published notes are acceptable for a public release and align with the prepared CHANGELOG entry"
-    why_human: "The workflow can generate notes, but wording/communication quality is a human judgment"
 deferred:
   - truth: "Fresh-machine live-artifact bootstrap against public R2 and GitHub Releases"
     addressed_in: "Phase 06.1"
@@ -20,9 +13,9 @@ deferred:
 # Phase 6: CI Release Matrix + Platform Coverage Verification Report
 
 **Phase Goal:** A tag push produces signed, verified shared libraries for all five targets (plus an Alpine smoke-test signal) uploaded to R2 and GitHub Releases with a generated checksum manifest. CI is the only path to a release.
-**Verified:** 2026-04-21T08:11:45Z
-**Status:** human_needed
-**Re-verification:** No — initial verification
+**Verified:** 2026-04-22T10:03:09Z
+**Status:** passed
+**Re-verification:** Yes — completed the previously manual-only macOS dylib and public release-notes checks against `v0.1.0`
 
 ## Goal Achievement
 
@@ -37,9 +30,9 @@ deferred:
 | 5 | The Go packaged-artifact smoke exercises the real bootstrap mirror path, while Alpine stays limited to the documented `PURE_SIMDJSON_LIB_PATH` escape hatch | ✓ VERIFIED | `run_go_packaged_smoke.sh` explicitly unsets `PURE_SIMDJSON_LIB_PATH`, serves the staged tree over loopback, sets `PURE_SIMDJSON_BINARY_MIRROR`, sets `PURE_SIMDJSON_DISABLE_GH_FALLBACK=1`, and runs `go_bootstrap_smoke.go`; `run_alpine_smoke.sh` enforces one pinned `alpine:latest@sha256:...` ref and uses only `PURE_SIMDJSON_LIB_PATH` ([run_go_packaged_smoke.sh](/Users/tazarov/experiments/amikos/pure-simdjson/scripts/release/run_go_packaged_smoke.sh:52), [run_go_packaged_smoke.sh](/Users/tazarov/experiments/amikos/pure-simdjson/scripts/release/run_go_packaged_smoke.sh:100), [run_go_packaged_smoke.sh](/Users/tazarov/experiments/amikos/pure-simdjson/scripts/release/run_go_packaged_smoke.sh:106), [run_alpine_smoke.sh](/Users/tazarov/experiments/amikos/pure-simdjson/scripts/release/run_alpine_smoke.sh:4), [run_alpine_smoke.sh](/Users/tazarov/experiments/amikos/pure-simdjson/scripts/release/run_alpine_smoke.sh:38), [run_alpine_smoke.sh](/Users/tazarov/experiments/amikos/pure-simdjson/scripts/release/run_alpine_smoke.sh:61)). |
 | 6 | Release preparation rewrites `version.go`, `checksums.go`, and `CHANGELOG.md` on a normal `release-prep/v<version>` branch, and the strict readiness gate rejects unprepared source state before tagging | ✓ VERIFIED | `release-prepare.yml` combines manifest rows, runs `update_bootstrap_release_state.py`, updates `CHANGELOG.md`, validates prepared source state, commits to `release-prep/v<version>`, and prints merge-then-tag instructions; `check_readiness.sh --strict` shells out to `assert_prepared_state.py --check-source` and checks `origin/main` ancestry ([release-prepare.yml](/Users/tazarov/experiments/amikos/pure-simdjson/.github/workflows/release-prepare.yml:452), [release-prepare.yml](/Users/tazarov/experiments/amikos/pure-simdjson/.github/workflows/release-prepare.yml:510), [release-prepare.yml](/Users/tazarov/experiments/amikos/pure-simdjson/.github/workflows/release-prepare.yml:517), [release-prepare.yml](/Users/tazarov/experiments/amikos/pure-simdjson/.github/workflows/release-prepare.yml:589), [check_readiness.sh](/Users/tazarov/experiments/amikos/pure-simdjson/scripts/release/check_readiness.sh:44), [check_readiness.sh](/Users/tazarov/experiments/amikos/pure-simdjson/scripts/release/check_readiness.sh:71)). |
 | 7 | The runbook, bootstrap docs, and repo-local skill all point to the same prep -> main -> tag CI-only release path and document the macOS quarantine workaround | ✓ VERIFIED | `docs/releases.md` declares the CI-only publish path, documents `release-prep/v<version> -> main -> tag`, and includes `xattr -d com.apple.quarantine`; `docs/bootstrap.md` mirrors the same workaround and points to the release runbook; the repo-local skill requires both the runbook and strict readiness gate ([docs/releases.md](/Users/tazarov/experiments/amikos/pure-simdjson/docs/releases.md:3), [docs/releases.md](/Users/tazarov/experiments/amikos/pure-simdjson/docs/releases.md:45), [docs/releases.md](/Users/tazarov/experiments/amikos/pure-simdjson/docs/releases.md:179), [docs/bootstrap.md](/Users/tazarov/experiments/amikos/pure-simdjson/docs/bootstrap.md:144), [.agents/skills/pure-simdjson-release/SKILL.md](/Users/tazarov/experiments/amikos/pure-simdjson/.agents/skills/pure-simdjson-release/SKILL.md:1)). |
-| 8 | A downloaded macOS release dylib opens after the documented `xattr -d com.apple.quarantine` workaround | ? UNCERTAIN | The codebase and docs prepare for this (`codesign`, runbook, bootstrap docs), but the repo's own validation file marks it manual-only because it depends on a real downloaded artifact and Gatekeeper behavior ([docs/releases.md](/Users/tazarov/experiments/amikos/pure-simdjson/docs/releases.md:173), [docs/bootstrap.md](/Users/tazarov/experiments/amikos/pure-simdjson/docs/bootstrap.md:144), [06-VALIDATION.md](/Users/tazarov/experiments/amikos/pure-simdjson/.planning/phases/06-ci-release-matrix-platform-coverage/06-VALIDATION.md:92)). |
+| 8 | A downloaded macOS release dylib opens after the documented `xattr -d com.apple.quarantine` workaround, and the public release page leads with the tagged changelog entry before the autogenerated GitHub notes | ✓ VERIFIED | Manual UAT completed on 2026-04-22 against the published `v0.1.0` release: downloading `libpure_simdjson-darwin-arm64.dylib`, applying a synthetic `com.apple.quarantine` xattr, observing `dlopen(...): library load disallowed by system policy`, removing the quarantine attribute, and rerunning [`tests/smoke/go_bootstrap_smoke.go`](/Users/tazarov/experiments/amikos/pure-simdjson/tests/smoke/go_bootstrap_smoke.go:1) successfully. The published `v0.1.0` release body was also updated to start with the tagged `CHANGELOG.md` entry and retain GitHub's generated `## What's Changed` section. |
 
-**Score:** 7/8 truths verified
+**Score:** 8/8 truths verified
 
 ### Deferred Items
 
@@ -54,7 +47,7 @@ Items not yet met but explicitly addressed in later milestone phases.
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
 | `.github/workflows/release-prepare.yml` | Pre-tag prep/build/smoke/source-rewrite workflow | ✓ VERIFIED | 623 lines; contains five-target prep matrix, bootstrap-state rewrite, packaged-artifact smoke, branch push, and handoff summary. |
-| `.github/workflows/release.yml` | Tag-publish build/sign/publish workflow | ✓ VERIFIED | 693 lines; contains main-anchored tag guard, five-target rebuilds, staged-manifest assertion, signing, R2 upload, and GitHub Release publish. |
+| `.github/workflows/release.yml` | Tag-publish build/sign/publish workflow | ✓ VERIFIED | Contains the main-anchored tag guard, five-target rebuilds, staged-manifest assertion, signing, R2 upload, changelog-backed release-body rendering, and GitHub Release publish. |
 | `.github/actions/setup-rust/action.yml` | Repo-pinned Rust installation from `rust-toolchain.toml` | ✓ VERIFIED | Resolves `[toolchain].channel` from the file, installs the channel, and installs requested targets. |
 | `.github/actions/build-shared-library/action.yml` | Deterministic shared-library build action | ✓ VERIFIED | Applies `SOURCE_DATE_EPOCH`, deterministic `RUSTFLAGS`, manylinux handoff, and optional reproducibility double-build hashing. |
 | `scripts/release/package_shared_artifact.sh` | Single source of truth for R2 key, GitHub asset name, and per-entry SHA-256 manifest | ✓ VERIFIED | Copies staged bytes into both naming schemes and hashes the exact packaged R2 bytes before writing the manifest entry. |
@@ -76,7 +69,7 @@ Items not yet met but explicitly addressed in later milestone phases.
 | `.github/workflows/release-prepare.yml` | `scripts/release/run_go_packaged_smoke.sh` | Loopback staged-artifact bootstrap smoke | WIRED | The smoke runs after prepared state exists and after the staged release tree is assembled. |
 | `.github/workflows/release.yml` | `scripts/release/assert_prepared_state.py` | Rebuilt manifest must match committed prepared state | WIRED | Publish staging blocks on `assert_prepared_state.py --manifest ... --version ...`. |
 | `.github/workflows/release.yml` | `scripts/release/publish_r2.sh` | Immutable R2 publication | WIRED | R2 publish happens only after smoke, manifest assertion, `SHA256SUMS`, and cosign sign/verify steps. |
-| `.github/workflows/release.yml` | `softprops/action-gh-release` | Flat GitHub Release asset publication | WIRED | GitHub Release assets are prepared from the already-signed staged raw blobs and published with generated notes. |
+| `.github/workflows/release.yml` | `softprops/action-gh-release` | Flat GitHub Release asset publication | WIRED | GitHub Release assets are prepared from the already-signed staged raw blobs and published with the tagged changelog entry prepended to GitHub's generated notes via `body_path` + `generate_release_notes`. |
 | `scripts/release/check_readiness.sh` | `scripts/release/assert_prepared_state.py` | Strict readiness gate | WIRED | Readiness reuses the same source-state contract instead of reimplementing it in shell. |
 
 ### Data-Flow Trace (Level 4)
@@ -116,7 +109,7 @@ Items not yet met but explicitly addressed in later milestone phases.
 | `CI-03` | `06-02-PLAN.md` | Linux jobs use manylinux2014/equivalent baseline | ✓ SATISFIED | Both linux jobs pin manylinux2014 image digests and route builds through `build_linux_manylinux.sh`. |
 | `CI-04` | `06-04-PLAN.md` | Per-platform FFI smoke verifies export load + parse round-trip | ✓ SATISFIED | `run_native_smoke.sh` and `ffi_export_surface.c` are wired before artifact upload on all five targets; local `darwin-arm64` spot check passed. |
 | `CI-05` | `06-01/05` | Release pipeline computes SHA-256 and updates bootstrap checksum state | ✓ SATISFIED | Prep rewrites `version.go` / `checksums.go` from manifest entries; publish recomputes manifest, asserts coherence, generates `SHA256SUMS`, and signs/uploads. |
-| `CI-06` | `06-05/06` | Version bump, changelog, and release notes live in the release path | ✓ SATISFIED | Prep updates `CHANGELOG.md` and prepared source state; publish uses `generate_release_notes: true`; runbook/readiness document the same flow. |
+| `CI-06` | `06-05/06` | Version bump, changelog, and release notes live in the release path | ✓ SATISFIED | Prep updates `CHANGELOG.md` and prepared source state; publish renders the tagged changelog entry into `body_path` while keeping `generate_release_notes: true`; runbook/readiness document the same flow. |
 | `CI-07` | `06-04-PLAN.md` | Alpine smoke job runs on every release | ✓ SATISFIED | `alpine-smoke` is a first-class job in both prep and publish workflows, and publish staging depends on it. |
 
 No orphaned Phase 6 requirement IDs were found: the union of plan-frontmatter IDs matches the Phase 6 requirement set in `.planning/REQUIREMENTS.md`.
@@ -127,25 +120,23 @@ No orphaned Phase 6 requirement IDs were found: the union of plan-frontmatter ID
 | --- | --- | --- | --- | --- |
 | `.github/actions/verify-shared-artifact/action.yml` | 1 | Orphaned composite action (no non-doc references in the actual release path) | ℹ️ Info | The real workflows call `run_native_smoke.sh` directly, so future edits to this action will not affect the release path unless it is wired in later. |
 
-### Human Verification Required
+### Completed Human Verification
 
 ### 1. Downloaded macOS Dylib
 
-**Test:** Publish a real tag, download the released macOS `.dylib`, run `xattr -d com.apple.quarantine <path-to-dylib>`, and load it on a fresh macOS host.
-**Expected:** After removing the quarantine attribute, the downloaded dylib loads successfully.
-**Why human:** Requires a real downloaded artifact and Gatekeeper behavior. The repo marks this as manual-only in `06-VALIDATION.md`.
+**Result:** PASS
+**Check:** Downloaded the published `v0.1.0` macOS arm64 dylib, confirmed a quarantined copy is blocked by macOS system policy, then removed `com.apple.quarantine` and successfully loaded the same artifact through the Go smoke path.
 
 ### 2. Public Release Notes
 
-**Test:** Inspect the generated GitHub Release draft/notes for a real published tag.
-**Expected:** The notes are accurate, publicly acceptable, and aligned with the prepared `CHANGELOG.md` entry.
-**Why human:** Release-note wording and public communication quality cannot be validated programmatically.
+**Result:** PASS
+**Check:** The published `v0.1.0` GitHub Release body now begins with the tagged `CHANGELOG.md` entry and preserves GitHub's autogenerated `## What's Changed` section underneath it.
 
 ### Gaps Summary
 
-No code gaps were found in the Phase 6 implementation. The release path is substantively present: prep rewrites source state, tag publish re-validates it, five-target smoke gates are wired before publish, Alpine validation is separate and explicit, signatures and checksum material are generated in CI, and publication fans out to both R2 and GitHub Releases. Remaining work is manual verification of real published-artifact behavior and release-note quality, which keeps the phase at `human_needed` rather than `passed`.
+No code gaps remain in the Phase 6 implementation. The release path is substantively present: prep rewrites source state, tag publish re-validates it, five-target smoke gates are wired before publish, Alpine validation is separate and explicit, signatures and checksum material are generated in CI, and publication fans out to both R2 and GitHub Releases. The previously manual-only macOS dylib and release-notes checks were completed on 2026-04-22; the only remaining follow-on is the distinct Phase 06.1 fresh-machine bootstrap validation.
 
 ---
 
-_Verified: 2026-04-21T08:11:45Z_  
+_Verified: 2026-04-22T10:03:09Z_  
 _Verifier: Claude (gsd-verifier)_

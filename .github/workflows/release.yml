@@ -793,8 +793,17 @@ jobs:
             -H "Content-Type: application/json" \
             --data "{\"files\":[\"https://${RELEASES_DOMAIN}/${PROJECT}/releases.json\",\"https://${RELEASES_DOMAIN}/${PROJECT}/releases.json.sig\",\"https://${RELEASES_DOMAIN}/${PROJECT}/releases.json.pem\"]}"
 
+      - name: Render release notes from CHANGELOG.md
+        run: |
+          set -euo pipefail
+          python3 scripts/release/render_release_notes.py \
+            --changelog CHANGELOG.md \
+            --version "${{ github.ref_name }}" \
+            --output "${{ github.workspace }}/release-notes.md"
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           files: ${{ github.workspace }}/release-assets/*
+          body_path: ${{ github.workspace }}/release-notes.md
           generate_release_notes: true
