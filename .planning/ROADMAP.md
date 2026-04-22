@@ -323,7 +323,15 @@ Plans:
 4. Cold-start and warm benchmarks are reported separately and both are reproducible across two runs
 5. v0.1 is tagged, signed artifacts are live on R2 and GitHub Releases, and `BootstrapSync()` against the tag succeeds from a clean cache
 
-**Plans:** TBD
+**Plans:** 6 plans
+
+Plans:
+- [x] `07-01-PLAN.md` — Vendor benchmark corpus and correctness-oracle foundation
+- [ ] `07-02-PLAN.md` — Comparator surface, Tier 1 harness, cold/warm families, and benchstat helper
+- [ ] `07-03-PLAN.md` — Native allocator telemetry ABI, bindings, and contract updates
+- [ ] `07-04-PLAN.md` — Tier 2/Tier 3 benchmark families plus native metrics
+- [ ] `07-05-PLAN.md` — Benchmark evidence, README/docs, changelog, and licensing artifacts
+- [ ] `07-06-PLAN.md` — Non-autonomous `0.1.1` release closeout and public validation
 
 ---
 
@@ -393,7 +401,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 4. Full Typed Accessor Surface | 5/5 | Complete | 2026-04-17 |
 | 5. Bootstrap + Distribution | 6/6 | Complete | 2026-04-20 |
 | 6. CI Release Matrix | 6/6 | Complete | 2026-04-21 |
-| 7. Benchmarks + v0.1 Release | 0/? | Not started | — |
+| 7. Benchmarks + v0.1 Release | 1/6 | Executing | — |
 
 Plan counts populated by `/gsd-plan-phase`.
 

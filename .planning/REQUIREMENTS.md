@@ -101,11 +101,11 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Benchmarks & Correctness
 
 - [ ] **BENCH-01**: Three-tier benchmark harness: (a) full-parse walk, (b) typed field extraction, (c) selective-path (placeholder for v0.2)
-- [ ] **BENCH-02**: Canonical corpus: `twitter.json`, `canada.json`, `citm_catalog.json`, `mesh.json`, `numbers.json` (vendored from simdjson test data)
+- [x] **BENCH-02**: Canonical corpus: `twitter.json`, `canada.json`, `citm_catalog.json`, `mesh.json`, `numbers.json` (vendored from simdjson test data)
 - [ ] **BENCH-03**: Comparison baselines: `encoding/json` + `any`, `encoding/json` + struct, `minio/simdjson-go`, `bytedance/sonic`, `goccy/go-json`
 - [ ] **BENCH-04**: Results reported via `benchstat`; cold-start (first `Parse` after `NewParser`) reported separately from warm
 - [ ] **BENCH-05**: Native allocator stats reported alongside Go alloc counts (simdjson's tape allocs don't show up in Go's `AllocsPerOp`)
-- [ ] **BENCH-06**: Correctness oracle: parse every file in simdjson's `jsontestsuite` and confirm accept/reject matches upstream
+- [x] **BENCH-06**: Correctness oracle: parse every file in simdjson's `jsontestsuite` and confirm accept/reject matches upstream
 - [ ] **BENCH-07**: Success criterion documented in the README: ≥3× speedup vs `encoding/json` + `any` on representative corpus; within 2× of `minio/simdjson-go` on x86_64
 
 ### Documentation
@@ -223,11 +223,11 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | CI-06 | Phase 6 | Complete |
 | CI-07 | Phase 6 | Pending |
 | BENCH-01 | Phase 7 | Pending |
-| BENCH-02 | Phase 7 | Pending |
+| BENCH-02 | Phase 7 | Complete |
 | BENCH-03 | Phase 7 | Pending |
 | BENCH-04 | Phase 7 | Pending |
 | BENCH-05 | Phase 7 | Pending |
-| BENCH-06 | Phase 7 | Pending |
+| BENCH-06 | Phase 7 | Complete |
 | BENCH-07 | Phase 7 | Pending |
 | DOC-01 | Phase 7 | Pending |
 | DOC-02 | Phase 1 | Complete |

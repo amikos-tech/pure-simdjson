@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: executing
-stopped_at: Completed 06-06-PLAN.md
-last_updated: "2026-04-22T18:46:08.707Z"
-last_activity: 2026-04-22 -- Phase 07 execution started
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-04-22T19:04:43Z"
+last_activity: 2026-04-22 -- Completed 07-01 benchmark corpus/oracle foundation
 progress:
   total_phases: 12
   completed_phases: 7
   total_plans: 37
-  completed_plans: 31
-  percent: 84
+  completed_plans: 32
+  percent: 86
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 07 (benchmarks-v0.1-release) — EXECUTING
-Plan: 1 of 6
+Plan: 2 of 6
 Status: Executing Phase 07
-Last activity: 2026-04-22 -- Phase 07 execution started
+Last activity: 2026-04-22 -- Completed 07-01 benchmark corpus/oracle foundation
 Shipping: `v0.1.0` is already published and Phase 06.1 is shipped; Phase 07 now owns the benchmark harness, correctness oracle, README/LICENSE/NOTICE work, and a non-autonomous patch-release closeout path if the new public artifacts must ship under a fresh tag
 
-Progress: [████████░░] 84%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -86,6 +86,8 @@ Progress: [████████░░] 84%
 
 Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting current work:
 
+- [Phase 07]: Benchmark helpers must load only the committed `testdata/bench/` and `testdata/jsontestsuite/` assets; Phase 7 runtime must not depend on `third_party/` paths or the network.
+- [Phase 07]: `TestJSONTestSuiteOracle` treats `expectations.tsv` as the only runtime source of truth and fails on both missing and extra vendored case files before parsing.
 - [Phase 02] Build the native shim from vendored simdjson `v4.6.1` through `build.rs` and `cc`, without manual kernel-selection flags.
 - [Phase 02] Keep parser/doc handles generation-checked and store padded Rust-owned input alongside live docs.
 - [Phase 02] Treat observed `windows-smoke` success as part of the exit gate, not just workflow YAML presence.
@@ -157,8 +159,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T07:55:44.232Z
-Stopped at: Completed 06-06-PLAN.md
+Last session: 2026-04-22T19:04:43Z
+Stopped at: Completed 07-01-PLAN.md
 Resume file: None
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z
