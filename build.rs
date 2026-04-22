@@ -12,11 +12,15 @@ fn main() {
     let simdjson_source = "third_party/simdjson/singleheader/simdjson.cpp";
     let bridge_header = "src/native/simdjson_bridge.h";
     let bridge_source = "src/native/simdjson_bridge.cpp";
+    let telemetry_header = "src/native/native_alloc_telemetry.h";
+    let telemetry_source = "src/native/native_alloc_telemetry.cpp";
 
     for path in [
         "build.rs",
         bridge_header,
         bridge_source,
+        telemetry_header,
+        telemetry_source,
         simdjson_header,
         simdjson_source,
     ] {
@@ -40,5 +44,6 @@ fn main() {
         .include("src/native")
         .file(simdjson_source)
         .file(bridge_source)
+        .file(telemetry_source)
         .compile("pure_simdjson_native");
 }

@@ -14,12 +14,17 @@ extern "C" {
 typedef struct psimdjson_parser psimdjson_parser;
 typedef struct psimdjson_doc psimdjson_doc;
 typedef struct psimdjson_element psimdjson_element;
+struct pure_simdjson_native_alloc_stats_t;
 
 pure_simdjson_error_code_t psimdjson_get_implementation_name_len(size_t *out_len) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_copy_implementation_name(
     uint8_t *dst,
     size_t dst_cap,
     size_t *out_written
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_native_alloc_stats_reset(void) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_native_alloc_stats_snapshot(
+    struct pure_simdjson_native_alloc_stats_t *out_stats
 ) PSIMDJSON_NOEXCEPT;
 size_t psimdjson_padding_bytes(void) PSIMDJSON_NOEXCEPT;
 

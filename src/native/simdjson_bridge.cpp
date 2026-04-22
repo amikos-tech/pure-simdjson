@@ -1,4 +1,5 @@
 #include "simdjson_bridge.h"
+#include "native_alloc_telemetry.h"
 
 #include <cstring>
 #include <memory>
@@ -234,6 +235,33 @@ pure_simdjson_error_code_t psimdjson_copy_implementation_name(
 ) noexcept {
   try {
     return copy_bytes(implementation_name(), dst, dst_cap, out_written);
+  } catch (const std::bad_alloc &error) {
+    return map_cpp_exception(error);
+  } catch (const std::exception &error) {
+    return map_cpp_exception(error);
+  } catch (...) {
+    return map_cpp_exception();
+  }
+}
+
+pure_simdjson_error_code_t psimdjson_native_alloc_stats_reset(void) noexcept {
+  try {
+    psimdjson::native_alloc_telemetry::reset();
+    return PURE_SIMDJSON_OK;
+  } catch (const std::bad_alloc &error) {
+    return map_cpp_exception(error);
+  } catch (const std::exception &error) {
+    return map_cpp_exception(error);
+  } catch (...) {
+    return map_cpp_exception();
+  }
+}
+
+pure_simdjson_error_code_t psimdjson_native_alloc_stats_snapshot(
+    struct pure_simdjson_native_alloc_stats_t *out_stats
+) noexcept {
+  try {
+    return psimdjson::native_alloc_telemetry::snapshot(out_stats);
   } catch (const std::bad_alloc &error) {
     return map_cpp_exception(error);
   } catch (const std::exception &error) {
