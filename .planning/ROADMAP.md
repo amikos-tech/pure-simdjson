@@ -466,13 +466,17 @@ Plans:
 
 **Goal:** Replace the current accessor-shaped Tier 1 materialization path with a lower-overhead traversal/materialization substrate that preserves correctness while removing avoidable per-node FFI and string handoff cost. This phase explicitly folds the old `999.6` backlog idea into the active milestone.
 
-**Requirements:** TBD
+**Requirements:** D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16, D-17
 
 **Depends on:** Phase 7
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 8 to break down)
+- [ ] `08-01-PLAN.md` — Wave 0 guardrails, fast-materializer test names, public-header internal-symbol audit, and Phase 8 benchmark artifact directory
+- [ ] `08-02-PLAN.md` — Internal native frame-stream ABI, Rust/C++ bridge, cbindgen exclusion, and Rust root/subtree frame tests
+- [ ] `08-03-PLAN.md` — Go internal frame binding, unexported fast materializer, and active correctness/lifetime/subtree tests
+- [ ] `08-04-PLAN.md` — Tier 1 benchmark wiring through the fast materializer with stable diagnostic row names
+- [ ] `08-05-PLAN.md` — Phase 8 diagnostic benchmark capture, benchstat comparison, and internal Phase 9 handoff notes
 
 ### Phase 9: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh
 
