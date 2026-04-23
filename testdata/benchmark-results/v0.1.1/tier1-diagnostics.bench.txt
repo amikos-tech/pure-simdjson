@@ -1,0 +1,30 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/amikos-tech/pure-simdjson
+cpu: Apple M3 Max
+BenchmarkTier1Diagnostics_twitter_json/pure-simdjson-full-16         	      61	  27962032 ns/op	  22.58 MB/s	         3.000 native-allocs/op	   6105064 native-bytes/op	         0 native-live-bytes	 9589193 B/op	  286522 allocs/op
+BenchmarkTier1Diagnostics_twitter_json/pure-simdjson-parse-only-16   	    4429	    289270 ns/op	2183.13 MB/s	         3.000 native-allocs/op	   6105064 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkTier1Diagnostics_twitter_json/pure-simdjson-materialize-only-16         	      39	  31103942 ns/op	  20.30 MB/s	         0 native-allocs/op	         0 native-bytes/op	         0 native-live-bytes	 9588046 B/op	  286508 allocs/op
+BenchmarkTier1Diagnostics_twitter_json/pure-simdjson-stage-input-reuse-model-16  	   86590	     13064 ns/op	48339.28 MB/s	       0 B/op	       0 allocs/op
+BenchmarkTier1Diagnostics_twitter_json/pure-simdjson-stage-input-alloc-model-16  	   13406	     99311 ns/op	6358.95 MB/s	  638976 B/op	       1 allocs/op
+BenchmarkTier1Diagnostics_twitter_json/encoding-json-any-full-16                 	     212	   6150937 ns/op	 102.67 MB/s	         0 native-allocs/op	         0 native-bytes/op	         0 native-live-bytes	 2076682 B/op	   32125 allocs/op
+BenchmarkTier1Diagnostics_citm_catalog_json/pure-simdjson-full-16                	      16	  75919203 ns/op	  22.75 MB/s	         3.000 native-allocs/op	  16696680 native-bytes/op	         0 native-live-bytes	27539737 B/op	  747623 allocs/op
+BenchmarkTier1Diagnostics_citm_catalog_json/pure-simdjson-parse-only-16          	    2095	    543059 ns/op	3180.51 MB/s	         3.000 native-allocs/op	  16696680 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkTier1Diagnostics_citm_catalog_json/pure-simdjson-materialize-only-16    	      21	  66541446 ns/op	  25.96 MB/s	         0 native-allocs/op	         0 native-bytes/op	         0 native-live-bytes	27539437 B/op	  747610 allocs/op
+BenchmarkTier1Diagnostics_citm_catalog_json/pure-simdjson-stage-input-reuse-model-16         	   28030	     38925 ns/op	44372.20 MB/s	       0 B/op	       0 allocs/op
+BenchmarkTier1Diagnostics_citm_catalog_json/pure-simdjson-stage-input-alloc-model-16         	    7089	    273437 ns/op	6316.65 MB/s	 1728512 B/op	       1 allocs/op
+BenchmarkTier1Diagnostics_citm_catalog_json/encoding-json-any-full-16                        	      86	  11908422 ns/op	 145.04 MB/s	         0 native-allocs/op	         0 native-bytes/op	         0 native-live-bytes	 5130749 B/op	   95865 allocs/op
+BenchmarkTier1Diagnostics_canada_json/pure-simdjson-full-16                                  	       7	 148995750 ns/op	  15.11 MB/s	         3.000 native-allocs/op	  21760488 native-bytes/op	         0 native-live-bytes	65470281 B/op	 1842162 allocs/op
+BenchmarkTier1Diagnostics_canada_json/pure-simdjson-parse-only-16                            	     507	   2059823 ns/op	1092.84 MB/s	         3.000 native-allocs/op	  21760488 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkTier1Diagnostics_canada_json/pure-simdjson-materialize-only-16                      	       7	 150756839 ns/op	  14.93 MB/s	         0 native-allocs/op	         0 native-bytes/op	         0 native-live-bytes	65469387 B/op	 1842149 allocs/op
+BenchmarkTier1Diagnostics_canada_json/pure-simdjson-stage-input-reuse-model-16               	   26258	     41437 ns/op	54324.47 MB/s	       0 B/op	       0 allocs/op
+BenchmarkTier1Diagnostics_canada_json/pure-simdjson-stage-input-alloc-model-16               	    6249	    319486 ns/op	7045.85 MB/s	 2252800 B/op	       1 allocs/op
+BenchmarkTier1Diagnostics_canada_json/encoding-json-any-full-16                              	      49	  24259647 ns/op	  92.79 MB/s	         0 native-allocs/op	         0 native-bytes/op	         0 native-live-bytes	10583520 B/op	  392515 allocs/op
+PASS
+ok  	github.com/amikos-tech/pure-simdjson	29.228s
+PASS
+ok  	github.com/amikos-tech/pure-simdjson/cmd/pure-simdjson-bootstrap	0.338s
+PASS
+ok  	github.com/amikos-tech/pure-simdjson/internal/bootstrap	0.212s
+PASS
+ok  	github.com/amikos-tech/pure-simdjson/internal/ffi	0.178s

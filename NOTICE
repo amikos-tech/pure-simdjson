@@ -1,0 +1,10 @@
+This repository is distributed under the MIT License; see `LICENSE`.
+
+This repository vendors the upstream `simdjson` project under `third_party/simdjson`.
+
+The vendored upstream project carries both of these license texts in the vendored tree:
+
+- Apache License, Version 2.0: `third_party/simdjson/LICENSE`
+- MIT license text: `third_party/simdjson/LICENSE-MIT`
+
+This NOTICE file exists to make that bundled upstream attribution explicit for consumers of this repository and its release artifacts.

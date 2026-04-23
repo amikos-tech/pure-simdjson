@@ -500,15 +500,34 @@ pub(crate) fn parser_parse(
         }
     };
 
-    let (_, doc_slot, doc_generation) = unpack_handle(doc_handle)?;
-    if let Some(Slot::Occupied(entry)) = registry.parsers.get_mut(index) {
-        entry.state = ParserState::Busy {
-            doc_slot,
-            doc_generation,
-        };
-        Ok(doc_handle)
-    } else {
-        Err(err_internal())
+    let (doc_index_usize, doc_slot, doc_generation) = unpack_handle(doc_handle)?;
+    match registry.parsers.get_mut(index) {
+        Some(Slot::Occupied(entry)) if entry.generation == generation => {
+            entry.state = ParserState::Busy {
+                doc_slot,
+                doc_generation,
+            };
+            Ok(doc_handle)
+        }
+        _ => {
+            let free_rc = super::native_doc_free(parsed.doc_ptr);
+            if free_rc != err_ok() {
+                eprintln!(
+                    "pure_simdjson cleanup failure in parser_parse/parser_vanished: {:?}",
+                    free_rc
+                );
+            }
+            let next_gen = next_doc_generation(doc_generation);
+            if let Some(Slot::Occupied(entry)) = registry.docs.get(doc_index_usize) {
+                if entry.generation == doc_generation {
+                    let _ = mem::replace(
+                        &mut registry.docs[doc_index_usize],
+                        Slot::Vacant { generation: next_gen },
+                    );
+                }
+            }
+            Err(err_internal())
+        }
     }
 }
 
@@ -579,13 +598,17 @@ pub(crate) fn doc_free(handle: pure_simdjson_doc_t) -> pure_simdjson_error_code_
         return rc;
     }
 
+    match registry.docs.get(doc_index) {
+        Some(Slot::Occupied(entry)) if entry.generation == doc_generation => {}
+        _ => return err_internal(),
+    }
     let input_storage = match mem::replace(
         &mut registry.docs[doc_index],
         Slot::Vacant {
             generation: next_doc_generation(doc_generation),
         },
     ) {
-        Slot::Occupied(entry) if entry.generation == doc_generation => entry.input_storage,
+        Slot::Occupied(entry) => entry.input_storage,
         _ => return err_internal(),
     };
 
