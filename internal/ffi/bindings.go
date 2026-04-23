@@ -293,6 +293,8 @@ func (b *Bindings) BytesFree(ptr *byte, length uintptr) int32 {
 
 func emitBytesFreeFailureWarning(rc int32, length uintptr) {
 	count := bytesFreeFailureWarningCount.Add(1)
+	// Emit on first failure, every failure when leak warnings are enabled, or power-of-two
+	// milestones otherwise (count&(count-1)==0 iff count is a power of two).
 	if count != 1 && !leakWarningsEnabled() && count&(count-1) != 0 {
 		return
 	}
