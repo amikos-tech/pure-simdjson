@@ -158,6 +158,9 @@ fn registry_guard() -> MutexGuard<'static, Registry> {
 
 #[inline]
 fn next_generation(current: u32, restart: u32) -> u32 {
+    // Parsers start at 1 (odd) and docs start at 2 (even); wrapping by 2 preserves parity so a
+    // parser and a doc sharing the same slot index can never share the same generation number.
+    // This is the numeric-collision guarantee referenced in the module-level invariants above.
     let next = current.wrapping_add(2);
     if next == 0 {
         restart

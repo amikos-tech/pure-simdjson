@@ -1,6 +1,6 @@
 # Benchmark Methodology
 
-This project publishes benchmark results from committed `go test -bench` output under [testdata/benchmark-results/v0.1.1](/Users/tazarov/experiments/amikos/pure-simdjson/testdata/benchmark-results/v0.1.1). The current public snapshot is [results-v0.1.1.md](/Users/tazarov/experiments/amikos/pure-simdjson/docs/benchmarks/results-v0.1.1.md).
+This project publishes benchmark results from committed `go test -bench` output under [testdata/benchmark-results/v0.1.1](../testdata/benchmark-results/v0.1.1). The current public snapshot is [results-v0.1.1.md](benchmarks/results-v0.1.1.md).
 
 ## Tier Definitions
 
@@ -53,3 +53,4 @@ For the current Phase 7 snapshot, the honest summary is:
 - Tier 1 full `any` materialization is not the current strength of the DOM ABI.
 - Tier 2 and Tier 3 are the current performance strengths.
 - x86_64 parity with `minio/simdjson-go` requires a real x86_64 host; Rosetta-backed local runs are not used as a parity claim.
+- All relative ratios reported in the snapshot (Tier 1 `0.2x`-class numbers, Tier 2/3 `10x`+ numbers) are toolchain- and hardware-specific. The v0.1.1 snapshot was captured on `darwin/arm64` Apple M3 Max; expect the ratios to shift on `linux/amd64`, older Apple silicon, and different Go/`rustc` versions.

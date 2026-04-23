@@ -241,6 +241,14 @@ pure_simdjson_error_code_t snapshot(pure_simdjson_native_alloc_stats_t *out_stat
 
 }  // namespace psimdjson::native_alloc_telemetry
 
+// Global operator new/delete replacements are scoped to this cdylib so other C++ libraries in the
+// host process cannot resolve against these symbols via dynamic symbol interposition. -static-libstdc++
+// already covers libstdc++ on linux-gnu; the hidden visibility below covers macOS and every other
+// dynamically-linked C++ library.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC visibility push(hidden)
+#endif
+
 void *operator new(std::size_t size) {
   return allocate_or_throw(size, kDefaultAlignment);
 }
@@ -332,3 +340,7 @@ void operator delete(void *ptr, std::size_t, std::align_val_t alignment) noexcep
 void operator delete[](void *ptr, std::size_t, std::align_val_t alignment) noexcept {
   remove_allocation(ptr, static_cast<std::size_t>(alignment));
 }
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC visibility pop
+#endif
