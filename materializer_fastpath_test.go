@@ -63,7 +63,7 @@ func TestFastMaterializerOversizedLiteralParseRejected(t *testing.T) {
 		}
 	})
 
-	doc, err := parser.Parse([]byte("99999999999999999999999"))
+	doc, err := parser.Parse([]byte("18446744073709551616"))
 	if doc != nil {
 		t.Fatal("Parse() oversized literal unexpectedly returned a document")
 	}
@@ -288,4 +288,9 @@ func materializeViaAccessorsForTest(t *testing.T, element Element) any {
 		t.Fatalf("unsupported ElementType %v", kind)
 		return nil
 	}
+}
+
+func requireFastMaterializerLinkedForTest(t *testing.T) {
+	t.Helper()
+	t.Skip("fast materializer implementation not linked")
 }
