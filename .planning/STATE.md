@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
 status: executing
-stopped_at: Completed 07-04-PLAN.md
-last_updated: "2026-04-22T20:14:07.467Z"
-last_activity: 2026-04-22
+stopped_at: Completed 07-06-PLAN.md
+last_updated: "2026-04-23T07:55:57Z"
+last_activity: 2026-04-23
 progress:
   total_phases: 12
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 37
-  completed_plans: 35
-  percent: 95
+  completed_plans: 37
+  percent: 100
 ---
 
 # Project State
@@ -20,18 +20,18 @@ progress:
 
 See: `.planning/PROJECT.md` (updated 2026-04-15)
 
-**Core value:** Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, precision-preserving parser that does not require cgo at consumer build time.
-**Current focus:** Phase 07 — benchmarks-v0.1-release
+**Core value:** Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning: typed extraction and selective traversal are the primary story, while full `any` materialization is documented without overstating current wins.
+**Current focus:** Phase 08 — low-overhead-dom-traversal-abi-and-specialized-go-any-materializer
 
 ## Current Position
 
-Phase: 07 (benchmarks-v0.1-release) — EXECUTING
-Plan: 5 of 6
-Status: Ready to execute
-Last activity: 2026-04-22
-Shipping: `v0.1.0` is already published and Phase 06.1 is shipped; Phase 07 now owns the benchmark harness, correctness oracle, README/LICENSE/NOTICE work, and a non-autonomous patch-release closeout path if the new public artifacts must ship under a fresh tag
+Phase: 08 (low-overhead-dom-traversal-abi-and-specialized-go-any-materializer) — READY
+Plan: 0 of 0
+Status: Awaiting planning
+Last activity: 2026-04-23
+Shipping: `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline; Phase 08 now owns the low-overhead traversal/materialization follow-up before any new benchmark-positioning or release decision
 
-Progress: [██████████] 95%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -84,7 +84,11 @@ Progress: [██████████] 95%
 
 - Phase 06.1 inserted after Phase 06: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (promoted from backlog item 999.4)
 - Phase 06.1 execution produced the public bootstrap wrapper, hosted-runner validation workflow, contract tests, and operator runbook updates, and was shipped in PR #17; hosted GitHub Actions execution remains pending
-- Phase 07 is now planned as six plans: corpus/oracle foundation, Tier 1 + cold/warm harness, allocator telemetry surface, Tier 2/Tier 3 benchmark consumers, public docs/legal artifacts with committed evidence, and a non-autonomous release-close plan
+- Phase 07 is now planned as six plans: corpus/oracle foundation, Tier 1 + cold/warm harness, allocator telemetry surface, Tier 2/Tier 3 benchmark consumers, public docs/legal artifacts with committed evidence, and a closeout handoff that defers public patch-release work until the later benchmark-positioning phases
+- Phase 07 completed on 2026-04-23 as a benchmark/docs/legal baseline rather than a forced patch release: README, methodology doc, results snapshot, changelog, LICENSE, and NOTICE are now committed, and the closeout explicitly routes Tier 1 ABI work to Phase 08 and benchmark/release recalibration to Phase 09
+- Phase 08 added: Low-overhead DOM traversal ABI and specialized Go any materializer. This folds the old 999.6 DOM-materialization ABI idea into the active milestone after Tier 1 diagnostics showed materialization, not parse, dominates the current full-`any` path
+- Phase 09 added: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh. This phase exists to replace the invalidated BENCH-07 headline with a measured benchmark story after Phase 08 lands
+- Backlog items 999.6 and 999.7 were retired from the parking lot: 999.6 is now active milestone work under Phase 08, and 999.7's diagnostic split was implemented during Phase 07 investigation to justify the new direction
 
 ### Decisions
 

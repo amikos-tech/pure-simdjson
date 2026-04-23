@@ -1,7 +1,7 @@
 # Requirements: pure-simdjson
 
 **Defined:** 2026-04-14
-**Core Value:** Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster, precision-preserving parser that does not force consumers to enable cgo.
+**Core Value:** Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning: typed extraction and selective traversal are the primary performance story, while full `any` materialization is documented and optimized without overstating current wins.
 
 ## v1 Requirements (v0.1 MVP)
 
@@ -106,7 +106,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **BENCH-04**: Results reported via `benchstat`; cold-start (first `Parse` after `NewParser`) reported separately from warm
 - [x] **BENCH-05**: Native allocator stats reported alongside Go alloc counts (simdjson's tape allocs don't show up in Go's `AllocsPerOp`)
 - [x] **BENCH-06**: Correctness oracle: parse every file in simdjson's `jsontestsuite` and confirm accept/reject matches upstream
-- [ ] **BENCH-07**: Success criterion documented in the README: ≥3× speedup vs `encoding/json` + `any` on representative corpus; within 2× of `minio/simdjson-go` on x86_64
+- [ ] **BENCH-07**: README benchmark positioning links committed evidence, explicitly labels Tier 1 as full `any` materialization, positions Tier 2/Tier 3 as the current strengths, and does not claim unsupported Tier 1 headline wins or unavailable x86_64 parity
 
 ### Documentation
 

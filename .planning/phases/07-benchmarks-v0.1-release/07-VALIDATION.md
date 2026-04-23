@@ -5,11 +5,12 @@ status: approved
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-04-22
+audited: 2026-04-23
 ---
 
 # Phase 7 - Validation Strategy
 
-> Per-phase validation contract for benchmark, documentation, and release-close work. Derived from `07-RESEARCH.md`.
+> Per-phase validation contract for benchmark, documentation, and legal-artifact work. Derived from `07-RESEARCH.md`.
 
 ---
 
@@ -17,23 +18,23 @@ created: 2026-04-22
 
 | Property | Value |
 |----------|-------|
-| **Framework** | Go `testing` for oracle + benchmarks, Rust `cargo test` for any new FFI stats exports, shell scripts for benchstat/release readiness |
-| **Config file** | none - benchmark commands, testdata manifests, and release scripts are the source of truth |
+| **Framework** | Go `testing` for validation contracts, oracle coverage, and benchmark smoke runs; Rust `cargo test` for FFI/native allocator exports; shell scripts for benchstat helpers |
+| **Config file** | none - test files, benchmark commands, testdata manifests, and docs are the source of truth |
 | **Quick run command** | `go test ./... -count=1 -timeout 180s` |
-| **Benchmark smoke command** | `go test ./... -run '^$' -bench 'Benchmark(Tier1|Tier2|Tier3|ColdStart|Warm)_' -benchtime=1x -count=1` |
-| **Full suite command** | `cargo test --release && go test ./... -race -count=1 -timeout 240s && bash scripts/release/check_readiness.sh --strict --version 0.1.1` |
-| **Estimated runtime** | ~2-5 minutes locally for tests; longer for real benchmark capture and release workflows |
+| **Benchmark smoke command** | `go test ./... -run '^$' -bench 'Benchmark(Tier1FullParse|Tier2Typed|Tier3SelectivePlaceholder|ColdStart|Warm|Tier1Diagnostics)_' -benchtime=1x -count=1` |
+| **Full suite command** | `cargo test --release -- --test-threads=1 && go test ./... -race -count=1 -timeout 240s` |
+| **Estimated runtime** | ~2-5 minutes locally for tests; longer for real benchmark capture |
 
 ---
 
 ## Sampling Rate
 
 - **After every benchmark-code task:** `go test ./... -count=1 -timeout 180s`
-- **After every FFI-stats task:** `cargo test --release && go test ./... -count=1 -timeout 180s`
-- **After every benchmark-harness plan:** `go test ./... -run '^$' -bench 'Benchmark(Tier1|Tier2|Tier3|ColdStart|Warm)_' -benchtime=1x -count=1`
-- **Before README/changelog claim updates:** capture fresh benchmark outputs and run `scripts/bench/run_benchstat.sh`
-- **Before release-close:** `bash scripts/release/check_readiness.sh --strict --version 0.1.1`
-- **Max feedback latency:** 240 seconds locally, excluding the tag-driven GitHub workflows
+- **After every FFI-stats task:** `cargo test --release -- --test-threads=1 && go test ./... -count=1 -timeout 180s`
+- **After every benchmark-harness plan:** `go test ./... -run '^$' -bench 'Benchmark(Tier1FullParse|Tier2Typed|Tier3SelectivePlaceholder|ColdStart|Warm|Tier1Diagnostics)_' -benchtime=1x -count=1`
+- **Before README/changelog claim updates:** run `go test ./... -run 'TestPhase7ReleaseArtifactContract$|^Example' -count=1`, then capture fresh benchmark outputs and run `scripts/bench/run_benchstat.sh`
+- **Before Phase 7 closeout:** run `go test ./... -run 'TestPhase7ReleaseArtifactContract$' -count=1` to verify the evidence/docs/legal files and closeout routing lines
+- **Max feedback latency:** 240 seconds locally
 
 ---
 
@@ -41,18 +42,18 @@ created: 2026-04-22
 
 | Req | Behavior | Test Type | Automated Command | File Exists | Status |
 |-----|----------|-----------|-------------------|-------------|--------|
-| BENCH-01 | Three benchmark tiers exist and are runnable | benchmark | `go test ./... -run '^$' -bench 'BenchmarkTier(1|2|3)_' -benchtime=1x -count=1` | ❌ Wave 0 | ⬜ pending |
-| BENCH-02 | Canonical corpus is vendored locally | file + grep | `test -f testdata/bench/twitter.json && test -f testdata/bench/citm_catalog.json && test -f testdata/bench/canada.json && test -f testdata/bench/mesh.json && test -f testdata/bench/numbers.json && rg 'twitter.json|citm_catalog.json|canada.json|mesh.json|numbers.json|sha256' testdata/bench/README.md` | ❌ Wave 0 | ⬜ pending |
-| BENCH-03 | Comparator set includes stdlib any/struct, `simdjson-go`, `sonic`, and `go-json` | grep + benchmark | `rg 'github.com/minio/simdjson-go|github.com/bytedance/sonic|github.com/goccy/go-json|encoding/json' go.mod go.sum benchmark_*_test.go && go test ./... -run '^$' -bench 'BenchmarkTier(1|2|3)_' -benchtime=1x -count=1` | ❌ Wave 0 | ⬜ pending |
-| BENCH-04 | Cold-start and warm are separate and benchstat-friendly | grep + shell | `rg 'BenchmarkColdStart_|BenchmarkWarm_|ResetTimer|ReportAllocs|SetBytes' benchmark_*_test.go && bash -n scripts/bench/run_benchstat.sh` | ❌ Wave 0 | ⬜ pending |
-| BENCH-05 | Native allocator stats are exposed and reported beside Go alloc counts | Rust + Go + grep | `cargo test --release native_alloc && go test ./... -run '^$' -bench 'Benchmark(Tier2|Tier3)_' -benchtime=1x -count=1 && rg 'pure_simdjson_native_alloc_stats_reset|pure_simdjson_native_alloc_stats_snapshot|native-bytes/op|native-allocs/op|native-live-bytes' src/lib.rs include/pure_simdjson.h internal/ffi/bindings.go benchmark_native_alloc_test.go` | ❌ Wave 0 | ⬜ pending |
-| BENCH-06 | Correctness oracle matches vendored expectations | test | `go test ./... -run TestJSONTestSuiteOracle -count=1` | ❌ Wave 0 | ⬜ pending |
-| BENCH-07 | README claims are backed by benchmark snapshot + caveats | grep + docs | `rg '>=3x|within 2x|minio/simdjson-go|Benchmark Snapshot|Methodology' README.md docs/benchmarks.md CHANGELOG.md` | ❌ Wave 0 | ⬜ pending |
-| DOC-01 | README contains installation, quick start, platform matrix, benchmark snapshot | grep | `test -f README.md && rg '^# pure-simdjson$|## Installation|## Quick Start|## Supported Platforms|## Benchmark Snapshot' README.md` | ❌ Wave 0 | ⬜ pending |
-| DOC-06 | Changelog remains Keep-a-Changelog and captures Phase 7 work | grep | `test -f CHANGELOG.md && rg '^## \\[Unreleased\\]|^## \\[0\\.1\\.1\\]|Keep a Changelog|Benchmark' CHANGELOG.md` | ❌ Wave 0 | ⬜ pending |
-| DOC-07 | MIT license and simdjson notice are committed | file + grep | `test -f LICENSE && test -f NOTICE && rg 'MIT License|Apache License|simdjson' LICENSE NOTICE third_party/simdjson/LICENSE third_party/simdjson/LICENSE-MIT` | ❌ Wave 0 | ⬜ pending |
+| BENCH-01 | Three benchmark tiers exist and are runnable | benchmark smoke | `go test ./... -run '^$' -bench 'Benchmark(Tier1FullParse|Tier2Typed|Tier3SelectivePlaceholder)_' -benchtime=1x -count=1` | ✅ `benchmark_fullparse_test.go`, `benchmark_typed_test.go`, `benchmark_selective_test.go` | ✅ green |
+| BENCH-02 | Canonical corpus is vendored locally | Go contract test | `go test ./... -run 'TestPhase7BenchmarkFixtureContract$' -count=1` | ✅ `phase7_validation_contract_test.go::TestPhase7BenchmarkFixtureContract` | ✅ green |
+| BENCH-03 | Comparator set includes stdlib any/struct, `simdjson-go`, `sonic`, and `go-json` | Go contract + benchmark smoke | `go test ./... -run 'TestPhase7BenchmarkComparatorContract$' -count=1 && go test ./... -run '^$' -bench 'Benchmark(Tier1FullParse|Tier2Typed|Tier3SelectivePlaceholder)_' -benchtime=1x -count=1` | ✅ `benchmark_comparators*_test.go`, `phase7_validation_contract_test.go::TestPhase7BenchmarkComparatorContract` | ✅ green |
+| BENCH-04 | Cold-start and warm are separate and benchstat-friendly | benchmark smoke + shell syntax | `go test ./... -run '^$' -bench 'Benchmark(ColdStart|Warm)_' -benchtime=1x -count=1 && bash -n scripts/bench/run_benchstat.sh` | ✅ `benchmark_coldstart_test.go`, `scripts/bench/run_benchstat.sh` | ✅ green |
+| BENCH-05 | Native allocator stats are exposed and reported beside Go alloc counts | Rust tests + benchmark smoke | `cargo test --release native_alloc -- --test-threads=1 && python3 tests/abi/check_header.py include/pure_simdjson.h && go test ./... -run '^$' -bench 'Benchmark(Tier2Typed|Tier3SelectivePlaceholder|Tier1Diagnostics)_' -benchtime=1x -count=1` | ✅ `tests/rust_shim_minimal.rs`, `benchmark_native_alloc_test.go`, `benchmark_diagnostics_test.go` | ✅ green |
+| BENCH-06 | Correctness oracle matches vendored expectations | Go test | `go test ./... -run 'TestJSONTestSuiteOracle$' -count=1` | ✅ `benchmark_oracle_test.go::TestJSONTestSuiteOracle` | ✅ green |
+| BENCH-07 | Public benchmark positioning is truthful and evidence-backed | Go contract + example tests | `go test ./... -run 'TestPhase7ReleaseArtifactContract$|^Example' -count=1` | ✅ `phase7_validation_contract_test.go::TestPhase7ReleaseArtifactContract` | ✅ green |
+| DOC-01 | README contains installation, quick start, platform matrix, benchmark snapshot | Go contract + example tests | `go test ./... -run 'TestPhase7ReleaseArtifactContract$|^Example' -count=1` | ✅ `README.md`, `phase7_validation_contract_test.go::TestPhase7ReleaseArtifactContract` | ✅ green |
+| DOC-06 | Changelog remains Keep-a-Changelog and captures Phase 7 work | Go contract test | `go test ./... -run 'TestPhase7ReleaseArtifactContract$' -count=1` | ✅ `CHANGELOG.md`, `phase7_validation_contract_test.go::TestPhase7ReleaseArtifactContract` | ✅ green |
+| DOC-07 | MIT license and simdjson notice are committed | Go contract test | `go test ./... -run 'TestPhase7ReleaseArtifactContract$' -count=1` | ✅ `LICENSE`, `NOTICE`, `phase7_validation_contract_test.go::TestPhase7ReleaseArtifactContract` | ✅ green |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠ flaky*
+*Status: ✅ green · ❌ red · ⚠ flaky*
 
 ---
 
@@ -65,35 +66,36 @@ created: 2026-04-22
 | warm benchmark accidentally includes setup cost | inspect missing `b.ResetTimer()` or parser warm-up | validation fails grep gate before numbers are published | BENCH-04 |
 | native allocator counters drift or never reset | run allocator test twice in one process | second run reports near-zero residual counters after explicit reset | BENCH-05 |
 | correctness manifest and vendored files drift | add/remove a JSON file without touching `expectations.tsv` | oracle test fails on manifest/file mismatch | BENCH-06 |
-| README claim updated without fresh benchmark evidence | edit README only | docs grep passes, but release-close plan blocks on fresh benchstat capture | BENCH-07 |
-| release-close tries to reuse `v0.1.0` | run release task with `--version 0.1.0` after Phase 7 changes | readiness/tagging path is rejected; patch release remains required | DOC-06 / BENCH-07 |
+| README claim updated without fresh benchmark evidence | edit README only | docs grep passes, but BENCH-07 still fails without the committed evidence snapshot and truthful-positioning lines | BENCH-07 |
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `testdata/bench/README.md`
-- [ ] `testdata/bench/twitter.json`
-- [ ] `testdata/bench/citm_catalog.json`
-- [ ] `testdata/bench/canada.json`
-- [ ] `testdata/bench/mesh.json`
-- [ ] `testdata/bench/numbers.json`
-- [ ] `testdata/jsontestsuite/README.md`
-- [ ] `testdata/jsontestsuite/expectations.tsv`
-- [ ] `benchmark_fixtures_test.go`
-- [ ] `benchmark_oracle_test.go`
-- [ ] `benchmark_schema_test.go`
-- [ ] `benchmark_comparators_test.go`
-- [ ] `benchmark_fullparse_test.go`
-- [ ] `benchmark_coldstart_test.go`
-- [ ] `benchmark_typed_test.go`
-- [ ] `benchmark_selective_test.go`
-- [ ] `benchmark_native_alloc_test.go`
-- [ ] `scripts/bench/run_benchstat.sh`
-- [ ] `README.md`
-- [ ] `docs/benchmarks.md`
-- [ ] `LICENSE`
-- [ ] `NOTICE`
+- [x] `testdata/bench/README.md`
+- [x] `testdata/bench/twitter.json`
+- [x] `testdata/bench/citm_catalog.json`
+- [x] `testdata/bench/canada.json`
+- [x] `testdata/bench/mesh.json`
+- [x] `testdata/bench/numbers.json`
+- [x] `testdata/jsontestsuite/README.md`
+- [x] `testdata/jsontestsuite/expectations.tsv`
+- [x] `benchmark_fixtures_test.go`
+- [x] `benchmark_oracle_test.go`
+- [x] `benchmark_schema_test.go`
+- [x] `benchmark_comparators_test.go`
+- [x] `benchmark_fullparse_test.go`
+- [x] `benchmark_coldstart_test.go`
+- [x] `benchmark_typed_test.go`
+- [x] `benchmark_selective_test.go`
+- [x] `benchmark_native_alloc_test.go`
+- [x] `benchmark_diagnostics_test.go`
+- [x] `phase7_validation_contract_test.go`
+- [x] `scripts/bench/run_benchstat.sh`
+- [x] `README.md`
+- [x] `docs/benchmarks.md`
+- [x] `LICENSE`
+- [x] `NOTICE`
 
 ---
 
@@ -101,9 +103,8 @@ created: 2026-04-22
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Benchmark headline is acceptable for public release notes | BENCH-07 | Requires human review of the measured numbers and caveats | inspect `docs/benchmarks.md`, the README snapshot, and the release notes before tagging |
-| Patch release publish succeeds for the Phase 7 output | BENCH-07 / DOC-06 | depends on live GitHub Actions secrets, R2 publish, and annotated tag push | merge to `origin/main`, run `bash scripts/release/check_readiness.sh --strict --version 0.1.1`, push `v0.1.1`, and review `release.yml` |
-| Fresh-runner public bootstrap validation passes for the Phase 7 release | BENCH-07 | depends on already-published artifacts and hosted GitHub runners | dispatch `.github/workflows/public-bootstrap-validation.yml` with `version=0.1.1` and review the matrix results |
+| Benchmark wording is acceptable for public docs | BENCH-07 | Requires human review of measured numbers and caveats | inspect `docs/benchmarks.md`, the README snapshot, and `docs/benchmarks/results-v0.1.1.md` together |
+| Phase 7 closeout routes unresolved Tier 1 work to the right future phases | BENCH-07 | depends on project-level planning judgment | review `07-06-SUMMARY.md`, `.planning/ROADMAP.md`, and `.planning/STATE.md` after closeout |
 
 ---
 
@@ -115,26 +116,52 @@ created: 2026-04-22
 |---------------|---------|------------------|
 | V1 Architecture | yes | benchmark tiers and comparator rules are documented explicitly so public claims match actual workloads |
 | V5 Input Validation | yes | vendored corpora and expectation manifests are local files with explicit path checks |
-| V6 Cryptography | yes | benchmark-source provenance is recorded with checksums; release-close still uses the existing signed CI path |
-| V14 Build / Deploy | yes | patch release uses the same CI-only publish path already locked in Phase 6 |
+| V6 Cryptography | yes | benchmark-source provenance is recorded with committed raw files and stable result links |
+| V14 Build / Deploy | yes | benchmark/docs/legal closeout remains reproducible through local commands and committed artifacts |
 
 ### Known Threat Patterns
 
 | Pattern | STRIDE | Standard Mitigation | Test |
 |---------|--------|---------------------|------|
-| benchmark claim overstates the actual workload | T | Tier labeling plus README/doc caveats; strict Tier 1 materialization parity | BENCH-01 / BENCH-07 |
+| benchmark claim overstates the actual workload | T | Tier labeling plus README/doc caveats; Tier 1 diagnostics show materialization dominates parse | BENCH-01 / BENCH-07 |
 | missing or swapped corpus file invalidates results | T | vendored local corpus plus README checksums | BENCH-02 |
 | native allocations are hidden behind Go-only stats | I | explicit FFI allocator snapshot/reset exports and benchmark custom metrics | BENCH-05 |
-| release-close tries to mutate existing published history | T | immutable `v0.1.0`; new public Phase 7 artifacts ship only through `v0.1.1` | DOC-06 / BENCH-07 |
+| docs drift from committed evidence | T | results doc carries fixed truthful-positioning lines and raw-file links; README must link back to it | BENCH-07 |
 
 ---
 
 ## Validation Sign-Off
 
-- [x] All tasks have an automated verify path or an explicit manual-release boundary
+- [x] All tasks have an automated verify path or an explicit manual-review boundary
 - [x] Sampling continuity: no long run of tasks without executable checks
 - [x] Wave 0 covers all missing benchmark/doc/legal scaffolding
 - [x] No watch-mode tooling required
+- [x] Feedback latency < 240s for quick, benchmark-smoke, and race verification
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** approved 2026-04-22
+**Approval:** refreshed 2026-04-23
+
+---
+
+## Validation Audit 2026-04-23
+
+| Metric | Count |
+|--------|-------|
+| Requirements audited | 10 (7 BENCH + 3 DOC) |
+| Gaps found | 6 |
+| Resolved | 6 |
+| Escalated | 0 |
+| Automated commands green | 8 |
+
+Fresh audit evidence:
+
+- `go test ./... -run 'Test(Phase7BenchmarkFixtureContract|Phase7BenchmarkComparatorContract|Phase7ReleaseArtifactContract|JSONTestSuiteOracle)$|^Example' -count=1` passed.
+- `go test ./... -count=1 -timeout 180s` passed.
+- `cargo test --release -- --test-threads=1` passed (`50` Rust tests).
+- `go test ./... -race -count=1 -timeout 240s` passed.
+- `go test ./... -run '^$' -bench 'Benchmark(Tier1FullParse|Tier2Typed|Tier3SelectivePlaceholder|ColdStart|Warm|Tier1Diagnostics)_' -benchtime=1x -count=1` passed.
+- `cargo test --release native_alloc -- --test-threads=1` passed (`3` native allocator tests).
+- `python3 tests/abi/check_header.py include/pure_simdjson.h` passed.
+- `bash -n scripts/bench/run_benchstat.sh` passed.
+- The audit added `phase7_validation_contract_test.go` to lock the vendored benchmark corpus manifest, the comparator registry contract, the public benchmark/results/changelog/legal artifacts, and the Phase 7 closeout routing references.
+- The audit corrected the stale placeholder `pending` statuses in this file. Remaining manual-only work is limited to human review of wording quality and project-level judgment around the Phase 8 / Phase 9 handoff.

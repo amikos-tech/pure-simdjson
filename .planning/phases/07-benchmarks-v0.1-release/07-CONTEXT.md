@@ -1,4 +1,4 @@
-# Phase 7: Benchmarks + v0.1 Release - Context
+# Phase 7: Benchmarks + Release-Facing Artifacts - Context
 
 **Gathered:** 2026-04-22
 **Status:** Ready for planning
@@ -6,9 +6,9 @@
 <domain>
 ## Phase Boundary
 
-Close out `v0.1` with a credible, reproducible benchmark story plus the missing public-facing release artifacts: `README.md`, final changelog content, and top-level `LICENSE` / `NOTICE`.
+Close out the current benchmark baseline with a credible, reproducible benchmark story plus the missing public-facing artifacts: `README.md`, final changelog content, and top-level `LICENSE` / `NOTICE`.
 
-This phase is about benchmark methodology, correctness evidence, and release-facing documentation. It does not add new parser capabilities, redesign the existing release/bootstrap pipeline, or pull `v0.2` On-Demand work into `v0.1`.
+This phase is about benchmark methodology, correctness evidence, public documentation, and a truthful handoff into follow-on performance work. It does not add new parser capabilities, force a patch release under unsupported Tier 1 claims, redesign the existing release/bootstrap pipeline, or pull `v0.2` On-Demand work into `v0.1`.
 
 </domain>
 
@@ -16,14 +16,15 @@ This phase is about benchmark methodology, correctness evidence, and release-fac
 ## Implementation Decisions
 
 ### Benchmark fairness and tier definitions
-- **D-01:** Tier 1 is strict full-materialization parity. `pure-simdjson` must materialize an equivalent Go tree before timing is counted so the headline comparison against `encoding/json` stays defensible.
+- **D-01:** Tier 1 remains strict full-materialization parity. `pure-simdjson` must materialize an equivalent Go tree before timing is counted so the comparison against `encoding/json` stays defensible, but this tier is published as a worst-case workload, not the sole public headline.
 - **D-02:** Tier 2 measures schema-shaped end-to-end typed extraction using the current public API (`GetField`, typed accessors, iterators), compared against typed decoding in the baseline libraries.
 - **D-03:** Tier 3 is a runnable selective-field benchmark built on the current DOM API and explicitly labeled as a `v0.2` placeholder. It is part of the harness, but it is not the main headline claim.
 - **D-04:** Public benchmark tables only compare libraries that actually run on that exact target/toolchain combination. Unsupported comparators are omitted from that table rather than shown as `N/A`.
+- **D-05:** Public benchmark positioning must acknowledge the measured Tier 1 limitation on the current DOM ABI: parse time is small relative to full Go `any` materialization cost, so the current strength story is Tier 2/Tier 3 rather than generic tree building.
 
 ### the agent's Discretion
 - Exact canonical benchmark environment and publication format, as long as cold-start and warm results are separated and the published numbers are reproducible.
-- Exact release-close sequencing around the existing `v0.1.0` version/tag state, as long as the final docs, artifacts, and bootstrap validation stay coherent.
+- Exact documentation/closeout sequencing around the existing `v0.1.0` version/tag state, as long as the final docs, artifacts, and follow-on handoff stay coherent.
 - Exact `README.md` structure, as long as it includes installation, quick-start usage, supported-platform guidance, and a benchmark snapshot with methodology caveats.
 
 </decisions>
@@ -96,8 +97,9 @@ This phase is about benchmark methodology, correctness evidence, and release-fac
 <deferred>
 ## Deferred Ideas
 
-- Any parser/API/runtime optimization work discovered during benchmarking that requires new product scope belongs in a follow-up phase or backlog item, not in this release-close phase.
+- Any parser/API/runtime optimization work discovered during benchmarking that requires new product scope belongs in a follow-up phase or backlog item, not in this benchmark/docs/legal closeout phase.
 - Real On-Demand / selective-path semantics remain `v0.2` work; Phase 7 only ships a clearly labeled placeholder benchmark on the current DOM API.
+- Any public patch release or benchmark-claim recalibration beyond truthful documentation of the current baseline is deferred to later milestone phases.
 
 </deferred>
 
