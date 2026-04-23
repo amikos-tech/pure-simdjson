@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 08-03; ready for 08-04
-last_updated: "2026-04-23T17:45:14Z"
+stopped_at: Completed 08-04; ready for 08-05
+last_updated: "2026-04-23T17:53:08Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 14
   completed_phases: 8
   total_plans: 42
-  completed_plans: 40
-  percent: 95
+  completed_plans: 41
+  percent: 98
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 08 (low-overhead-dom-traversal-abi-and-specialized-go-any-materializer) — EXECUTING
-Plan: 3 of 5
-Status: 08-03 complete; ready for 08-04
+Plan: 4 of 5
+Status: 08-04 complete; ready for 08-05
 Last activity: 2026-04-23
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline; Phase 08 now owns the low-overhead traversal/materialization follow-up before any new benchmark-positioning or release decision
 
-Progress: [█████████▌] 95%
+Progress: [█████████▊] 98%
 
 ## Performance Metrics
 
@@ -53,7 +53,7 @@ Progress: [█████████▌] 95%
 
 **Recent Trend:**
 
-- Last 5 plans: 07-03, 07-04, 08-01, 08-02, 08-03
+- Last 5 plans: 07-04, 08-01, 08-02, 08-03, 08-04
 - Trend: Stable
 
 | Phase 04 P01 | 16m | 2 tasks | 7 files |
@@ -80,6 +80,7 @@ Progress: [█████████▌] 95%
 | Phase 08 P01 | 8min | 2 tasks | 5 files |
 | Phase 08 P02 | 12min | 2 tasks | 7 files |
 | Phase 08 P03 | 9min | 2 tasks | 6 files |
+| Phase 08 P04 | 6min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -177,6 +178,7 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 08]: Go mirrors `psdj_internal_frame_t` as a 72-byte `ffi.InternalFrame`, binds `psdj_internal_materialize_build`, and consumes the borrowed frame slice without copying it in `internal/ffi`.
 - [Phase 08]: `fastMaterializeElement` stays internal, holds `doc.mu` while consuming borrowed frames, copies keys/strings at the Go value boundary, and rejects leftover or under-consumed frame spans with `ErrInternal`.
 - [Phase 08]: `Doc.isClosed()` now uses a non-blocking mutex check so fast-materializer contention surfaces `ErrParserBusy` instead of deadlocking before the `TryLock` guard.
+- [Phase 08]: Tier 1 full and materialize-only benchmark helpers now delegate to `fastMaterializeElement`, with literal diagnostic row labels and an explicit no-cache comment preserving Phase 7 benchstat continuity.
 
 ### Pending Todos
 
@@ -189,8 +191,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T17:45:14Z
-Stopped at: Completed 08-03; ready for 08-04
-Resume file: .planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-04-PLAN.md
+Last session: 2026-04-23T17:53:08Z
+Stopped at: Completed 08-04; ready for 08-05
+Resume file: .planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-05-PLAN.md
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z
