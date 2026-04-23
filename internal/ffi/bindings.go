@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
 )
+
+var bytesFreeFailureWarningCount atomic.Uint64
 
 type Bindings struct {
 	handle uintptr
@@ -270,8 +273,8 @@ func (b *Bindings) ElementGetString(view *ValueView) (string, int32) {
 		if ptr == nil {
 			return
 		}
-		if freeRC := b.BytesFree(ptr, length); freeRC != int32(OK) && leakWarningsEnabled() {
-			fmt.Fprintf(os.Stderr, "purejson leak: bytes_free rc=%d len=%d\n", freeRC, length)
+		if freeRC := b.BytesFree(ptr, length); freeRC != int32(OK) {
+			emitBytesFreeFailureWarning(freeRC, length)
 		}
 	}()
 
@@ -286,6 +289,14 @@ func (b *Bindings) BytesFree(ptr *byte, length uintptr) int32 {
 	rc := b.bytesFree(ptr, length)
 	runtime.KeepAlive(b)
 	return rc
+}
+
+func emitBytesFreeFailureWarning(rc int32, length uintptr) {
+	count := bytesFreeFailureWarningCount.Add(1)
+	if count != 1 && !leakWarningsEnabled() && count&(count-1) != 0 {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "purejson leak: bytes_free rc=%d len=%d count=%d\n", rc, length, count)
 }
 
 func (b *Bindings) ElementGetBool(view *ValueView) (bool, int32) {

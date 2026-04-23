@@ -31,7 +31,28 @@ func runTier3SelectivePlaceholderBenchmark(b *testing.B, fixtureName string) {
 		b.Run(comparator.key, func(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(data)))
-			benchmarkRunWithNativeAllocMetrics(b, func() {
+
+			if comparator.key == benchmarkComparatorPureSimdjson {
+				parser := benchmarkWarmPureParser(b, fixtureName, data)
+				defer func() {
+					if err := parser.Close(); err != nil {
+						b.Fatalf("parser.Close(%s): %v", fixtureName, err)
+					}
+				}()
+
+				benchmarkRunWithNativeAllocMetrics(b, true, func() {
+					for i := 0; i < b.N; i++ {
+						result, err := benchmarkTier3SelectivePlaceholderPureSimdjsonWithParser(parser, fixtureName, data)
+						if err != nil {
+							b.Fatalf("%s selective placeholder(%s): %v", comparator.key, fixtureName, err)
+						}
+						benchmarkTier3SelectiveResult = result
+					}
+				})
+				return
+			}
+
+			benchmarkRunWithNativeAllocMetrics(b, false, func() {
 				for i := 0; i < b.N; i++ {
 					result, err := benchmarkTier3SelectivePlaceholderExtract(comparator.key, fixtureName, data)
 					if err != nil {
@@ -76,10 +97,17 @@ func benchmarkTier3SelectivePlaceholderPureSimdjson(fixtureName string, data []b
 	if err != nil {
 		return result, err
 	}
+	defer func() {
+		err = benchmarkCloseMaterializeResources(err, nil, parser)
+	}()
 
+	return benchmarkTier3SelectivePlaceholderPureSimdjsonWithParser(parser, fixtureName, data)
+}
+
+func benchmarkTier3SelectivePlaceholderPureSimdjsonWithParser(parser *Parser, fixtureName string, data []byte) (result benchmarkExtractionResult, err error) {
 	var doc *Doc
 	defer func() {
-		err = benchmarkCloseMaterializeResources(err, doc, parser)
+		err = benchmarkCloseMaterializeResources(err, doc, nil)
 	}()
 
 	doc, err = parser.Parse(data)

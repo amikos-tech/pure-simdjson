@@ -2,7 +2,10 @@
 
 package purejson
 
-import "fmt"
+import (
+	"fmt"
+	"testing"
+)
 
 func init() {
 	registerOmittedBenchmarkComparator(benchmarkComparatorBytedanceSonic, "unsupported on this toolchain")
@@ -10,4 +13,14 @@ func init() {
 
 func benchmarkDecodeSharedSchemaBytedanceSonic(_ string, _ []byte) (any, error) {
 	return nil, fmt.Errorf("%s shared-schema decode unavailable on this toolchain", benchmarkComparatorBytedanceSonic)
+}
+
+func TestBytedanceSonicStubDecodeUnavailable(t *testing.T) {
+	value, err := benchmarkDecodeSharedSchemaBytedanceSonic(benchmarkFixtureTwitter, nil)
+	if err == nil {
+		t.Fatal("benchmarkDecodeSharedSchemaBytedanceSonic() error = nil, want unavailable error")
+	}
+	if value != nil {
+		t.Fatalf("benchmarkDecodeSharedSchemaBytedanceSonic() value = %v, want nil", value)
+	}
 }

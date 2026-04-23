@@ -425,15 +425,19 @@ int main(int argc, char **argv)
                     PURE_SIMDJSON_OK) != 0) {
     goto cleanup;
   }
-  if (alloc_stats.live_bytes != 0 || alloc_stats.total_alloc_bytes != 0 ||
-      alloc_stats.alloc_count != 0 || alloc_stats.free_count != 0) {
+  if (alloc_stats.epoch == 0 || alloc_stats.live_bytes != 0 ||
+      alloc_stats.total_alloc_bytes != 0 || alloc_stats.alloc_count != 0 ||
+      alloc_stats.free_count != 0 || alloc_stats.untracked_free_count != 0) {
     rc = failf("pure_simdjson_native_alloc_stats_snapshot(initial)",
-               "expected zeroed stats, got live=%" PRIu64 " total=%" PRIu64 " allocs=%" PRIu64
-               " frees=%" PRIu64,
+               "expected nonzero epoch and zeroed counters, got epoch=%" PRIu64
+               " live=%" PRIu64 " total=%" PRIu64 " allocs=%" PRIu64
+               " frees=%" PRIu64 " untracked_frees=%" PRIu64,
+               alloc_stats.epoch,
                alloc_stats.live_bytes,
                alloc_stats.total_alloc_bytes,
                alloc_stats.alloc_count,
-               alloc_stats.free_count);
+               alloc_stats.free_count,
+               alloc_stats.untracked_free_count);
     goto cleanup;
   }
 
@@ -458,15 +462,19 @@ int main(int argc, char **argv)
                     PURE_SIMDJSON_OK) != 0) {
     goto cleanup;
   }
-  if (alloc_stats.live_bytes != 0 || alloc_stats.total_alloc_bytes != 0 ||
-      alloc_stats.alloc_count != 0 || alloc_stats.free_count != 0) {
+  if (alloc_stats.epoch == 0 || alloc_stats.live_bytes != 0 ||
+      alloc_stats.total_alloc_bytes != 0 || alloc_stats.alloc_count != 0 ||
+      alloc_stats.free_count != 0 || alloc_stats.untracked_free_count != 0) {
     rc = failf("pure_simdjson_native_alloc_stats_snapshot(parser-ready)",
-               "expected zeroed parser-ready stats, got live=%" PRIu64 " total=%" PRIu64
-               " allocs=%" PRIu64 " frees=%" PRIu64,
+               "expected nonzero epoch and zeroed parser-ready stats, got epoch=%" PRIu64
+               " live=%" PRIu64 " total=%" PRIu64 " allocs=%" PRIu64
+               " frees=%" PRIu64 " untracked_frees=%" PRIu64,
+               alloc_stats.epoch,
                alloc_stats.live_bytes,
                alloc_stats.total_alloc_bytes,
                alloc_stats.alloc_count,
-               alloc_stats.free_count);
+               alloc_stats.free_count,
+               alloc_stats.untracked_free_count);
     goto cleanup;
   }
 
@@ -486,13 +494,17 @@ int main(int argc, char **argv)
                     PURE_SIMDJSON_OK) != 0) {
     goto cleanup;
   }
-  if (alloc_stats.live_bytes == 0 || alloc_stats.total_alloc_bytes < alloc_stats.live_bytes ||
-      alloc_stats.alloc_count == 0) {
+  if (alloc_stats.epoch == 0 || alloc_stats.live_bytes == 0 ||
+      alloc_stats.total_alloc_bytes < alloc_stats.live_bytes ||
+      alloc_stats.alloc_count == 0 || alloc_stats.untracked_free_count != 0) {
     rc = failf("pure_simdjson_native_alloc_stats_snapshot(after-parse)",
-               "unexpected parse stats live=%" PRIu64 " total=%" PRIu64 " allocs=%" PRIu64,
+               "unexpected parse stats epoch=%" PRIu64 " live=%" PRIu64 " total=%" PRIu64
+               " allocs=%" PRIu64 " untracked_frees=%" PRIu64,
+               alloc_stats.epoch,
                alloc_stats.live_bytes,
                alloc_stats.total_alloc_bytes,
-               alloc_stats.alloc_count);
+               alloc_stats.alloc_count,
+               alloc_stats.untracked_free_count);
     goto cleanup;
   }
 
@@ -768,11 +780,14 @@ int main(int argc, char **argv)
                     PURE_SIMDJSON_OK) != 0) {
     goto cleanup;
   }
-  if (alloc_stats.live_bytes != 0 || alloc_stats.free_count == 0) {
+  if (alloc_stats.live_bytes != 0 || alloc_stats.free_count == 0 ||
+      alloc_stats.untracked_free_count != 0) {
     rc = failf("pure_simdjson_native_alloc_stats_snapshot(after-free)",
-               "expected post-free live=0 and frees>0, got live=%" PRIu64 " frees=%" PRIu64,
+               "expected post-free live=0, frees>0, untracked_frees=0; got live=%" PRIu64
+               " frees=%" PRIu64 " untracked_frees=%" PRIu64,
                alloc_stats.live_bytes,
-               alloc_stats.free_count);
+               alloc_stats.free_count,
+               alloc_stats.untracked_free_count);
     goto cleanup;
   }
 

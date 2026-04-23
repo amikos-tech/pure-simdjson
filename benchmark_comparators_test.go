@@ -1,6 +1,7 @@
 package purejson
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,6 +37,17 @@ type benchmarkComparator struct {
 	key            string
 	materialize    func(fixtureName string, data []byte) (any, error)
 	omissionReason string
+}
+
+type benchmarkJSONShape struct {
+	objects       int
+	objectFields  int
+	arrays        int
+	arrayElements int
+	strings       int
+	numbers       int
+	bools         int
+	nulls         int
 }
 
 func (c benchmarkComparator) available() bool {
@@ -83,6 +95,9 @@ func registerBenchmarkComparator(comparator benchmarkComparator) {
 
 	benchmarkComparators.mu.Lock()
 	defer benchmarkComparators.mu.Unlock()
+	if existing, ok := benchmarkComparators.comparators[comparator.key]; ok {
+		panic(fmt.Sprintf("benchmark comparator %q registered twice (existing omitted=%t)", comparator.key, existing.omissionReason != ""))
+	}
 	benchmarkComparators.comparators[comparator.key] = comparator
 }
 
@@ -96,6 +111,9 @@ func registerOmittedBenchmarkComparator(key, reason string) {
 
 	benchmarkComparators.mu.Lock()
 	defer benchmarkComparators.mu.Unlock()
+	if existing, ok := benchmarkComparators.comparators[key]; ok {
+		panic(fmt.Sprintf("benchmark comparator %q registered twice (existing omitted=%t)", key, existing.omissionReason != ""))
+	}
 	benchmarkComparators.comparators[key] = benchmarkComparator{
 		key:            key,
 		omissionReason: reason,
@@ -165,6 +183,131 @@ func benchmarkMaterializeGoccyGoJSON(_ string, data []byte) (any, error) {
 	return benchmarkDecodeAny(gojson.Unmarshal, data)
 }
 
+func TestTierNComparatorsAgree(t *testing.T) {
+	t.Run("Tier1FullParseShape", func(t *testing.T) {
+		for _, fixtureName := range []string{benchmarkFixtureTwitter, benchmarkFixtureCITM, benchmarkFixtureCanada} {
+			data := loadBenchmarkFixture(t, fixtureName)
+			want, err := benchmarkJSONShapeFromBytes(data)
+			if err != nil {
+				t.Fatalf("reference shape(%s): %v", fixtureName, err)
+			}
+
+			for _, comparator := range availableBenchmarkComparators(t) {
+				if comparator.key == benchmarkComparatorEncodingStruct {
+					continue
+				}
+				result, err := comparator.materialize(fixtureName, data)
+				if err != nil {
+					t.Fatalf("%s materialize(%s): %v", comparator.key, fixtureName, err)
+				}
+				got, err := benchmarkJSONShapeFromMaterialized(result)
+				if err != nil {
+					t.Fatalf("%s shape(%s): %v", comparator.key, fixtureName, err)
+				}
+				if got != want {
+					t.Fatalf("%s shape(%s) = %+v, want %+v", comparator.key, fixtureName, got, want)
+				}
+			}
+		}
+	})
+
+	t.Run("Tier2TypedExtraction", func(t *testing.T) {
+		for _, fixtureName := range []string{benchmarkFixtureTwitter, benchmarkFixtureCITM, benchmarkFixtureCanada} {
+			data := loadBenchmarkFixture(t, fixtureName)
+			want, err := benchmarkTier2TypedExtract(benchmarkComparatorPureSimdjson, fixtureName, data)
+			if err != nil {
+				t.Fatalf("%s typed extract(%s): %v", benchmarkComparatorPureSimdjson, fixtureName, err)
+			}
+
+			for _, comparator := range availableTier2TypedComparators(t) {
+				got, err := benchmarkTier2TypedExtract(comparator.key, fixtureName, data)
+				if err != nil {
+					t.Fatalf("%s typed extract(%s): %v", comparator.key, fixtureName, err)
+				}
+				if got != want {
+					t.Fatalf("%s typed extract(%s) = %+v, want %+v", comparator.key, fixtureName, got, want)
+				}
+			}
+		}
+	})
+
+	t.Run("Tier3SelectiveExtraction", func(t *testing.T) {
+		for _, fixtureName := range []string{benchmarkFixtureTwitter, benchmarkFixtureCITM} {
+			data := loadBenchmarkFixture(t, fixtureName)
+			want, err := benchmarkTier3SelectivePlaceholderExtract(benchmarkComparatorPureSimdjson, fixtureName, data)
+			if err != nil {
+				t.Fatalf("%s selective extract(%s): %v", benchmarkComparatorPureSimdjson, fixtureName, err)
+			}
+
+			for _, comparator := range availableTier2TypedComparators(t) {
+				got, err := benchmarkTier3SelectivePlaceholderExtract(comparator.key, fixtureName, data)
+				if err != nil {
+					t.Fatalf("%s selective extract(%s): %v", comparator.key, fixtureName, err)
+				}
+				if got != want {
+					t.Fatalf("%s selective extract(%s) = %+v, want %+v", comparator.key, fixtureName, got, want)
+				}
+			}
+		}
+	})
+}
+
+func benchmarkJSONShapeFromBytes(data []byte) (benchmarkJSONShape, error) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return benchmarkJSONShape{}, err
+	}
+	return benchmarkJSONShapeOf(value), nil
+}
+
+func benchmarkJSONShapeFromMaterialized(value any) (benchmarkJSONShape, error) {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return benchmarkJSONShape{}, err
+	}
+	return benchmarkJSONShapeFromBytes(data)
+}
+
+func benchmarkJSONShapeOf(value any) benchmarkJSONShape {
+	switch typed := value.(type) {
+	case nil:
+		return benchmarkJSONShape{nulls: 1}
+	case bool:
+		return benchmarkJSONShape{bools: 1}
+	case string:
+		return benchmarkJSONShape{strings: 1}
+	case json.Number, float64:
+		return benchmarkJSONShape{numbers: 1}
+	case []any:
+		shape := benchmarkJSONShape{arrays: 1, arrayElements: len(typed)}
+		for _, item := range typed {
+			shape.add(benchmarkJSONShapeOf(item))
+		}
+		return shape
+	case map[string]any:
+		shape := benchmarkJSONShape{objects: 1, objectFields: len(typed)}
+		for _, item := range typed {
+			shape.add(benchmarkJSONShapeOf(item))
+		}
+		return shape
+	default:
+		return benchmarkJSONShape{numbers: 1}
+	}
+}
+
+func (s *benchmarkJSONShape) add(other benchmarkJSONShape) {
+	s.objects += other.objects
+	s.objectFields += other.objectFields
+	s.arrays += other.arrays
+	s.arrayElements += other.arrayElements
+	s.strings += other.strings
+	s.numbers += other.numbers
+	s.bools += other.bools
+	s.nulls += other.nulls
+}
+
 func benchmarkDecodeAny(unmarshal benchmarkUnmarshalFunc, data []byte) (any, error) {
 	var value any
 	if err := unmarshal(data, &value); err != nil {
@@ -215,10 +358,17 @@ func benchmarkMaterializePureSimdjson(_ string, data []byte) (result any, err er
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		err = benchmarkCloseMaterializeResources(err, nil, parser)
+	}()
 
+	return benchmarkMaterializePureSimdjsonWithParser(parser, data)
+}
+
+func benchmarkMaterializePureSimdjsonWithParser(parser *Parser, data []byte) (result any, err error) {
 	var doc *Doc
 	defer func() {
-		err = benchmarkCloseMaterializeResources(err, doc, parser)
+		err = benchmarkCloseMaterializeResources(err, doc, nil)
 	}()
 
 	doc, err = parser.Parse(data)
@@ -244,8 +394,38 @@ func benchmarkCloseMaterializeResources(currentErr error, doc *Doc, parser *Pars
 	return currentErr
 }
 
+func benchmarkWarmPureParser(tb testing.TB, fixtureName string, data []byte) *Parser {
+	tb.Helper()
+
+	parser, err := NewParser()
+	if err != nil {
+		tb.Fatalf("NewParser(%s): %v", fixtureName, err)
+	}
+
+	doc, err := parser.Parse(data)
+	if err != nil {
+		_ = parser.Close()
+		tb.Fatalf("warm Parse(%s): %v", fixtureName, err)
+	}
+	if err := doc.Close(); err != nil {
+		_ = parser.Close()
+		tb.Fatalf("warm doc.Close(%s): %v", fixtureName, err)
+	}
+
+	return parser
+}
+
 func benchmarkMaterializePureElement(element Element) (any, error) {
-	switch element.Type() {
+	kind := ElementType(element.view.KindHint)
+	if kind == TypeInvalid {
+		resolvedKind, err := element.TypeErr()
+		if err != nil {
+			return nil, err
+		}
+		kind = resolvedKind
+	}
+
+	switch kind {
 	case TypeNull:
 		return nil, nil
 	case TypeBool:
@@ -264,7 +444,7 @@ func benchmarkMaterializePureElement(element Element) (any, error) {
 			return nil, err
 		}
 
-		values := make([]any, 0)
+		values := make([]any, 0, 8)
 		iter := array.Iter()
 		for iter.Next() {
 			value, err := benchmarkMaterializePureElement(iter.Value())
@@ -283,7 +463,7 @@ func benchmarkMaterializePureElement(element Element) (any, error) {
 			return nil, err
 		}
 
-		values := make(map[string]any)
+		values := make(map[string]any, 8)
 		iter := object.Iter()
 		for iter.Next() {
 			value, err := benchmarkMaterializePureElement(iter.Value())
@@ -297,6 +477,6 @@ func benchmarkMaterializePureElement(element Element) (any, error) {
 		}
 		return values, nil
 	default:
-		return nil, fmt.Errorf("unsupported pure-simdjson element type %v", element.Type())
+		return nil, fmt.Errorf("unsupported pure-simdjson element type %v", kind)
 	}
 }

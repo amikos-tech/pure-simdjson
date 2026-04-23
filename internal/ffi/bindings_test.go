@@ -9,6 +9,7 @@ import (
 
 func TestElementGetStringWarnsOnBytesFreeFailure(t *testing.T) {
 	t.Setenv("PURE_SIMDJSON_WARN_LEAKS", "1")
+	bytesFreeFailureWarningCount.Store(0)
 
 	payload := []byte("hello")
 	var freed bool
@@ -39,6 +40,37 @@ func TestElementGetStringWarnsOnBytesFreeFailure(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "purejson leak: bytes_free rc=") {
 		t.Fatalf("stderr = %q, want bytes_free warning", stderr)
+	}
+}
+
+func TestElementGetStringWarnsOnFirstBytesFreeFailureWithoutOptIn(t *testing.T) {
+	t.Setenv("PURE_SIMDJSON_WARN_LEAKS", "0")
+	bytesFreeFailureWarningCount.Store(0)
+
+	payload := []byte("hello")
+	b := &Bindings{
+		elementGetString: func(_ *ValueView, outPtr **byte, outLen *uintptr) int32 {
+			*outPtr = &payload[0]
+			*outLen = uintptr(len(payload))
+			return int32(OK)
+		},
+		bytesFree: func(_ *byte, _ uintptr) int32 {
+			return int32(ErrInternal)
+		},
+	}
+
+	stderr := captureStderr(t, func() {
+		value, rc := b.ElementGetString(&ValueView{})
+		if rc != int32(OK) {
+			t.Fatalf("ElementGetString() rc = %d, want %d", rc, OK)
+		}
+		if value != "hello" {
+			t.Fatalf("ElementGetString() value = %q, want %q", value, "hello")
+		}
+	})
+
+	if !strings.Contains(stderr, "purejson leak: bytes_free rc=") {
+		t.Fatalf("stderr = %q, want first bytes_free warning without opt-in", stderr)
 	}
 }
 

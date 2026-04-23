@@ -9,7 +9,7 @@ import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 CHECK_HEADER_PATH = REPO_ROOT / "tests" / "abi" / "check_header.py"
-ABI_VERSION_DEFINE = "#define PURE_SIMDJSON_ABI_VERSION 0x00010000"
+ABI_VERSION_DEFINE = "#define PURE_SIMDJSON_ABI_VERSION 0x00010001"
 SURFACE_SIGNATURES = {
     "pure_simdjson_get_abi_version": ["uint32_t *out_version"],
     "pure_simdjson_get_implementation_name_len": ["size_t *out_len"],
@@ -107,10 +107,12 @@ SURFACE_SIGNATURES = {
 }
 NATIVE_ALLOC_STATS_STRUCT = """
 typedef struct pure_simdjson_native_alloc_stats_t {
+  uint64_t epoch;
   uint64_t live_bytes;
   uint64_t total_alloc_bytes;
   uint64_t alloc_count;
   uint64_t free_count;
+  uint64_t untracked_free_count;
 } pure_simdjson_native_alloc_stats_t;
 """.strip()
 
@@ -351,10 +353,12 @@ class NativeAllocSurfaceRuleTests(unittest.TestCase):
             extra_lines=[
                 """
 typedef struct pure_simdjson_native_alloc_stats_t {
+  uint64_t epoch;
   uint64_t total_alloc_bytes;
   uint64_t live_bytes;
   uint64_t alloc_count;
   uint64_t free_count;
+  uint64_t untracked_free_count;
 } pure_simdjson_native_alloc_stats_t;
 """.strip()
             ]
@@ -365,7 +369,7 @@ typedef struct pure_simdjson_native_alloc_stats_t {
             check_header.rule_native_alloc_surface(prototypes, header_text)
 
         self.assertIn(
-            "expected fields [live_bytes, total_alloc_bytes, alloc_count, free_count] in order",
+            "expected fields [epoch, live_bytes, total_alloc_bytes, alloc_count, free_count, untracked_free_count] in order",
             str(excinfo.exception),
         )
 

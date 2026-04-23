@@ -14,7 +14,7 @@ use std::{
 ///
 /// This constant is part of the public C header and stays numerically pinned alongside
 /// `pure_simdjson_get_abi_version`.
-pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0000;
+pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0001;
 
 /// Public error codes for the stable ABI v0.1 surface.
 #[repr(i32)]
@@ -128,10 +128,12 @@ pub struct pure_simdjson_object_iter_t {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct pure_simdjson_native_alloc_stats_t {
+    pub epoch: u64,
     pub live_bytes: u64,
     pub total_alloc_bytes: u64,
     pub alloc_count: u64,
     pub free_count: u64,
+    pub untracked_free_count: u64,
 }
 
 #[inline]
@@ -315,9 +317,13 @@ pub unsafe extern "C" fn pure_simdjson_copy_implementation_name(
 /// reported counters until they are reallocated in the new epoch.
 #[no_mangle]
 pub unsafe extern "C" fn pure_simdjson_native_alloc_stats_reset() -> pure_simdjson_error_code_t {
-    ffi_wrap("pure_simdjson_native_alloc_stats_reset", || {
-        runtime::native_alloc_stats_reset()
-    })
+    ffi_wrap(
+        "pure_simdjson_native_alloc_stats_reset",
+        || match runtime::native_alloc_stats_reset() {
+            Ok(()) => err_ok(),
+            Err(rc) => rc,
+        },
+    )
 }
 
 /// Snapshot the diagnostic native allocator counters for the current telemetry epoch.
@@ -831,8 +837,8 @@ mod tests {
         let rc = unsafe { pure_simdjson_get_abi_version(&mut abi_version) };
 
         assert_eq!(rc, err_ok());
-        assert_eq!(PURE_SIMDJSON_ABI_VERSION, 0x0001_0000);
-        assert_eq!(abi_version, 0x0001_0000);
+        assert_eq!(PURE_SIMDJSON_ABI_VERSION, 0x0001_0001);
+        assert_eq!(abi_version, 0x0001_0001);
     }
 
     #[test]

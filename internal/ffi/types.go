@@ -4,7 +4,7 @@ const (
 	// ABIVersion encodes the expected native ABI as 0xMMMMmmmm (16-bit major,
 	// 16-bit minor). It must match PURE_SIMDJSON_ABI_VERSION exported by the
 	// Rust shim; bumping major signals a breaking C-ABI change.
-	ABIVersion             uint32 = 0x00010000
+	ABIVersion             uint32 = 0x00010001
 	LastErrorOffsetUnknown uint64 = ^uint64(0)
 )
 
@@ -75,8 +75,10 @@ type ObjectIter struct {
 }
 
 type NativeAllocStats struct {
-	LiveBytes       uint64
-	TotalAllocBytes uint64
-	AllocCount      uint64
-	FreeCount       uint64
+	Epoch              uint64
+	LiveBytes          uint64
+	TotalAllocBytes    uint64
+	AllocCount         uint64
+	FreeCount          uint64
+	UntrackedFreeCount uint64
 }

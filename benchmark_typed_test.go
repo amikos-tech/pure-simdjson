@@ -39,7 +39,28 @@ func runTier2TypedBenchmark(b *testing.B, fixtureName string) {
 		b.Run(comparator.key, func(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(data)))
-			benchmarkRunWithNativeAllocMetrics(b, func() {
+
+			if comparator.key == benchmarkComparatorPureSimdjson {
+				parser := benchmarkWarmPureParser(b, fixtureName, data)
+				defer func() {
+					if err := parser.Close(); err != nil {
+						b.Fatalf("parser.Close(%s): %v", fixtureName, err)
+					}
+				}()
+
+				benchmarkRunWithNativeAllocMetrics(b, true, func() {
+					for i := 0; i < b.N; i++ {
+						result, err := benchmarkTier2TypedExtractPureSimdjsonWithParser(parser, fixtureName, data)
+						if err != nil {
+							b.Fatalf("%s typed extract(%s): %v", comparator.key, fixtureName, err)
+						}
+						benchmarkTier2TypedResult = result
+					}
+				})
+				return
+			}
+
+			benchmarkRunWithNativeAllocMetrics(b, false, func() {
 				for i := 0; i < b.N; i++ {
 					result, err := benchmarkTier2TypedExtract(comparator.key, fixtureName, data)
 					if err != nil {
@@ -104,10 +125,17 @@ func benchmarkTier2TypedExtractPureSimdjson(fixtureName string, data []byte) (re
 	if err != nil {
 		return result, err
 	}
+	defer func() {
+		err = benchmarkCloseMaterializeResources(err, nil, parser)
+	}()
 
+	return benchmarkTier2TypedExtractPureSimdjsonWithParser(parser, fixtureName, data)
+}
+
+func benchmarkTier2TypedExtractPureSimdjsonWithParser(parser *Parser, fixtureName string, data []byte) (result benchmarkExtractionResult, err error) {
 	var doc *Doc
 	defer func() {
-		err = benchmarkCloseMaterializeResources(err, doc, parser)
+		err = benchmarkCloseMaterializeResources(err, doc, nil)
 	}()
 
 	doc, err = parser.Parse(data)

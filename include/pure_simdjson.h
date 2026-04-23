@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#define PURE_SIMDJSON_ABI_VERSION 0x00010000
+#define PURE_SIMDJSON_ABI_VERSION 0x00010001
 
 /**
  * Public error codes for the stable ABI v0.1 surface.
@@ -64,10 +64,12 @@ typedef uint32_t pure_simdjson_value_kind_t;
  * It does not claim process-wide totals or Go heap activity.
  */
 typedef struct pure_simdjson_native_alloc_stats_t {
+  uint64_t epoch;
   uint64_t live_bytes;
   uint64_t total_alloc_bytes;
   uint64_t alloc_count;
   uint64_t free_count;
+  uint64_t untracked_free_count;
 } pure_simdjson_native_alloc_stats_t;
 
 /**

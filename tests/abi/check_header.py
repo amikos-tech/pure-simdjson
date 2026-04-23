@@ -16,7 +16,7 @@ PROTO_RE = re.compile(
 )
 COMMENT_RE = re.compile(r"(?s)/\*.*?\*/|//[^\n]*")
 ABI_VERSION_DEFINE_RE = re.compile(
-    r"(?m)^#define\s+PURE_SIMDJSON_ABI_VERSION\s+0x00010000\s*$"
+    r"(?m)^#define\s+PURE_SIMDJSON_ABI_VERSION\s+0x00010001\s*$"
 )
 
 STRUCT_TYPES = (
@@ -33,10 +33,12 @@ STRUCT_TYPES = (
 
 NATIVE_ALLOC_STATS_STRUCT_RE = re.compile(
     r"typedef\s+struct\s+pure_simdjson_native_alloc_stats_t\s*\{\s*"
+    r"uint64_t\s+epoch;\s*"
     r"uint64_t\s+live_bytes;\s*"
     r"uint64_t\s+total_alloc_bytes;\s*"
     r"uint64_t\s+alloc_count;\s*"
     r"uint64_t\s+free_count;\s*"
+    r"uint64_t\s+untracked_free_count;\s*"
     r"\}\s+pure_simdjson_native_alloc_stats_t\s*;",
     re.S,
 )
@@ -198,7 +200,7 @@ def rule_diag_surface(
     prototypes: dict[str, tuple[str, list[str]]], header_text: str
 ) -> None:
     if not ABI_VERSION_DEFINE_RE.search(header_text):
-        fail("missing ABI version macro: #define PURE_SIMDJSON_ABI_VERSION 0x00010000")
+        fail("missing ABI version macro: #define PURE_SIMDJSON_ABI_VERSION 0x00010001")
 
     expected_signatures = {
         "pure_simdjson_get_abi_version": ["uint32_t *out_version"],
@@ -251,7 +253,8 @@ def rule_native_alloc_surface(
     if not NATIVE_ALLOC_STATS_STRUCT_RE.search(strip_comments(header_text)):
         fail(
             "pure_simdjson_native_alloc_stats_t: expected fields "
-            "[live_bytes, total_alloc_bytes, alloc_count, free_count] in order"
+            "[epoch, live_bytes, total_alloc_bytes, alloc_count, free_count, "
+            "untracked_free_count] in order"
         )
 
     _, reset_params = require_symbol(prototypes, "pure_simdjson_native_alloc_stats_reset")
@@ -295,7 +298,10 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    header_text = args.header.read_text(encoding="utf-8")
+    try:
+        header_text = args.header.read_text(encoding="utf-8")
+    except OSError as error:
+        fail(f"read {args.header}: {error}")
     prototypes = parse_prototypes(header_text)
     selected_rules = args.rules or list(RULES)
     for rule_name in selected_rules:

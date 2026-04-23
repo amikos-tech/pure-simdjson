@@ -35,7 +35,7 @@ static_assert(PURE_SIMDJSON_ERR_CPP_EXCEPTION == 97,
               "PURE_SIMDJSON_ERR_CPP_EXCEPTION must stay pinned");
 static_assert(PURE_SIMDJSON_ERR_INTERNAL == 127,
               "PURE_SIMDJSON_ERR_INTERNAL must stay pinned");
-static_assert(PURE_SIMDJSON_ABI_VERSION == 0x00010000u,
+static_assert(PURE_SIMDJSON_ABI_VERSION == 0x00010001u,
               "PURE_SIMDJSON_ABI_VERSION must stay pinned");
 
 static_assert(PURE_SIMDJSON_VALUE_KIND_INVALID == 0,
@@ -77,3 +77,9 @@ static_assert(offsetof(pure_simdjson_object_iter_t, tag) == 28,
               "pure_simdjson_object_iter_t.tag offset must stay stable");
 static_assert(offsetof(pure_simdjson_object_iter_t, reserved) == 30,
               "pure_simdjson_object_iter_t.reserved offset must stay stable");
+static_assert(sizeof(pure_simdjson_native_alloc_stats_t) == 48,
+              "pure_simdjson_native_alloc_stats_t must stay 48 bytes");
+static_assert(offsetof(pure_simdjson_native_alloc_stats_t, live_bytes) == 8,
+              "pure_simdjson_native_alloc_stats_t.live_bytes offset must stay stable");
+static_assert(offsetof(pure_simdjson_native_alloc_stats_t, untracked_free_count) == 40,
+              "pure_simdjson_native_alloc_stats_t.untracked_free_count offset must stay stable");

@@ -1,5 +1,10 @@
 package purejson
 
+import (
+	"encoding/json"
+	"testing"
+)
+
 type benchTwitterRow struct {
 	SearchMetadata benchTwitterSearchMetadata `json:"search_metadata"`
 	Statuses       []benchTwitterStatus       `json:"statuses"`
@@ -120,4 +125,39 @@ type benchCanadaGeometry struct {
 
 type benchCanadaProperties struct {
 	Name string `json:"name"`
+}
+
+func TestBenchmarkSchemaDecodesFixtures(t *testing.T) {
+	for _, fixtureName := range []string{benchmarkFixtureTwitter, benchmarkFixtureCITM, benchmarkFixtureCanada} {
+		value, err := benchmarkDecodeSharedSchema(json.Unmarshal, fixtureName, loadBenchmarkFixture(t, fixtureName))
+		if err != nil {
+			t.Fatalf("benchmarkDecodeSharedSchema(%s): %v", fixtureName, err)
+		}
+
+		switch row := value.(type) {
+		case benchTwitterRow:
+			if row.SearchMetadata.MaxID == 0 || row.SearchMetadata.Query == "" || len(row.Statuses) == 0 {
+				t.Fatalf("twitter schema decoded sparse root: %+v", row.SearchMetadata)
+			}
+			if row.Statuses[0].ID == 0 || row.Statuses[0].User.ID == 0 || row.Statuses[0].User.ScreenName == "" {
+				t.Fatalf("twitter schema decoded sparse first status: %+v", row.Statuses[0])
+			}
+		case benchCITMRow:
+			if len(row.AreaNames) == 0 || len(row.Events) == 0 || len(row.Performances) == 0 {
+				t.Fatalf("CITM schema decoded sparse root: areas=%d events=%d performances=%d", len(row.AreaNames), len(row.Events), len(row.Performances))
+			}
+			if row.Performances[0].ID == 0 || row.Performances[0].EventID == 0 || len(row.Performances[0].Prices) == 0 {
+				t.Fatalf("CITM schema decoded sparse first performance: %+v", row.Performances[0])
+			}
+		case benchCanadaRow:
+			if row.Type == "" || len(row.Features) == 0 {
+				t.Fatalf("Canada schema decoded sparse root: type=%q features=%d", row.Type, len(row.Features))
+			}
+			if row.Features[0].Type == "" || row.Features[0].Geometry.Type == "" || len(row.Features[0].Geometry.Coordinates) == 0 {
+				t.Fatalf("Canada schema decoded sparse first feature: %+v", row.Features[0])
+			}
+		default:
+			t.Fatalf("benchmarkDecodeSharedSchema(%s) returned %T", fixtureName, value)
+		}
+	}
 }

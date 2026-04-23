@@ -8,7 +8,7 @@ const (
 	benchmarkMetricNativeLiveBytes   = "native-live-bytes"
 )
 
-func benchmarkRunWithNativeAllocMetrics(b *testing.B, run func()) {
+func benchmarkRunWithNativeAllocMetrics(b *testing.B, requireNativeAllocs bool, run func()) {
 	b.Helper()
 
 	library, err := activeLibrary()
@@ -19,6 +19,8 @@ func benchmarkRunWithNativeAllocMetrics(b *testing.B, run func()) {
 		b.Fatalf("NativeAllocStatsReset(): %v", err)
 	}
 
+	// Why: benchmark bodies using this helper are single-threaded, so reset/run/snapshot forms
+	// a closed native allocation window for the comparator under measurement.
 	b.ResetTimer()
 	run()
 	b.StopTimer()
@@ -26,6 +28,9 @@ func benchmarkRunWithNativeAllocMetrics(b *testing.B, run func()) {
 	stats, rc := library.bindings.NativeAllocStatsSnapshot()
 	if err := wrapStatus(rc); err != nil {
 		b.Fatalf("NativeAllocStatsSnapshot(): %v", err)
+	}
+	if requireNativeAllocs && b.N > 0 && stats.AllocCount == 0 {
+		b.Fatalf("NativeAllocStatsSnapshot(): alloc_count = 0, want native allocation telemetry for this path")
 	}
 
 	if b.N > 0 {

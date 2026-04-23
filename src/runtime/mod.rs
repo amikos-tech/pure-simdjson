@@ -206,8 +206,13 @@ pub(crate) fn implementation_name() -> Result<Vec<u8>, pure_simdjson_error_code_
     Ok(bytes)
 }
 
-pub(crate) fn native_alloc_stats_reset() -> pure_simdjson_error_code_t {
-    unsafe { psimdjson_native_alloc_stats_reset() }
+pub(crate) fn native_alloc_stats_reset() -> Result<(), pure_simdjson_error_code_t> {
+    let rc = unsafe { psimdjson_native_alloc_stats_reset() };
+    if rc == err_ok() {
+        Ok(())
+    } else {
+        Err(rc)
+    }
 }
 
 pub(crate) fn native_alloc_stats_snapshot(

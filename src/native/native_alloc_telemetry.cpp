@@ -59,6 +59,7 @@ bool operator!=(const MallocAllocator<T> &, const MallocAllocator<U> &) noexcept
 struct AllocationRecord {
   std::uint64_t size{0};
   std::uint64_t epoch{0};
+  bool uses_aligned_free{false};
 };
 
 using PointerRegistry = std::unordered_map<
@@ -76,6 +77,7 @@ struct TelemetryState {
   std::atomic<std::uint64_t> total_alloc_bytes{0};
   std::atomic<std::uint64_t> alloc_count{0};
   std::atomic<std::uint64_t> free_count{0};
+  std::atomic<std::uint64_t> untracked_free_count{0};
 };
 
 TelemetryState &telemetry_state() noexcept {
@@ -95,6 +97,10 @@ void *raw_allocate(std::size_t size, std::size_t alignment) noexcept {
   const std::size_t aligned_size = normalize_size(size);
   const std::size_t aligned_alignment = normalize_alignment(alignment);
 
+  if (aligned_alignment <= kDefaultAlignment) {
+    return std::malloc(aligned_size);
+  }
+
 #ifdef _WIN32
   return _aligned_malloc(aligned_size, aligned_alignment);
 #else
@@ -106,24 +112,34 @@ void *raw_allocate(std::size_t size, std::size_t alignment) noexcept {
 #endif
 }
 
-void raw_deallocate(void *ptr) noexcept {
+bool allocation_uses_aligned_free(std::size_t alignment) noexcept {
+  return normalize_alignment(alignment) > kDefaultAlignment;
+}
+
+void raw_deallocate(void *ptr, bool uses_aligned_free) noexcept {
   if (ptr == nullptr) {
     return;
   }
 
 #ifdef _WIN32
-  _aligned_free(ptr);
+  if (uses_aligned_free) {
+    _aligned_free(ptr);
+  } else {
+    std::free(ptr);
+  }
 #else
+  (void)uses_aligned_free;
   std::free(ptr);
 #endif
 }
 
-void record_allocation(void *ptr, std::size_t size) {
+void record_allocation(void *ptr, std::size_t size, std::size_t alignment) {
   auto &state = telemetry_state();
   const auto tracked_size = static_cast<std::uint64_t>(normalize_size(size));
   AllocationRecord record{};
   record.size = tracked_size;
   record.epoch = state.current_epoch;
+  record.uses_aligned_free = allocation_uses_aligned_free(alignment);
 
   std::lock_guard<std::mutex> lock(state.mutex);
   state.live_allocations.emplace(ptr, record);
@@ -132,26 +148,30 @@ void record_allocation(void *ptr, std::size_t size) {
   state.alloc_count.fetch_add(1, std::memory_order_relaxed);
 }
 
-void remove_allocation(void *ptr) noexcept {
+void remove_allocation(void *ptr, std::size_t alignment) noexcept {
   if (ptr == nullptr) {
     return;
   }
 
   auto &state = telemetry_state();
+  bool uses_aligned_free = allocation_uses_aligned_free(alignment);
 
   {
     std::lock_guard<std::mutex> lock(state.mutex);
     const auto it = state.live_allocations.find(ptr);
     if (it != state.live_allocations.end()) {
+      uses_aligned_free = it->second.uses_aligned_free;
       if (it->second.epoch == state.current_epoch) {
         state.live_bytes -= it->second.size;
         state.free_count.fetch_add(1, std::memory_order_relaxed);
       }
       state.live_allocations.erase(it);
+    } else {
+      state.untracked_free_count.fetch_add(1, std::memory_order_relaxed);
     }
   }
 
-  raw_deallocate(ptr);
+  raw_deallocate(ptr, uses_aligned_free);
 }
 
 void *allocate_or_throw(std::size_t size, std::size_t alignment) {
@@ -161,10 +181,10 @@ void *allocate_or_throw(std::size_t size, std::size_t alignment) {
   }
 
   try {
-    record_allocation(ptr, size);
+    record_allocation(ptr, size, alignment);
     return ptr;
   } catch (...) {
-    raw_deallocate(ptr);
+    raw_deallocate(ptr, allocation_uses_aligned_free(alignment));
     throw;
   }
 }
@@ -176,10 +196,10 @@ void *allocate_or_null(std::size_t size, std::size_t alignment) noexcept {
   }
 
   try {
-    record_allocation(ptr, size);
+    record_allocation(ptr, size, alignment);
     return ptr;
   } catch (...) {
-    raw_deallocate(ptr);
+    raw_deallocate(ptr, allocation_uses_aligned_free(alignment));
     return nullptr;
   }
 }
@@ -199,6 +219,7 @@ void reset() noexcept {
   state.total_alloc_bytes.store(0, std::memory_order_relaxed);
   state.alloc_count.store(0, std::memory_order_relaxed);
   state.free_count.store(0, std::memory_order_relaxed);
+  state.untracked_free_count.store(0, std::memory_order_relaxed);
 }
 
 pure_simdjson_error_code_t snapshot(pure_simdjson_native_alloc_stats_t *out_stats) noexcept {
@@ -208,10 +229,13 @@ pure_simdjson_error_code_t snapshot(pure_simdjson_native_alloc_stats_t *out_stat
 
   auto &state = telemetry_state();
   std::lock_guard<std::mutex> lock(state.mutex);
+  out_stats->epoch = state.current_epoch;
   out_stats->live_bytes = state.live_bytes;
   out_stats->total_alloc_bytes = state.total_alloc_bytes.load(std::memory_order_relaxed);
   out_stats->alloc_count = state.alloc_count.load(std::memory_order_relaxed);
   out_stats->free_count = state.free_count.load(std::memory_order_relaxed);
+  out_stats->untracked_free_count =
+      state.untracked_free_count.load(std::memory_order_relaxed);
   return PURE_SIMDJSON_OK;
 }
 
@@ -254,49 +278,57 @@ void *operator new[](
 }
 
 void operator delete(void *ptr) noexcept {
-  remove_allocation(ptr);
+  remove_allocation(ptr, kDefaultAlignment);
 }
 
 void operator delete[](void *ptr) noexcept {
-  remove_allocation(ptr);
+  remove_allocation(ptr, kDefaultAlignment);
 }
 
 void operator delete(void *ptr, std::size_t) noexcept {
-  remove_allocation(ptr);
+  remove_allocation(ptr, kDefaultAlignment);
 }
 
 void operator delete[](void *ptr, std::size_t) noexcept {
-  remove_allocation(ptr);
+  remove_allocation(ptr, kDefaultAlignment);
 }
 
 void operator delete(void *ptr, const std::nothrow_t &) noexcept {
-  remove_allocation(ptr);
+  remove_allocation(ptr, kDefaultAlignment);
 }
 
 void operator delete[](void *ptr, const std::nothrow_t &) noexcept {
-  remove_allocation(ptr);
+  remove_allocation(ptr, kDefaultAlignment);
 }
 
-void operator delete(void *ptr, std::align_val_t) noexcept {
-  remove_allocation(ptr);
+void operator delete(void *ptr, std::align_val_t alignment) noexcept {
+  remove_allocation(ptr, static_cast<std::size_t>(alignment));
 }
 
-void operator delete[](void *ptr, std::align_val_t) noexcept {
-  remove_allocation(ptr);
+void operator delete[](void *ptr, std::align_val_t alignment) noexcept {
+  remove_allocation(ptr, static_cast<std::size_t>(alignment));
 }
 
-void operator delete(void *ptr, std::align_val_t, const std::nothrow_t &) noexcept {
-  remove_allocation(ptr);
+void operator delete(
+    void *ptr,
+    std::align_val_t alignment,
+    const std::nothrow_t &
+) noexcept {
+  remove_allocation(ptr, static_cast<std::size_t>(alignment));
 }
 
-void operator delete[](void *ptr, std::align_val_t, const std::nothrow_t &) noexcept {
-  remove_allocation(ptr);
+void operator delete[](
+    void *ptr,
+    std::align_val_t alignment,
+    const std::nothrow_t &
+) noexcept {
+  remove_allocation(ptr, static_cast<std::size_t>(alignment));
 }
 
-void operator delete(void *ptr, std::size_t, std::align_val_t) noexcept {
-  remove_allocation(ptr);
+void operator delete(void *ptr, std::size_t, std::align_val_t alignment) noexcept {
+  remove_allocation(ptr, static_cast<std::size_t>(alignment));
 }
 
-void operator delete[](void *ptr, std::size_t, std::align_val_t) noexcept {
-  remove_allocation(ptr);
+void operator delete[](void *ptr, std::size_t, std::align_val_t alignment) noexcept {
+  remove_allocation(ptr, static_cast<std::size_t>(alignment));
 }

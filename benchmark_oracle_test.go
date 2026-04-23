@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -37,6 +38,10 @@ func TestJSONTestSuiteOracle(t *testing.T) {
 	accepted := 0
 	rejected := 0
 	for _, oracleCase := range manifest {
+		if strings.HasPrefix(filepath.Base(oracleCase.relativePath), "i_") && strings.TrimSpace(oracleCase.note) == "" {
+			t.Fatalf("oracle manifest i_* case %q must document its implementation-defined expectation", oracleCase.relativePath)
+		}
+
 		data, err := os.ReadFile(caseFiles[oracleCase.relativePath])
 		if err != nil {
 			t.Fatalf("ReadFile(%q): %v", oracleCase.relativePath, err)

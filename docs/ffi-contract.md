@@ -186,10 +186,12 @@ totals or Go heap totals.
 
 ```c
 typedef struct pure_simdjson_native_alloc_stats_t {
+  uint64_t epoch;
   uint64_t live_bytes;
   uint64_t total_alloc_bytes;
   uint64_t alloc_count;
   uint64_t free_count;
+  uint64_t untracked_free_count;
 } pure_simdjson_native_alloc_stats_t;
 ```
 
@@ -198,6 +200,8 @@ Rules:
 - `pure_simdjson_native_alloc_stats_reset` starts a new telemetry epoch.
 - Allocations that were already live at reset time remain valid, but later snapshots exclude them
   from `live_bytes`, `total_alloc_bytes`, `alloc_count`, and `free_count`.
+- `epoch` lets callers reject snapshots that straddle a reset, and `untracked_free_count` reports
+  frees that did not match the telemetry registry in the current epoch.
 - `pure_simdjson_native_alloc_stats_snapshot` writes the current epoch's counters into
   caller-owned `pure_simdjson_native_alloc_stats_t` storage.
 - This telemetry surface is diagnostic-only and does not alter parse semantics or the public DOM
@@ -207,7 +211,7 @@ Rules:
 
 The ABI version export is `pure_simdjson_get_abi_version`.
 
-- The current packed ABI version is `0x00010000`.
+- The current packed ABI version is `0x00010001`.
 - The compatibility rule for `v0.1` consumers is `^0.1.x`.
 - A loader or wrapper that detects an incompatible version must fail with `PURE_SIMDJSON_ERR_ABI_MISMATCH` rather than attempting best-effort execution.
 

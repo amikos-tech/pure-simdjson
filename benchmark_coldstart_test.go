@@ -38,7 +38,7 @@ func runColdStartBenchmark(b *testing.B, fixtureName string) {
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
 
-	benchmarkRunWithNativeAllocMetrics(b, func() {
+	benchmarkRunWithNativeAllocMetrics(b, true, func() {
 		for i := 0; i < b.N; i++ {
 			parser, err := NewParser()
 			if err != nil {
@@ -85,7 +85,7 @@ func runWarmBenchmark(b *testing.B, fixtureName string) {
 
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
-	benchmarkRunWithNativeAllocMetrics(b, func() {
+	benchmarkRunWithNativeAllocMetrics(b, true, func() {
 		for i := 0; i < b.N; i++ {
 			doc, err := parser.Parse(data)
 			if err != nil {
