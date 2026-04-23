@@ -302,6 +302,26 @@ void set_frame_key(psdj_internal_frame_t &frame, std::string_view key) noexcept 
   frame.key_ptr = key.empty() ? nullptr : reinterpret_cast<const uint8_t *>(key.data());
 }
 
+void reserve_materialize_frames(psimdjson_doc *doc, size_t child_hint) {
+  const size_t required = doc->materialize_frames.size() + 1 + child_hint;
+  if (required <= doc->materialize_frames.capacity()) {
+    return;
+  }
+
+  size_t new_capacity = doc->materialize_frames.capacity();
+  if (new_capacity == 0) {
+    new_capacity = required;
+  }
+  while (new_capacity < required) {
+    if (new_capacity > (std::numeric_limits<size_t>::max() / 2)) {
+      new_capacity = required;
+      break;
+    }
+    new_capacity *= 2;
+  }
+  doc->materialize_frames.reserve(new_capacity);
+}
+
 pure_simdjson_error_code_t append_materialize_frame(
     psimdjson_doc *doc,
     simdjson::dom::element element,
@@ -328,7 +348,7 @@ pure_simdjson_error_code_t append_materialize_frame(
       const auto child_hint = array.size();
       constexpr size_t SATURATED_SCOPE_COUNT = 0xFFFFFF;
       if (child_hint < SATURATED_SCOPE_COUNT) {
-        doc->materialize_frames.reserve(doc->materialize_frames.size() + 1 + child_hint);
+        reserve_materialize_frames(doc, child_hint);
       }
       doc->materialize_frames.push_back(frame);
 
@@ -357,7 +377,7 @@ pure_simdjson_error_code_t append_materialize_frame(
       const auto child_hint = object.size();
       constexpr size_t SATURATED_SCOPE_COUNT = 0xFFFFFF;
       if (child_hint < SATURATED_SCOPE_COUNT) {
-        doc->materialize_frames.reserve(doc->materialize_frames.size() + 1 + child_hint);
+        reserve_materialize_frames(doc, child_hint);
       }
       doc->materialize_frames.push_back(frame);
 
