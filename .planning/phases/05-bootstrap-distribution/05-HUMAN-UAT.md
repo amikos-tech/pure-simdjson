@@ -3,8 +3,8 @@ status: complete
 phase: 05-bootstrap-distribution
 source: [05-VERIFICATION.md]
 started: 2026-04-20T15:45:00Z
-updated: 2026-04-20T13:49:14Z
-resolution: moved-to-backlog
+updated: 2026-04-23T12:29:00Z
+resolution: live-bootstrap-passed; corporate-firewall-moved-to-backlog
 ---
 
 ## Current Test
@@ -15,10 +15,9 @@ resolution: moved-to-backlog
 
 ### 1. Fresh-machine end-to-end bootstrap against live R2 + GitHub Releases
 expected: rm -rf ~/Library/Caches/pure-simdjson; NewParser() downloads from releases.amikos.tech, verifies SHA-256, caches, and parses successfully on all 5 target platforms
-why_human: Checksums.go map is intentionally empty during development; live artifacts + real SHA-256 values are populated by CI-05 in Phase 6. Cannot be exercised in this phase without the CI release pipeline. Matches Success Criterion 1 from ROADMAP.md.
-result: blocked
-blocked_by: prior-phase
-reason: Tracked as Phase 999.4 in ROADMAP.md backlog. Promote after Phase 6 CI-05 populates internal/bootstrap/checksums.go.
+why_human: Required published artifacts plus public `SHA256SUMS` metadata and hosted runners across the supported target matrix.
+result: pass
+evidence: GitHub Actions run `24835017953` dispatched `public-bootstrap-validation.yml` for `version=0.1.0`; all five R2 hosted-runner jobs and all three GitHub fallback jobs passed.
 
 ### 2. Corporate-firewall workaround against a real proxy blocking releases.amikos.tech
 expected: With PURE_SIMDJSON_BINARY_MIRROR set to internal mirror, bootstrap succeeds; with GH fallback reachable, R2-blocked environment still bootstraps
@@ -30,10 +29,10 @@ reason: Tracked as Phase 999.5 in ROADMAP.md backlog. Requires real corporate-ne
 ## Summary
 
 total: 2
-passed: 0
+passed: 1
 issues: 0
 pending: 0
 skipped: 0
-blocked: 2
+blocked: 1
 
 ## Gaps
