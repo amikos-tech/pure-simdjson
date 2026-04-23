@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: executing
-stopped_at: Completed 08-05; pending phase review and verification
+status: ready_to_plan
+stopped_at: Phase 08 complete; next up Phase 09 discussion/planning
 last_updated: "2026-04-23T21:26:00Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 14
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 42
   completed_plans: 42
   percent: 100
@@ -18,18 +18,18 @@ progress:
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-04-15)
+See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 **Core value:** Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning: typed extraction and selective traversal are the primary story, while full `any` materialization is documented without overstating current wins.
-**Current focus:** Phase 08 — low-overhead-dom-traversal-abi-and-specialized-go-any-materializer
+**Current focus:** Phase 09 — benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh
 
 ## Current Position
 
-Phase: 08 (low-overhead-dom-traversal-abi-and-specialized-go-any-materializer) — EXECUTING
-Plan: 5 of 5
-Status: Phase 08 execution complete; pending review and verification
+Phase: 09 (benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — READY TO PLAN
+Plan: 0 of 0
+Status: Phase 08 complete; next up is Phase 09 discussion/planning
 Last activity: 2026-04-23
-Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline; Phase 08 now owns the low-overhead traversal/materialization follow-up before any new benchmark-positioning or release decision
+Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline, Phase 08 now adds committed internal Tier 1 improvement evidence, and Phase 09 owns any public benchmark-positioning or release decision from here.
 
 Progress: [██████████] 100%
 
@@ -180,6 +180,7 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 08]: `fastMaterializeElement` stays internal, holds `doc.mu` while consuming borrowed frames, copies keys/strings at the Go value boundary, and rejects leftover or under-consumed frame spans with `ErrInternal`.
 - [Phase 08]: `Doc.isClosed()` now uses a non-blocking mutex check so fast-materializer contention surfaces `ErrParserBusy` instead of deadlocking before the `TryLock` guard.
 - [Phase 08]: Tier 1 full and materialize-only benchmark helpers now delegate to `fastMaterializeElement`, with literal diagnostic row labels and an explicit no-cache comment preserving Phase 7 benchstat continuity.
+- [Phase 08]: Native frame scratch growth must stay geometric; per-container reserve churn caused the first same-host Canada gate attempt to regress by orders of magnitude before the Phase 8 evidence rerun fixed it.
 
 ### Pending Todos
 
@@ -193,7 +194,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-23T21:26:00Z
-Stopped at: Completed 08-05; pending phase review and verification
-Resume file: .planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-05-SUMMARY.md
+Stopped at: Phase 08 complete; next up Phase 09 discussion/planning
+Resume file: .planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-VERIFICATION.md
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z
