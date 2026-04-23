@@ -25,6 +25,7 @@ Per-phase validation contract for feedback sampling during execution.
 | Full suite command | `go test ./... && cargo test -- --test-threads=1 && make verify-contract` |
 | Benchmark command | `go test ./... -run '^$' -bench 'BenchmarkTier1Diagnostics_' -benchmem -count=5 > testdata/benchmark-results/phase8/tier1-diagnostics.bench.txt` |
 | Benchmark delta command | `scripts/bench/run_benchstat.sh --old testdata/benchmark-results/v0.1.1/tier1-diagnostics.bench.txt --new testdata/benchmark-results/phase8/tier1-diagnostics.bench.txt` |
+| Benchmark improvement gate | `python3 scripts/bench/check_phase8_tier1_improvement.py --old testdata/benchmark-results/v0.1.1/tier1-diagnostics.bench.txt --new testdata/benchmark-results/phase8/tier1-diagnostics.bench.txt` |
 | Estimated runtime | ~60-180 seconds for full non-benchmark suite locally; benchmarks vary by host |
 
 ---
@@ -50,7 +51,7 @@ Per-phase validation contract for feedback sampling during execution.
 | 08-W0-04 | 01 | 1 | D-04 | T-08-01 | Root and subtree materialization share the same validation rules and return equivalent Go-owned trees. | Go integration | `go test ./... -run 'TestFastMaterializerSubtree'` | no - Wave 0 creates if subtree lands | pending |
 | 08-W1-01 | 02 | 1 | D-01, D-02, D-03, D-05 | T-08-02, T-08-05 | Internal frame ABI validates document/view generation once and returns status/out-param errors without callbacks or struct-by-value returns. | Rust/C++ contract | `cargo test -- --test-threads=1 && make verify-contract` | pending implementation | pending |
 | 08-W2-01 | 03 | 2 | D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13 | T-08-01, T-08-03, T-08-04 | Go builder copies keys/strings only at the final value boundary, preallocates containers from metadata, and maps all failures through existing typed errors. | Go integration | `go test ./... -run 'TestFastMaterializer'` | pending implementation | pending |
-| 08-W3-01 | 04 | 3 | D-15, D-16, D-17 | T-08-04 | Benchmarks prove materialize-only and full Tier 1 improvement over Phase 7 without changing public benchmark claims. | benchmark | `scripts/bench/run_benchstat.sh --old testdata/benchmark-results/v0.1.1/tier1-diagnostics.bench.txt --new testdata/benchmark-results/phase8/tier1-diagnostics.bench.txt` | pending implementation | pending |
+| 08-W3-01 | 04 | 3 | D-15, D-16, D-17 | T-08-04 | Benchmarks prove materialize-only and full Tier 1 improvement over Phase 7 without changing public benchmark claims. | benchmark | `scripts/bench/run_benchstat.sh --old testdata/benchmark-results/v0.1.1/tier1-diagnostics.bench.txt --new testdata/benchmark-results/phase8/tier1-diagnostics.bench.txt && python3 scripts/bench/check_phase8_tier1_improvement.py --old testdata/benchmark-results/v0.1.1/tier1-diagnostics.bench.txt --new testdata/benchmark-results/phase8/tier1-diagnostics.bench.txt` | pending implementation | pending |
 
 ---
 
@@ -60,6 +61,7 @@ Per-phase validation contract for feedback sampling during execution.
 - [ ] `internal/ffi` frame layout tests - verify Go frame struct size/offsets against native constants if the internal ABI exposes fixed-layout frames.
 - [ ] `tests/abi/check_header.py` extension - assert Phase 8 internal symbols are absent from `include/pure_simdjson.h`.
 - [ ] `testdata/benchmark-results/phase8/` - raw Phase 8 benchmark output destination for diagnostics and benchstat comparison.
+- [ ] `scripts/bench/check_phase8_tier1_improvement.py` - machine gate that fails unless all required `pure-simdjson-full` and `pure-simdjson-materialize-only` median `ns/op` rows improve versus Phase 7 on `twitter_json`, `citm_catalog_json`, and `canada_json`.
 
 ---
 

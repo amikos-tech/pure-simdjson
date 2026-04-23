@@ -492,22 +492,25 @@ The final test should use the repo's exact helper style and avoid changing publi
 | A3 | Doc-owned scratch rebuilt per materializer call is a fair benchmark compromise if it does not cache final Go values. | Common Pitfalls, Plan Breakdown | Native allocation metrics or repeated materialize-only runs may look better than real first-call behavior. |
 | A4 | Whole-document first implementation is acceptable if the ABI accepts a `ValueView` and subtree support is added in a follow-up wave. | Recommended Plan Breakdown | Planner may need to split root and subtree tasks explicitly to satisfy D-04. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should the first implementation slice include subtree materialization?**  
    What we know: D-04 wants whole-doc and subtree in the intended design envelope. [VERIFIED: 08-CONTEXT.md]  
    What's unclear: Whether adding subtree support during the first native builder task will slow the critical Tier 1 benchmark path. [ASSUMED]  
    Recommendation: Design the internal ABI around `ValueView`, implement whole-doc first only if the frame span/root validation makes subtree a small follow-up task. [ASSUMED]
+   RESOLVED: The Phase 8 plans require the internal ABI to accept `ValueView` from the start and include subtree validation in the test/Go materializer path. Execution may stage root and subtree inside dependent tasks, but the final phase cannot pass without root and subtree materialization coverage.
 
 2. **Should frame buffers be doc-owned scratch or explicitly allocated/freeable views?**  
    What we know: D-09 allows Doc/materializer ownership and existing `Close`/finalizer discipline. [VERIFIED: 08-CONTEXT.md]  
    What's unclear: Which option gives clearer benchmark fairness and simpler panic-safe cleanup. [ASSUMED]  
    Recommendation: Prefer doc-owned scratch rebuilt each call unless implementation reveals reentrancy or benchmark artifact issues; do not cache final Go values. [ASSUMED]
+   RESOLVED: The Phase 8 plans choose doc-owned scratch rebuilt on each materializer call. The implementation must not cache final Go `map[string]any`, `[]any`, or string values, and Plan 08-05 gates against benchmark evidence that only proves cached tree reuse.
 
 3. **What numeric threshold defines enough improvement?**  
    What we know: D-16 requires improvement over Phase 7 in materialize-only and full Tier 1, not beating `encoding/json + any`. [VERIFIED: 08-CONTEXT.md]  
    What's unclear: No minimum percentage is locked. [VERIFIED: 08-CONTEXT.md]  
    Recommendation: Use benchstat significance and report raw ns/op, B/op, allocs/op for the same fixtures; planner should not invent a public benchmark claim. [VERIFIED: docs/benchmarks.md] [ASSUMED]
+   RESOLVED: The Phase 8 plans require machine-gated improvement for every required `pure-simdjson-full` and `pure-simdjson-materialize-only` diagnostic row on `twitter_json`, `citm_catalog_json`, and `canada_json` versus `testdata/benchmark-results/v0.1.1/tier1-diagnostics.bench.txt`. Any row whose Phase 8 median `ns/op` is greater than or equal to the Phase 7 median fails closeout; Phase 8 does not require beating `encoding/json + any` or making a public benchmark claim.
 
 ## Environment Availability
 
