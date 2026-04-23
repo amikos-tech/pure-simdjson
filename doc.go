@@ -58,9 +58,12 @@ func (d *Doc) Close() error {
 }
 
 func (d *Doc) isClosed() bool {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return d.closed
+	if d.mu.TryLock() {
+		closed := d.closed
+		d.mu.Unlock()
+		return closed
+	}
+	return false
 }
 
 func (d *Doc) hasLeakedState() bool {
