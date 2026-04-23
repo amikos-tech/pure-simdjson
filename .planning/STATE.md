@@ -4,7 +4,7 @@ milestone: v0.1
 milestone_name: Release
 status: executing
 stopped_at: Completed 07-06-PLAN.md
-last_updated: "2026-04-23T07:55:57Z"
+last_updated: "2026-04-23T12:48:24Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 12
@@ -86,6 +86,7 @@ Progress: [██████████] 100%
 - Phase 06.1 execution produced the public bootstrap wrapper, hosted-runner validation workflow, contract tests, and operator runbook updates, and was shipped in PR #17; hosted GitHub Actions execution remains pending
 - Phase 07 is now planned as six plans: corpus/oracle foundation, Tier 1 + cold/warm harness, allocator telemetry surface, Tier 2/Tier 3 benchmark consumers, public docs/legal artifacts with committed evidence, and a closeout handoff that defers public patch-release work until the later benchmark-positioning phases
 - Phase 07 completed on 2026-04-23 as a benchmark/docs/legal baseline rather than a forced patch release: README, methodology doc, results snapshot, changelog, LICENSE, and NOTICE are now committed, and the closeout explicitly routes Tier 1 ABI work to Phase 08 and benchmark/release recalibration to Phase 09
+- Phase 07 learnings were extracted on 2026-04-23 into `.planning/phases/07-benchmarks-v0.1-release/07-LEARNINGS.md`, preserving benchmark positioning decisions, execution lessons, reusable patterns, and surprises for Phase 08 and Phase 09 planning
 - Phase 08 added: Low-overhead DOM traversal ABI and specialized Go any materializer. This folds the old 999.6 DOM-materialization ABI idea into the active milestone after Tier 1 diagnostics showed materialization, not parse, dominates the current full-`any` path
 - Phase 09 added: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh. This phase exists to replace the invalidated BENCH-07 headline with a measured benchmark story after Phase 08 lands
 - Backlog items 999.6 and 999.7 were retired from the parking lot: 999.6 is now active milestone work under Phase 08, and 999.7's diagnostic split was implemented during Phase 07 investigation to justify the new direction
