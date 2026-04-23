@@ -141,6 +141,8 @@ pure_simdjson_error_code_t psimdjson_materialize_build(psimdjson_doc *doc,
                                                        uint64_t json_index,
                                                        const psdj_internal_frame_t **out_frames,
                                                        size_t *out_frame_count) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_test_hold_materialize_guard(psimdjson_doc *doc,
+                                                                 uint64_t json_index) PSIMDJSON_NOEXCEPT;
 
 pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(void) PSIMDJSON_NOEXCEPT;
 

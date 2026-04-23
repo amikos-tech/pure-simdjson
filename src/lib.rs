@@ -260,6 +260,38 @@ pub fn pure_simdjson_test_set_allow_fallback_for_tests(value: Option<bool>) {
     runtime::test_set_fallback_allowed_override(value);
 }
 
+#[allow(private_interfaces)]
+#[no_mangle]
+pub unsafe extern "C" fn psdj_internal_materialize_build(
+    view: *const pure_simdjson_value_view_t,
+    out_frames: *mut *const runtime::psdj_internal_frame_t,
+    out_frame_count: *mut usize,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("psdj_internal_materialize_build", || unsafe {
+        if out_frames.is_null() || out_frame_count.is_null() {
+            return err_invalid_argument();
+        }
+
+        let (frames, frame_count) = match runtime::registry::materialize_build(view) {
+            Ok(result) => result,
+            Err(rc) => return rc,
+        };
+
+        ptr::write(out_frames, frames);
+        ptr::write(out_frame_count, frame_count);
+        err_ok()
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn psdj_internal_test_hold_materialize_guard(
+    view: *const pure_simdjson_value_view_t,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("psdj_internal_test_hold_materialize_guard", || {
+        runtime::registry::test_hold_materialize_guard(view)
+    })
+}
+
 /// Write the packed ABI version expected by Go-side compatibility checks.
 ///
 /// # Safety

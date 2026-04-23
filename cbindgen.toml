@@ -20,6 +20,9 @@ include = [
   "pure_simdjson_native_alloc_stats_t",
 ]
 exclude = [
+  "psdj_internal_frame_t",
+  "psdj_internal_materialize_build",
+  "psdj_internal_test_hold_materialize_guard",
   "psimdjson_parser",
   "psimdjson_doc",
   "psimdjson_element",
@@ -48,7 +51,9 @@ exclude = [
   "psimdjson_element_after_index",
   "psimdjson_array_iter_bounds",
   "psimdjson_object_iter_bounds",
+  "psimdjson_materialize_build",
   "psimdjson_object_get_field_index",
+  "psimdjson_test_hold_materialize_guard",
   "psimdjson_test_force_cpp_exception",
 ]
 item_types = ["functions", "globals", "typedefs", "opaque", "structs", "enums"]

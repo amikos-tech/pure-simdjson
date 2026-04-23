@@ -880,6 +880,24 @@ pure_simdjson_error_code_t psimdjson_materialize_build(psimdjson_doc *doc,
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
+pure_simdjson_error_code_t psimdjson_test_hold_materialize_guard(psimdjson_doc *doc,
+                                                                 uint64_t json_index) noexcept {
+  try {
+    if (doc == nullptr) {
+      return invalid_argument();
+    }
+
+    materialize_build_guard guard(doc);
+    if (!guard.acquired()) {
+      return PURE_SIMDJSON_ERR_PARSER_BUSY;
+    }
+
+    const psdj_internal_frame_t *frames = nullptr;
+    size_t frame_count = 0;
+    return psimdjson_materialize_build(doc, json_index, &frames, &frame_count);
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
 pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(void) noexcept {
   try {
     throw std::runtime_error("forced cpp exception");

@@ -168,6 +168,10 @@ unsafe extern "C" {
         out_frames: *mut *const psdj_internal_frame_t,
         out_frame_count: *mut usize,
     ) -> pure_simdjson_error_code_t;
+    fn psimdjson_test_hold_materialize_guard(
+        doc: *mut psimdjson_doc,
+        json_index: u64,
+    ) -> pure_simdjson_error_code_t;
 
     fn psimdjson_test_force_cpp_exception() -> pure_simdjson_error_code_t;
 }
@@ -605,6 +609,15 @@ pub(crate) fn native_materialize_build(
         return Err(err_internal());
     }
     Ok((frames, frame_count))
+}
+
+pub(crate) fn native_test_hold_materialize_guard(
+    doc_ptr: usize,
+    json_index: u64,
+) -> pure_simdjson_error_code_t {
+    unsafe {
+        psimdjson_test_hold_materialize_guard(doc_ptr as *mut psimdjson_doc, json_index)
+    }
 }
 
 pub(crate) fn selected_implementation_name_for_parser_new(

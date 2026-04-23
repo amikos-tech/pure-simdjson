@@ -1119,6 +1119,20 @@ pub(crate) fn materialize_build(
     })
 }
 
+pub(crate) fn test_hold_materialize_guard(
+    view: *const pure_simdjson_value_view_t,
+) -> pure_simdjson_error_code_t {
+    match with_resolved_view(view, |entry, json_index, _| {
+        Ok(super::native_test_hold_materialize_guard(
+            entry.native_ptr,
+            json_index,
+        ))
+    }) {
+        Ok(rc) => rc,
+        Err(rc) => rc,
+    }
+}
+
 #[cfg(test)]
 mod materialize_tests {
     use super::*;
