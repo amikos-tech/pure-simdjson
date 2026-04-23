@@ -409,7 +409,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 5. Bootstrap + Distribution | 6/6 | Complete | 2026-04-20 |
 | 6. CI Release Matrix | 6/6 | Complete | 2026-04-21 |
 | 7. Benchmarks + Release-Facing Artifacts | 6/6 | Complete | 2026-04-23 |
-| 8. Low-overhead DOM traversal ABI and specialized Go any materializer | 0/0 | Not started | — |
+| 8. Low-overhead DOM traversal ABI and specialized Go any materializer | 1/5 | In progress | — |
 | 9. Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh | 0/0 | Not started | — |
 
 Plan counts populated by `/gsd-plan-phase`.
@@ -472,7 +472,7 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
-- [ ] `08-01-PLAN.md` — Wave 0 guardrails, fast-materializer test names, public-header internal-symbol audit, and Phase 8 benchmark artifact directory
+- [x] `08-01-PLAN.md` — Wave 0 guardrails, fast-materializer test names, public-header internal-symbol audit, and Phase 8 benchmark artifact directory
 - [ ] `08-02-PLAN.md` — Internal native frame-stream ABI, Rust/C++ bridge, cbindgen exclusion, and Rust root/subtree frame tests
 - [ ] `08-03-PLAN.md` — Go internal frame binding, unexported fast materializer, and active correctness/lifetime/subtree tests
 - [ ] `08-04-PLAN.md` — Tier 1 benchmark wiring through the fast materializer with stable diagnostic row names
