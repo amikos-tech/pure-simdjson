@@ -36,6 +36,7 @@ struct ParserEntry {
     generation: u32,
     native_ptr: usize,
     state: ParserState,
+    reusable_input: Vec<u8>,
 }
 
 #[derive(Clone, Debug)]
@@ -157,6 +158,9 @@ fn registry_guard() -> MutexGuard<'static, Registry> {
 
 #[inline]
 fn next_generation(current: u32, restart: u32) -> u32 {
+    // Parsers start at 1 (odd) and docs start at 2 (even); wrapping by 2 preserves parity so a
+    // parser and a doc sharing the same slot index can never share the same generation number.
+    // This is the numeric-collision guarantee referenced in the module-level invariants above.
     let next = current.wrapping_add(2);
     if next == 0 {
         restart
@@ -217,6 +221,7 @@ impl Registry {
                     generation,
                     native_ptr,
                     state: ParserState::Idle,
+                    reusable_input: Vec::new(),
                 });
                 return Ok(pack_handle(slot_number, generation));
             }
@@ -231,6 +236,7 @@ impl Registry {
             generation,
             native_ptr,
             state: ParserState::Idle,
+            reusable_input: Vec::new(),
         }));
         Ok(pack_handle(self.parsers.len() as u32, generation))
     }
@@ -245,7 +251,7 @@ impl Registry {
         owner_slot: u32,
         owner_generation: u32,
         input: Vec<u8>,
-    ) -> Result<pure_simdjson_doc_t, pure_simdjson_error_code_t> {
+    ) -> Result<pure_simdjson_doc_t, (pure_simdjson_error_code_t, Vec<u8>)> {
         for (index, slot) in self.docs.iter_mut().enumerate() {
             if let Slot::Vacant { generation } = slot {
                 let generation = *generation;
@@ -267,7 +273,7 @@ impl Registry {
         }
 
         if self.docs.len() >= MAX_SLOT_COUNT {
-            return Err(err_internal());
+            return Err((err_internal(), input));
         }
 
         let generation = DOC_GENERATION_START;
@@ -434,12 +440,12 @@ pub(crate) fn parser_parse(
     let mut registry = registry_guard();
     let (index, slot, generation) = unpack_handle(handle)?;
 
-    let native_ptr = match registry.parsers.get(index) {
+    let (native_ptr, mut owned_input) = match registry.parsers.get_mut(index) {
         Some(Slot::Occupied(entry)) if entry.generation == generation => {
             if !matches!(entry.state, ParserState::Idle) {
                 return Err(err_parser_busy());
             }
-            entry.native_ptr
+            (entry.native_ptr, mem::take(&mut entry.reusable_input))
         }
         _ => return Err(err_invalid_handle()),
     };
@@ -449,10 +455,17 @@ pub(crate) fn parser_parse(
         .len()
         .checked_add(padding)
         .ok_or_else(err_invalid_argument)?;
-    let mut owned_input = vec![0u8; total_len]; // padding bytes stay zero-initialized
+    owned_input.resize(total_len, 0);
     owned_input[..input.len()].copy_from_slice(input);
+    owned_input[input.len()..].fill(0);
 
-    let parsed = super::native_parser_parse(native_ptr, &owned_input[..], input.len())?;
+    let parsed = match super::native_parser_parse(native_ptr, &owned_input[..], input.len()) {
+        Ok(parsed) => parsed,
+        Err(rc) => {
+            restore_parser_input_buffer(&mut registry, index, generation, owned_input);
+            return Err(rc);
+        }
+    };
     let root_after_index = match super::native_element_after_index(parsed.doc_ptr, ROOT_JSON_INDEX)
     {
         Ok(root_after_index) => root_after_index,
@@ -464,6 +477,7 @@ pub(crate) fn parser_parse(
                     free_rc
                 );
             }
+            restore_parser_input_buffer(&mut registry, index, generation, owned_input);
             return Err(rc);
         }
     };
@@ -476,7 +490,7 @@ pub(crate) fn parser_parse(
         owned_input,
     ) {
         Ok(handle) => handle,
-        Err(rc) => {
+        Err((rc, owned_input)) => {
             let free_rc = super::native_doc_free(parsed.doc_ptr);
             if free_rc != err_ok() {
                 eprintln!(
@@ -484,19 +498,39 @@ pub(crate) fn parser_parse(
                     free_rc
                 );
             }
+            restore_parser_input_buffer(&mut registry, index, generation, owned_input);
             return Err(rc);
         }
     };
 
-    let (_, doc_slot, doc_generation) = unpack_handle(doc_handle)?;
-    if let Some(Slot::Occupied(entry)) = registry.parsers.get_mut(index) {
-        entry.state = ParserState::Busy {
-            doc_slot,
-            doc_generation,
-        };
-        Ok(doc_handle)
-    } else {
-        Err(err_internal())
+    let (doc_index_usize, doc_slot, doc_generation) = unpack_handle(doc_handle)?;
+    match registry.parsers.get_mut(index) {
+        Some(Slot::Occupied(entry)) if entry.generation == generation => {
+            entry.state = ParserState::Busy {
+                doc_slot,
+                doc_generation,
+            };
+            Ok(doc_handle)
+        }
+        _ => {
+            let free_rc = super::native_doc_free(parsed.doc_ptr);
+            if free_rc != err_ok() {
+                eprintln!(
+                    "pure_simdjson cleanup failure in parser_parse/parser_vanished: {:?}",
+                    free_rc
+                );
+            }
+            let next_gen = next_doc_generation(doc_generation);
+            if let Some(Slot::Occupied(entry)) = registry.docs.get(doc_index_usize) {
+                if entry.generation == doc_generation {
+                    let _ = mem::replace(
+                        &mut registry.docs[doc_index_usize],
+                        Slot::Vacant { generation: next_gen },
+                    );
+                }
+            }
+            Err(err_internal())
+        }
     }
 }
 
@@ -567,14 +601,41 @@ pub(crate) fn doc_free(handle: pure_simdjson_doc_t) -> pure_simdjson_error_code_
         return rc;
     }
 
-    if let Some(Slot::Occupied(entry)) = registry.parsers.get_mut(parser_index) {
-        entry.state = ParserState::Idle;
+    match registry.docs.get(doc_index) {
+        Some(Slot::Occupied(entry)) if entry.generation == doc_generation => {}
+        _ => return err_internal(),
     }
-
-    registry.docs[doc_index] = Slot::Vacant {
-        generation: next_doc_generation(doc_generation),
+    let input_storage = match mem::replace(
+        &mut registry.docs[doc_index],
+        Slot::Vacant {
+            generation: next_doc_generation(doc_generation),
+        },
+    ) {
+        Slot::Occupied(entry) => entry.input_storage,
+        _ => return err_internal(),
     };
-    err_ok()
+
+    match registry.parsers.get_mut(parser_index) {
+        Some(Slot::Occupied(entry)) if entry.generation == owner_generation => {
+            entry.state = ParserState::Idle;
+            entry.reusable_input = input_storage;
+            err_ok()
+        }
+        _ => err_internal(),
+    }
+}
+
+fn restore_parser_input_buffer(
+    registry: &mut Registry,
+    index: usize,
+    generation: u32,
+    input_storage: Vec<u8>,
+) {
+    if let Some(Slot::Occupied(entry)) = registry.parsers.get_mut(index) {
+        if entry.generation == generation && matches!(entry.state, ParserState::Idle) {
+            entry.reusable_input = input_storage;
+        }
+    }
 }
 
 pub(crate) fn doc_root(

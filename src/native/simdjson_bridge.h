@@ -21,6 +21,10 @@ pure_simdjson_error_code_t psimdjson_copy_implementation_name(
     size_t dst_cap,
     size_t *out_written
 ) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_native_alloc_stats_reset(void) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_native_alloc_stats_snapshot(
+    pure_simdjson_native_alloc_stats_t *out_stats
+) PSIMDJSON_NOEXCEPT;
 size_t psimdjson_padding_bytes(void) PSIMDJSON_NOEXCEPT;
 
 pure_simdjson_error_code_t psimdjson_parser_new(psimdjson_parser **out_parser) PSIMDJSON_NOEXCEPT;

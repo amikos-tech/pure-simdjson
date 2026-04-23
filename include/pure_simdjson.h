@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#define PURE_SIMDJSON_ABI_VERSION 0x00010000
+#define PURE_SIMDJSON_ABI_VERSION 0x00010001
 
 /**
  * Public error codes for the stable ABI v0.1 surface.
@@ -56,6 +56,21 @@ enum pure_simdjson_value_kind_t
 #ifndef __cplusplus
 typedef uint32_t pure_simdjson_value_kind_t;
 #endif // __cplusplus
+
+/**
+ * Diagnostic native allocator counters for the current telemetry epoch.
+ *
+ * This surface reports allocations routed through the native shim/simdjson cdylib path only.
+ * It does not claim process-wide totals or Go heap activity.
+ */
+typedef struct pure_simdjson_native_alloc_stats_t {
+  uint64_t epoch;
+  uint64_t live_bytes;
+  uint64_t total_alloc_bytes;
+  uint64_t alloc_count;
+  uint64_t free_count;
+  uint64_t untracked_free_count;
+} pure_simdjson_native_alloc_stats_t;
 
 /**
  * Generic packed handle transport for the public ABI.
@@ -168,6 +183,22 @@ pure_simdjson_error_code_t pure_simdjson_get_implementation_name_len(size_t *out
 pure_simdjson_error_code_t pure_simdjson_copy_implementation_name(uint8_t *dst,
                                                                   size_t dst_cap,
                                                                   size_t *out_written);
+
+/**
+ * Reset the diagnostic native allocator telemetry epoch.
+ *
+ * Existing live native allocations remain valid, but future snapshots exclude them from the
+ * reported counters until they are reallocated in the new epoch.
+ */
+pure_simdjson_error_code_t pure_simdjson_native_alloc_stats_reset(void);
+
+/**
+ * Snapshot the diagnostic native allocator counters for the current telemetry epoch.
+ *
+ * # Safety
+ * `out_stats` must point to writable `pure_simdjson_native_alloc_stats_t` storage.
+ */
+pure_simdjson_error_code_t pure_simdjson_native_alloc_stats_snapshot(struct pure_simdjson_native_alloc_stats_t *out_stats);
 
 /**
  * Allocate a parser handle.

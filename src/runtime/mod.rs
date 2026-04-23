@@ -3,7 +3,9 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-use crate::{pure_simdjson_error_code_t, pure_simdjson_value_kind_t};
+use crate::{
+    pure_simdjson_error_code_t, pure_simdjson_native_alloc_stats_t, pure_simdjson_value_kind_t,
+};
 
 pub(crate) mod registry;
 
@@ -45,6 +47,10 @@ unsafe extern "C" {
         dst: *mut u8,
         dst_cap: usize,
         out_written: *mut usize,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_native_alloc_stats_reset() -> pure_simdjson_error_code_t;
+    fn psimdjson_native_alloc_stats_snapshot(
+        out_stats: *mut pure_simdjson_native_alloc_stats_t,
     ) -> pure_simdjson_error_code_t;
     fn psimdjson_padding_bytes() -> usize;
 
@@ -198,6 +204,26 @@ pub(crate) fn implementation_name() -> Result<Vec<u8>, pure_simdjson_error_code_
     }
     bytes.truncate(written);
     Ok(bytes)
+}
+
+pub(crate) fn native_alloc_stats_reset() -> Result<(), pure_simdjson_error_code_t> {
+    let rc = unsafe { psimdjson_native_alloc_stats_reset() };
+    if rc == err_ok() {
+        Ok(())
+    } else {
+        Err(rc)
+    }
+}
+
+pub(crate) fn native_alloc_stats_snapshot(
+) -> Result<pure_simdjson_native_alloc_stats_t, pure_simdjson_error_code_t> {
+    let mut stats = pure_simdjson_native_alloc_stats_t::default();
+    let rc = unsafe { psimdjson_native_alloc_stats_snapshot(&mut stats) };
+    if rc == err_ok() {
+        Ok(stats)
+    } else {
+        Err(rc)
+    }
 }
 
 pub(crate) fn padding_bytes() -> Result<usize, pure_simdjson_error_code_t> {

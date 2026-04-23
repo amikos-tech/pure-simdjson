@@ -6,7 +6,7 @@ This document is the normative FFI contract for `pure-simdjson` ABI `v0.1`. It d
 
 The generated header is authoritative for exact symbol names, field names, and C types. This document is authoritative for lifecycle, ownership, diagnostics, panic/exception policy, and compatibility rules. Go-side consumers must enforce ABI compatibility against `^0.1.x`.
 
-The current ABI v0.1 implementation exposes the typed DOM accessor surface end to end: metadata helpers, parser/document lifecycle, root resolution, `pure_simdjson_element_type`, the split numeric/string/bool/null accessors, array/object iterators, and `pure_simdjson_object_get_field`. The generated header and implementation currently match; later work may extend the ABI, but this document describes the full surface shipped today.
+The current ABI v0.1 implementation exposes the typed DOM accessor surface end to end: metadata helpers, parser/document lifecycle, root resolution, `pure_simdjson_element_type`, the split numeric/string/bool/null accessors, array/object iterators, `pure_simdjson_object_get_field`, and the diagnostic native allocator reset/snapshot surface. The generated header and implementation currently match; later work may extend the ABI, but this document describes the full surface shipped today.
 
 # ABI invariants
 
@@ -166,6 +166,8 @@ Diagnostics helpers are part of the ABI surface:
 - `pure_simdjson_get_abi_version`
 - `pure_simdjson_get_implementation_name_len`
 - `pure_simdjson_copy_implementation_name`
+- `pure_simdjson_native_alloc_stats_reset`
+- `pure_simdjson_native_alloc_stats_snapshot`
 - `pure_simdjson_parser_get_last_error_len`
 - `pure_simdjson_parser_copy_last_error`
 - `pure_simdjson_parser_get_last_error_offset`
@@ -176,11 +178,40 @@ Diagnostics are advisory only:
 - Diagnostic text and offsets help logging and debugging but do not redefine success/failure.
 - `pure_simdjson_parser_copy_last_error` and `pure_simdjson_copy_implementation_name` use bounded caller-provided buffers and may return `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL`.
 
+# Native allocator telemetry
+
+The ABI exposes a diagnostic native allocator telemetry surface for benchmark helpers only. It
+reports allocations routed through the shim/simdjson cdylib path; it does not claim process-wide
+totals or Go heap totals.
+
+```c
+typedef struct pure_simdjson_native_alloc_stats_t {
+  uint64_t epoch;
+  uint64_t live_bytes;
+  uint64_t total_alloc_bytes;
+  uint64_t alloc_count;
+  uint64_t free_count;
+  uint64_t untracked_free_count;
+} pure_simdjson_native_alloc_stats_t;
+```
+
+Rules:
+
+- `pure_simdjson_native_alloc_stats_reset` starts a new telemetry epoch.
+- Allocations that were already live at reset time remain valid, but later snapshots exclude them
+  from `live_bytes`, `total_alloc_bytes`, `alloc_count`, and `free_count`.
+- `epoch` lets callers reject snapshots that straddle a reset, and `untracked_free_count` reports
+  frees that did not match the telemetry registry in the current epoch.
+- `pure_simdjson_native_alloc_stats_snapshot` writes the current epoch's counters into
+  caller-owned `pure_simdjson_native_alloc_stats_t` storage.
+- This telemetry surface is diagnostic-only and does not alter parse semantics or the public DOM
+  lifecycle contract.
+
 # ABI version handshake
 
 The ABI version export is `pure_simdjson_get_abi_version`.
 
-- The current packed ABI version is `0x00010000`.
+- The current packed ABI version is `0x00010001`.
 - The compatibility rule for `v0.1` consumers is `^0.1.x`.
 - A loader or wrapper that detects an incompatible version must fail with `PURE_SIMDJSON_ERR_ABI_MISMATCH` rather than attempting best-effort execution.
 

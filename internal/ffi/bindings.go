@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
 )
+
+var bytesFreeFailureWarningCount atomic.Uint64
 
 type Bindings struct {
 	handle uintptr
@@ -15,6 +18,8 @@ type Bindings struct {
 	getABIVersion            func(*uint32) int32
 	getImplementationNameLen func(*uintptr) int32
 	copyImplementationName   func(*byte, uintptr, *uintptr) int32
+	nativeAllocStatsReset    func() int32
+	nativeAllocStatsSnapshot func(*NativeAllocStats) int32
 
 	parserNew                func(*ParserHandle) int32
 	parserFree               func(ParserHandle) int32
@@ -52,6 +57,8 @@ func Bind(handle uintptr, lookup SymbolLookup) (*Bindings, error) {
 		{name: "pure_simdjson_get_abi_version", target: &b.getABIVersion},
 		{name: "pure_simdjson_get_implementation_name_len", target: &b.getImplementationNameLen},
 		{name: "pure_simdjson_copy_implementation_name", target: &b.copyImplementationName},
+		{name: "pure_simdjson_native_alloc_stats_reset", target: &b.nativeAllocStatsReset},
+		{name: "pure_simdjson_native_alloc_stats_snapshot", target: &b.nativeAllocStatsSnapshot},
 		{name: "pure_simdjson_parser_new", target: &b.parserNew},
 		{name: "pure_simdjson_parser_free", target: &b.parserFree},
 		{name: "pure_simdjson_parser_parse", target: &b.parserParse},
@@ -132,6 +139,19 @@ func (b *Bindings) ImplementationName() (string, int32) {
 		written = uintptr(len(buffer))
 	}
 	return string(buffer[:written]), int32(OK)
+}
+
+func (b *Bindings) NativeAllocStatsReset() int32 {
+	rc := b.nativeAllocStatsReset()
+	runtime.KeepAlive(b)
+	return rc
+}
+
+func (b *Bindings) NativeAllocStatsSnapshot() (NativeAllocStats, int32) {
+	var stats NativeAllocStats
+	rc := b.nativeAllocStatsSnapshot(&stats)
+	runtime.KeepAlive(b)
+	return stats, rc
 }
 
 func (b *Bindings) ParserNew() (ParserHandle, int32) {
@@ -253,8 +273,8 @@ func (b *Bindings) ElementGetString(view *ValueView) (string, int32) {
 		if ptr == nil {
 			return
 		}
-		if freeRC := b.BytesFree(ptr, length); freeRC != int32(OK) && leakWarningsEnabled() {
-			fmt.Fprintf(os.Stderr, "purejson leak: bytes_free rc=%d len=%d\n", freeRC, length)
+		if freeRC := b.BytesFree(ptr, length); freeRC != int32(OK) {
+			emitBytesFreeFailureWarning(freeRC, length)
 		}
 	}()
 
@@ -269,6 +289,16 @@ func (b *Bindings) BytesFree(ptr *byte, length uintptr) int32 {
 	rc := b.bytesFree(ptr, length)
 	runtime.KeepAlive(b)
 	return rc
+}
+
+func emitBytesFreeFailureWarning(rc int32, length uintptr) {
+	count := bytesFreeFailureWarningCount.Add(1)
+	// Emit on first failure, every failure when leak warnings are enabled, or power-of-two
+	// milestones otherwise (count&(count-1)==0 iff count is a power of two).
+	if count != 1 && !leakWarningsEnabled() && count&(count-1) != 0 {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "purejson leak: bytes_free rc=%d len=%d count=%d\n", rc, length, count)
 }
 
 func (b *Bindings) ElementGetBool(view *ValueView) (bool, int32) {

@@ -1,5 +1,7 @@
 #include "simdjson_bridge.h"
+#include "native_alloc_telemetry.h"
 
+#include <cstdio>
 #include <cstring>
 #include <memory>
 #include <stdexcept>
@@ -141,15 +143,28 @@ void set_last_error(psimdjson_parser *parser, simdjson::error_code error) noexce
   set_last_error_message(parser, simdjson::error_message(error));
 }
 
-pure_simdjson_error_code_t map_cpp_exception(const std::bad_alloc &) noexcept {
+void log_cpp_exception(const char *function_name, const char *message) noexcept {
+  std::fprintf(stderr, "pure_simdjson C++ exception in %s: %s\n", function_name, message);
+}
+
+pure_simdjson_error_code_t map_cpp_exception(
+    const char *function_name,
+    const std::bad_alloc &error
+) noexcept {
+  log_cpp_exception(function_name, error.what());
   return PURE_SIMDJSON_ERR_INTERNAL;
 }
 
-pure_simdjson_error_code_t map_cpp_exception(const std::exception &) noexcept {
+pure_simdjson_error_code_t map_cpp_exception(
+    const char *function_name,
+    const std::exception &error
+) noexcept {
+  log_cpp_exception(function_name, error.what());
   return PURE_SIMDJSON_ERR_CPP_EXCEPTION;
 }
 
-pure_simdjson_error_code_t map_cpp_exception() noexcept {
+pure_simdjson_error_code_t map_cpp_exception(const char *function_name) noexcept {
+  log_cpp_exception(function_name, "unknown C++ exception");
   return PURE_SIMDJSON_ERR_CPP_EXCEPTION;
 }
 
@@ -164,6 +179,31 @@ void capture_parser_exception(psimdjson_parser *parser, const std::exception &er
 void capture_parser_exception(psimdjson_parser *parser) noexcept {
   set_last_error_message(parser, "unknown C++ exception");
 }
+
+#define PSIMDJSON_CATCH_CPP_EXCEPTIONS(function_name)                    \
+  catch (const std::bad_alloc &error) {                                  \
+    return map_cpp_exception(function_name, error);                       \
+  }                                                                      \
+  catch (const std::exception &error) {                                   \
+    return map_cpp_exception(function_name, error);                       \
+  }                                                                      \
+  catch (...) {                                                          \
+    return map_cpp_exception(function_name);                              \
+  }
+
+#define PSIMDJSON_CATCH_PARSER_CPP_EXCEPTIONS(function_name, parser_ptr) \
+  catch (const std::bad_alloc &error) {                                  \
+    capture_parser_exception(parser_ptr, error);                         \
+    return map_cpp_exception(function_name, error);                       \
+  }                                                                      \
+  catch (const std::exception &error) {                                   \
+    capture_parser_exception(parser_ptr, error);                         \
+    return map_cpp_exception(function_name, error);                       \
+  }                                                                      \
+  catch (...) {                                                          \
+    capture_parser_exception(parser_ptr);                                \
+    return map_cpp_exception(function_name);                              \
+  }
 
 std::string implementation_name() {
   return simdjson::get_active_implementation()->name();
@@ -218,13 +258,7 @@ pure_simdjson_error_code_t psimdjson_get_implementation_name_len(size_t *out_len
 
     *out_len = implementation_name().size();
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_copy_implementation_name(
@@ -234,13 +268,22 @@ pure_simdjson_error_code_t psimdjson_copy_implementation_name(
 ) noexcept {
   try {
     return copy_bytes(implementation_name(), dst, dst_cap, out_written);
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_native_alloc_stats_reset(void) noexcept {
+  try {
+    psimdjson::native_alloc_telemetry::reset();
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_native_alloc_stats_snapshot(
+    pure_simdjson_native_alloc_stats_t *out_stats
+) noexcept {
+  try {
+    return psimdjson::native_alloc_telemetry::snapshot(out_stats);
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 size_t psimdjson_padding_bytes(void) noexcept {
@@ -256,13 +299,7 @@ pure_simdjson_error_code_t psimdjson_parser_new(psimdjson_parser **out_parser) n
     auto parser = std::make_unique<psimdjson_parser>();
     *out_parser = parser.release();
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_parser_free(psimdjson_parser *parser) noexcept {
@@ -273,13 +310,7 @@ pure_simdjson_error_code_t psimdjson_parser_free(psimdjson_parser *parser) noexc
 
     delete parser;
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_parser_parse(
@@ -307,16 +338,7 @@ pure_simdjson_error_code_t psimdjson_parser_parse(
     doc->root.value = root;
     *out_doc = doc.release();
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    capture_parser_exception(parser, error);
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    capture_parser_exception(parser, error);
-    return map_cpp_exception(error);
-  } catch (...) {
-    capture_parser_exception(parser);
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_PARSER_CPP_EXCEPTIONS(__func__, parser)
 }
 
 pure_simdjson_error_code_t psimdjson_parser_get_last_error_len(
@@ -330,13 +352,7 @@ pure_simdjson_error_code_t psimdjson_parser_get_last_error_len(
 
     *out_len = parser->last_error.size();
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_parser_copy_last_error(
@@ -351,13 +367,7 @@ pure_simdjson_error_code_t psimdjson_parser_copy_last_error(
     }
 
     return copy_bytes(parser->last_error, dst, dst_cap, out_written);
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_parser_get_last_error_offset(
@@ -371,13 +381,7 @@ pure_simdjson_error_code_t psimdjson_parser_get_last_error_offset(
 
     *out_offset = parser->last_error_offset;
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_doc_free(psimdjson_doc *doc) noexcept {
@@ -388,13 +392,7 @@ pure_simdjson_error_code_t psimdjson_doc_free(psimdjson_doc *doc) noexcept {
 
     delete doc;
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_doc_root(
@@ -408,13 +406,7 @@ pure_simdjson_error_code_t psimdjson_doc_root(
 
     *out_element = &doc->root;
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_element_type(
@@ -433,13 +425,7 @@ pure_simdjson_error_code_t psimdjson_element_type(
 
     *out_kind = map_element_type(type);
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_element_get_int64(
@@ -453,13 +439,7 @@ pure_simdjson_error_code_t psimdjson_element_get_int64(
 
     const auto error = element->value.get_int64().get(*out_value);
     return map_error(error);
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_element_type_at(
@@ -479,13 +459,7 @@ pure_simdjson_error_code_t psimdjson_element_type_at(
 
     *out_kind = map_element_type(type);
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_element_get_int64_at(
@@ -500,13 +474,7 @@ pure_simdjson_error_code_t psimdjson_element_get_int64_at(
 
     const auto error = element_at(doc, json_index).get_int64().get(*out_value);
     return map_error(error);
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_element_get_uint64_at(
@@ -521,13 +489,7 @@ pure_simdjson_error_code_t psimdjson_element_get_uint64_at(
 
     const auto error = element_at(doc, json_index).get_uint64().get(*out_value);
     return map_error(error);
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_element_get_float64_at(
@@ -542,13 +504,7 @@ pure_simdjson_error_code_t psimdjson_element_get_float64_at(
 
     const auto error = element_at(doc, json_index).get_double().get(*out_value);
     return map_error(error);
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_element_get_string_view(
@@ -571,13 +527,7 @@ pure_simdjson_error_code_t psimdjson_element_get_string_view(
     *out_len = value.size();
     *out_ptr = value.empty() ? nullptr : reinterpret_cast<const uint8_t *>(value.data());
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_element_get_bool_at(
@@ -598,13 +548,7 @@ pure_simdjson_error_code_t psimdjson_element_get_bool_at(
 
     *out_value = value ? 1 : 0;
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_element_is_null_at(
@@ -619,13 +563,7 @@ pure_simdjson_error_code_t psimdjson_element_is_null_at(
 
     *out_is_null = element_at(doc, json_index).is_null() ? 1 : 0;
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_element_after_index(
@@ -640,13 +578,7 @@ pure_simdjson_error_code_t psimdjson_element_after_index(
 
     *out_after_json_index = uint64_t(tape_ref_at(doc, json_index).after_element());
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_array_iter_bounds(
@@ -669,13 +601,7 @@ pure_simdjson_error_code_t psimdjson_array_iter_bounds(
     *out_state0 = json_index + 1;
     *out_state1 = after_json_index - 1;
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_object_iter_bounds(
@@ -698,13 +624,7 @@ pure_simdjson_error_code_t psimdjson_object_iter_bounds(
     *out_state0 = json_index + 1;
     *out_state1 = after_json_index - 1;
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_object_get_field_index(
@@ -739,23 +659,11 @@ pure_simdjson_error_code_t psimdjson_object_get_field_index(
 
     *out_value_json_index = element_json_index(value);
     return PURE_SIMDJSON_OK;
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(void) noexcept {
   try {
     throw std::runtime_error("forced cpp exception");
-  } catch (const std::bad_alloc &error) {
-    return map_cpp_exception(error);
-  } catch (const std::exception &error) {
-    return map_cpp_exception(error);
-  } catch (...) {
-    return map_cpp_exception();
-  }
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }

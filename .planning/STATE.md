@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: Release
-status: shipped
-stopped_at: Shipped Phase 06.1 in PR #17
-last_updated: "2026-04-22T13:27:51Z"
-last_activity: 2026-04-22
+status: executing
+stopped_at: Completed 07-06-PLAN.md
+last_updated: "2026-04-23T07:55:57Z"
+last_activity: 2026-04-23
 progress:
   total_phases: 12
-  completed_phases: 6
-  total_plans: 31
-  completed_plans: 31
+  completed_phases: 8
+  total_plans: 37
+  completed_plans: 37
   percent: 100
 ---
 
@@ -20,16 +20,16 @@ progress:
 
 See: `.planning/PROJECT.md` (updated 2026-04-15)
 
-**Core value:** Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, precision-preserving parser that does not require cgo at consumer build time.
-**Current focus:** Phase 06.1 is shipped in PR #17; the remaining sign-off step is a hosted-runner dispatch of `public-bootstrap-validation.yml` against a published tag and review of the hosted matrix evidence
+**Core value:** Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning: typed extraction and selective traversal are the primary story, while full `any` materialization is documented without overstating current wins.
+**Current focus:** Phase 08 — low-overhead-dom-traversal-abi-and-specialized-go-any-materializer
 
 ## Current Position
 
-Phase: 06.1 (fresh-machine-end-to-end-bootstrap-uat-against-live-r2-githu) — SHIPPED
-Plan: 3 of 3
-Status: Phase 06.1 shipped — PR #17; hosted-runner workflow execution still pending for final sign-off
-Last activity: 2026-04-22
-Shipping: PR #17 carries the live-public bootstrap wrapper, rerunnable validation workflow, contract tests, docs, and hosted UAT checklist; the next step is to dispatch `public-bootstrap-validation.yml` against a published tag and review the matrix results
+Phase: 08 (low-overhead-dom-traversal-abi-and-specialized-go-any-materializer) — READY
+Plan: 0 of 0
+Status: Phase 07 shipped as PR #18; Phase 08 awaiting planning
+Last activity: 2026-04-23
+Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline; Phase 08 now owns the low-overhead traversal/materialization follow-up before any new benchmark-positioning or release decision
 
 Progress: [██████████] 100%
 
@@ -73,6 +73,10 @@ Progress: [██████████] 100%
 | Phase 06 P04 | 44min | 2 tasks | 8 files |
 | Phase 06 P05 | 15min | 2 tasks | 6 files |
 | Phase 06 P06 | 7min | 2 tasks | 4 files |
+| Phase 07 P01 | 12 min | 2 tasks | 328 files |
+| Phase 07 P02 | 15min | 2 tasks | 12 files |
+| Phase 07 P03 | 20min | 2 tasks | 17 files |
+| Phase 07 P04 | 4min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -80,11 +84,18 @@ Progress: [██████████] 100%
 
 - Phase 06.1 inserted after Phase 06: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (promoted from backlog item 999.4)
 - Phase 06.1 execution produced the public bootstrap wrapper, hosted-runner validation workflow, contract tests, and operator runbook updates, and was shipped in PR #17; hosted GitHub Actions execution remains pending
+- Phase 07 is now planned as six plans: corpus/oracle foundation, Tier 1 + cold/warm harness, allocator telemetry surface, Tier 2/Tier 3 benchmark consumers, public docs/legal artifacts with committed evidence, and a closeout handoff that defers public patch-release work until the later benchmark-positioning phases
+- Phase 07 completed on 2026-04-23 as a benchmark/docs/legal baseline rather than a forced patch release: README, methodology doc, results snapshot, changelog, LICENSE, and NOTICE are now committed, and the closeout explicitly routes Tier 1 ABI work to Phase 08 and benchmark/release recalibration to Phase 09
+- Phase 08 added: Low-overhead DOM traversal ABI and specialized Go any materializer. This folds the old 999.6 DOM-materialization ABI idea into the active milestone after Tier 1 diagnostics showed materialization, not parse, dominates the current full-`any` path
+- Phase 09 added: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh. This phase exists to replace the invalidated BENCH-07 headline with a measured benchmark story after Phase 08 lands
+- Backlog items 999.6 and 999.7 were retired from the parking lot: 999.6 is now active milestone work under Phase 08, and 999.7's diagnostic split was implemented during Phase 07 investigation to justify the new direction
 
 ### Decisions
 
 Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting current work:
 
+- [Phase 07]: Benchmark helpers must load only the committed `testdata/bench/` and `testdata/jsontestsuite/` assets; Phase 7 runtime must not depend on `third_party/` paths or the network.
+- [Phase 07]: `TestJSONTestSuiteOracle` treats `expectations.tsv` as the only runtime source of truth and fails on both missing and extra vendored case files before parsing.
 - [Phase 02] Build the native shim from vendored simdjson `v4.6.1` through `build.rs` and `cc`, without manual kernel-selection flags.
 - [Phase 02] Keep parser/doc handles generation-checked and store padded Rust-owned input alongside live docs.
 - [Phase 02] Treat observed `windows-smoke` success as part of the exit gate, not just workflow YAML presence.
@@ -144,6 +155,17 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - docs/releases.md is the single human-readable source of truth for the Phase 6 release-prep -> main -> tag sequence, required repo configuration, artifact layout, and cosign verification commands.
 - scripts/release/check_readiness.sh --strict reuses assert_prepared_state.py --check-source and adds origin/main ancestry checks instead of re-implementing release-state validation in shell.
 - docs/bootstrap.md now points operators at the release runbook and mirrors the exact xattr Gatekeeper workaround, while Phase 06.1 owns the fresh-runner public validation boundary.
+- [Phase 07]: Benchmark fixtures must be loaded only by exact filename from testdata/bench so later plans cannot drift back to third_party or network inputs.
+- [Phase 07]: The JSONTestSuite oracle uses expectations.tsv as the only runtime source of truth and fails on both missing and extra vendored case files.
+- [Phase 07]: Tier 1 benchmarks use per-fixture top-level benchmark functions with comparator sub-benchmarks to keep names stable for benchstat and README reporting.
+- [Phase 07]: Cold-start means first Parse after NewParser inside an already loaded process; bootstrap and download time stay out of this benchmark family.
+- [Phase 07]: Comparator availability is registered once and split by build tags so unsupported libraries are omitted structurally with human-readable reasons.
+- [Phase 07]: Native allocator telemetry is epoch-based: reset excludes pre-existing live allocations from later snapshots instead of claiming process-wide totals.
+- [Phase 07]: The allocator stats surface remains diagnostic-only and is published strictly as reset/snapshot exports plus a fixed four-field struct.
+- [Phase 07]: Header-audit verification must work both through Makefile rules and the planner's direct python3 tests/abi/check_header.py include/pure_simdjson.h command.
+- [Phase 07]: Tier 2 uses shared schema structs across supported comparators; pure-simdjson reaches them through DOM traversal only.
+- [Phase 07]: Tier 3 remains explicitly scoped as a DOM-era placeholder and does not imply a v0.1 On-Demand API.
+- [Phase 07]: Tier 1 and cold/warm benchmark outputs publish native-bytes/op, native-allocs/op, and native-live-bytes beside Go benchmem data.
 
 ### Pending Todos
 
@@ -156,8 +178,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T07:55:44.232Z
-Stopped at: Completed 06-06-PLAN.md
+Last session: 2026-04-22T20:14:00.547Z
+Stopped at: Completed 07-04-PLAN.md
 Resume file: None
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z

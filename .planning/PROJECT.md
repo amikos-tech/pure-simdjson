@@ -6,7 +6,7 @@ A Go library providing SIMD-accelerated JSON parsing at multi-GB/s throughput �
 
 ## Core Value
 
-Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster, precision-preserving (distinct int64/uint64/float64) parser that does not force consumers to enable cgo. If every other feature is cut, the `[]byte → Doc → typed accessors` happy path on all five supported platforms must work.
+Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning. The primary performance story is `[]byte -> Doc -> typed accessors` and selective traversal; full `any` materialization is still measured and optimized, but it is not overstated as the current headline win on the DOM ABI.
 
 ## Requirements
 
@@ -80,9 +80,7 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a ≥3× faster
 
 ## Current State
 
-Phase 5 is complete. The repository now ships the bootstrap + distribution pipeline: R2 primary with GitHub Releases fallback, SHA-256 verification, OS-user-cache-dir storage with 0700 perms, cross-process flock, `PURE_SIMDJSON_LIB_PATH` / `PURE_SIMDJSON_BINARY_MIRROR` / `PURE_SIMDJSON_CACHE_DIR` env overrides, a `pure-simdjson-bootstrap` CLI (fetch/verify/platforms/version), and `docs/bootstrap.md` covering env vars, air-gapped, corporate-firewall, and cosign flows. End-to-end bootstrap against live artifacts requires Phase 6 CI-05 to populate real SHA-256 digests — tracked as partial UAT.
-
-Next up: Phase 6 wires the CI release matrix — tag push produces signed, verified shared libraries for all five targets (plus Alpine smoke-test) uploaded to R2 and GitHub Releases with a generated checksum manifest.
+Phase 7 is in progress. The benchmark harness, correctness oracle, and native-allocation reporting now exist, and the key new finding is that Tier 1 full `any` materialization on the current DOM ABI is dominated by Go tree-building rather than parse time. Phase 7 therefore closes out truthful benchmark/docs/legal artifacts, while Phase 8 targets a lower-overhead traversal/materialization ABI and Phase 9 recalibrates the benchmark story after that work lands.
 
 ## Key Decisions
 

@@ -2,13 +2,13 @@
 
 **Created:** 2026-04-14
 **Milestone:** v0.1 — DOM API on five platforms with bootstrap, benchmarks, and ad-hoc-signed release
-**Granularity:** standard (5-8 phases, 3-5 plans each)
+**Granularity:** expanded (benchmark follow-up extends the milestone beyond the original 5-8 phase target)
 **Parallelization:** enabled
 **Coverage:** 64/64 v1 requirements mapped
 
 ## Core Value Anchor
 
-Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, precision-preserving JSON parser that does not require cgo at the consumer build. The non-negotiable happy path: `[]byte -> Doc -> typed accessors` on linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64.
+Ship a precision-preserving, cgo-free simdjson DOM API for Go with honest benchmark positioning: typed extraction and selective traversal should be the primary performance story, while full `any` materialization is measured and optimized without overstating what the architecture can win. The non-negotiable happy path remains `[]byte -> Doc -> typed accessors` on linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64.
 
 ## Phases
 
@@ -18,7 +18,9 @@ Replace `encoding/json` + `any` in parse-heavy Go workloads with a >=3x faster, 
 - [x] **Phase 4: Full Typed Accessor Surface** — Complete the DOM accessor surface (uint64/float64/string/bool/null) and cursor-pull iteration over arrays and objects
 - [x] **Phase 5: Bootstrap + Distribution** — Implement R2 download with GitHub fallback, SHA-256 verification, OS cache, env overrides, and the bootstrap CLI
 - [x] **Phase 6: CI Release Matrix + Platform Coverage** — Build, sign, and publish artifacts for all five targets plus Alpine smoke-test, with cosign and ad-hoc macOS codesign
-- [ ] **Phase 7: Benchmarks + v0.1 Release** — Three-tier benchmark harness vs `encoding/json`, `simdjson-go`, `sonic`, `goccy/go-json`; correctness oracle; documentation; v0.1 tag
+- [x] **Phase 7: Benchmarks + Release-Facing Artifacts** — Three-tier benchmark harness vs `encoding/json`, `simdjson-go`, `sonic`, `goccy/go-json`; correctness oracle; benchmark/docs/legal artifacts; explicit handoff to later performance and release work
+- [ ] **Phase 8: Low-overhead DOM traversal ABI and specialized Go any materializer** — Fold the old DOM-materialization backlog into the active milestone with a lower-overhead traversal surface, one-copy string extraction, exact container sizing, and a specialized Go `any` builder
+- [ ] **Phase 9: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh** — Reframe the benchmark story around measured Tier 1/Tier 2/Tier 3 strengths, then rerun and publish evidence after Phase 8 lands
 
 ## Phase Details
 
@@ -292,11 +294,11 @@ Plans:
 - [x] `06.1-02-PLAN.md` — Dedicated rerunnable public-bootstrap validation workflow for five-target R2 coverage plus GitHub-fallback subset coverage
 - [x] `06.1-03-PLAN.md` — Post-publish operator docs for the Phase 06.1 workflow and release/bootstrap handoff
 
-### Phase 7: Benchmarks + v0.1 Release
+### Phase 7: Benchmarks + Release-Facing Artifacts
 
-**Goal:** A credible, reproducible benchmark story documenting the >=3x speedup vs `encoding/json` + `any` claim, plus the README, changelog, license/notice, and the v0.1 tag.
+**Goal:** A credible, reproducible benchmark baseline with truthful Tier 1/Tier 2/Tier 3 positioning, plus the README, changelog, license/notice, and a documented handoff into later ABI and release work.
 
-**Depends on:** Phase 6 (credible benchmarks need the final `.so` on the final channel)
+**Depends on:** Phase 6
 
 **Requirements:** BENCH-01, BENCH-02, BENCH-03, BENCH-04, BENCH-05, BENCH-06, BENCH-07, DOC-01, DOC-06, DOC-07
 
@@ -307,23 +309,31 @@ Plans:
 - `benchstat` reports; cold-start (first `Parse` after `NewParser`) reported separately from warm (BENCH-04, pitfall 25)
 - Native allocator stats reported alongside Go alloc counts (BENCH-05, pitfall 26)
 - Correctness oracle: parse every file in simdjson's `jsontestsuite`; accept/reject must match upstream (BENCH-06)
-- README documents the >=3x vs `encoding/json` + `any` headline number and within-2x of `minio/simdjson-go` on x86_64 (BENCH-07, DOC-01)
+- README and `docs/benchmarks/results-v0.1.1.md` link the committed evidence, label Tier 1 as the full-`any` worst-case workload, and position Tier 2/Tier 3 as the current strengths without overstating unsupported wins (BENCH-07, DOC-01)
 - `CHANGELOG.md` in Keep-a-Changelog format (DOC-06)
 - `LICENSE` (MIT) and `NOTICE` (simdjson Apache-2.0) committed (DOC-07)
-- v0.1 tag pushed; CI release pipeline runs to completion; bootstrap from a fresh machine works against the v0.1 tag
+- Phase 7 closeout records why public patch-release/tag work is deferred to the later performance and benchmark-positioning phases
 
 **Nice-to-haves:**
 - Comparison-fairness review note documenting matched workloads across competitors (pitfall 24)
 - `Kernel()` / `ImplementationName()` diagnostic output included in benchmark headers
 
 **Success Criteria** (what must be TRUE):
-1. `go test -bench=. -benchmem ./...` produces benchstat-formatted output showing >=3x speedup vs `encoding/json` + `any` on at least three of the five corpus files
+1. Fresh committed benchmark evidence exists for Tier 1, Tier 2, Tier 3, cold-start, warm, and Tier 1 diagnostics, and the results doc explains the measured Tier 1 full-`any` shortcoming on the current DOM ABI
 2. The correctness oracle passes 100% of `jsontestsuite` accept/reject cases against the upstream expected results
 3. README installation snippet works end-to-end on a fresh machine for at least linux/amd64, darwin/arm64, and windows/amd64
 4. Cold-start and warm benchmarks are reported separately and both are reproducible across two runs
-5. v0.1 is tagged, signed artifacts are live on R2 and GitHub Releases, and `BootstrapSync()` against the tag succeeds from a clean cache
+5. Phase 7 ends with public benchmark/docs/legal artifacts plus an explicit handoff stating that Tier 1 performance and any new patch release decision move to Phases 8 and 9
 
-**Plans:** TBD
+**Plans:** 6 plans
+
+Plans:
+- [x] `07-01-PLAN.md` — Vendor benchmark corpus and correctness-oracle foundation
+- [x] `07-02-PLAN.md` — Comparator surface, Tier 1 harness, cold/warm families, and benchstat helper
+- [x] `07-03-PLAN.md` — Native allocator telemetry ABI, bindings, and contract updates
+- [x] `07-04-PLAN.md` — Tier 2/Tier 3 benchmark families plus native metrics
+- [x] `07-05-PLAN.md` — Benchmark evidence, README/docs, changelog, and licensing artifacts
+- [x] `07-06-PLAN.md` — Phase 7 closeout summary and deferred release handoff
 
 ---
 
@@ -338,8 +348,10 @@ Plans:
 | 5 | 3 | **4** |
 | 6 | 2, 3, 4, 5 | — |
 | 7 | 6 | — |
+| 8 | 7 | — |
+| 9 | 8 | — |
 
-**Parallelization opportunity:** Phases 4 and 5 are the only cross-phase parallel pair — they touch independent code (Go accessor surface vs Go bootstrap pipeline) and both depend only on the Phase 3 binding skeleton. Within phases, plans should be designed to run in parallel where possible (e.g., Phase 6's per-platform builds, Phase 7's per-baseline benchmark suites).
+**Parallelization opportunity:** Phases 4 and 5 remain the only cross-phase parallel pair — they touch independent code (Go accessor surface vs Go bootstrap pipeline) and both depend only on the Phase 3 binding skeleton. Phases 7 through 9 are intentionally serial because the benchmark-positioning work in Phase 9 must consume numbers from the post-ABI materialization work in Phase 8.
 
 ## Research Flags
 
@@ -347,8 +359,9 @@ Per `research/SUMMARY.md`, two phases should spawn `/gsd-research-phase` during 
 
 - **Phase 1 (FFI Contract Design)** — bespoke contract; no prior `pure-*` library has compiled C++ inside a Rust build, and the contract is expensive to walk back after code lands
 - **Phase 6 (CI Release Matrix)** — musl/Alpine strategy, manylinux vs zig-cc, and the final target matrix all need a focused study before CI is committed
+- **Phase 8 (Low-overhead DOM traversal ABI and specialized Go any materializer)** — the design should explicitly synthesize traversal/materialization techniques from high-performing Go JSON libraries before we lock a new internal ABI or benchmark-facing builder path
 
-The other five phases follow established patterns from `pure-tokenizers`, `pure-onnx`, and `fast-distance` and should not need a research-phase step.
+The remaining phases follow established patterns from `pure-tokenizers`, `pure-onnx`, and `fast-distance` and should not need a separate research-phase step.
 
 ## Coverage Validation
 
@@ -372,6 +385,8 @@ The other five phases follow established patterns from `pure-tokenizers`, `pure-
 **Mapped:** 64
 **Orphans:** 0
 
+Phases 8 and 9 are follow-on performance and positioning work against already-mapped BENCH/DOC requirements. They do not introduce new requirement IDs; they exist to replace an invalidated benchmark assumption with measured evidence and a lower-overhead implementation path.
+
 ## Out of Scope for v0.1
 
 Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:
@@ -393,7 +408,9 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 4. Full Typed Accessor Surface | 5/5 | Complete | 2026-04-17 |
 | 5. Bootstrap + Distribution | 6/6 | Complete | 2026-04-20 |
 | 6. CI Release Matrix | 6/6 | Complete | 2026-04-21 |
-| 7. Benchmarks + v0.1 Release | 0/? | Not started | — |
+| 7. Benchmarks + Release-Facing Artifacts | 6/6 | Complete | 2026-04-23 |
+| 8. Low-overhead DOM traversal ABI and specialized Go any materializer | 0/0 | Not started | — |
+| 9. Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh | 0/0 | Not started | — |
 
 Plan counts populated by `/gsd-plan-phase`.
 
@@ -444,6 +461,30 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 8: Low-overhead DOM traversal ABI and specialized Go any materializer
+
+**Goal:** Replace the current accessor-shaped Tier 1 materialization path with a lower-overhead traversal/materialization substrate that preserves correctness while removing avoidable per-node FFI and string handoff cost. This phase explicitly folds the old `999.6` backlog idea into the active milestone.
+
+**Requirements:** TBD
+
+**Depends on:** Phase 7
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 8 to break down)
+
+### Phase 9: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh
+
+**Goal:** Reframe BENCH-07 around the measured Tier 1/Tier 2/Tier 3 behavior, rerun the benchmark corpus after Phase 8 lands, and update the public benchmark/docs story so release claims match reality instead of the original `>=3x vs encoding/json + any` assumption.
+
+**Requirements:** TBD
+
+**Depends on:** Phase 8
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 9 to break down)
 
 ---
 *Roadmap created: 2026-04-14 from PROJECT.md, REQUIREMENTS.md, and research/SUMMARY.md*

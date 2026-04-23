@@ -1,11 +1,12 @@
-.PHONY: generate-header verify-contract verify-docs phase2-smoke-linux phase2-smoke-windows phase2-verify-exports phase3-go-test phase3-go-race phase3-go-wrapper-remote
+.PHONY: generate-header verify-contract verify-docs phase2-smoke-linux phase2-smoke-windows phase2-verify-exports phase3-go-test phase3-go-race phase3-go-wrapper-remote bench-phase7 bench-phase7-cold bench-phase7-diagnostics bench-phase7-diagnostics-profile bench-phase7-compare
 
 generate-header:
 	cbindgen --config cbindgen.toml --crate pure_simdjson --output include/pure_simdjson.h
 
 verify-contract:
 	cargo check
-	cargo test
+	# Serial: native_alloc_stats_* tests read a process-global telemetry singleton.
+	cargo test -- --test-threads=1
 	tmp_dir="$$(mktemp -d)"; \
 	tmp="$$tmp_dir/pure_simdjson.h"; \
 	out="$$tmp_dir/pure_simdjson_handle_layout.o"; \
@@ -13,11 +14,11 @@ verify-contract:
 	cbindgen --config cbindgen.toml --crate pure_simdjson --output "$$tmp"; \
 	diff -u include/pure_simdjson.h "$$tmp"; \
 	python3 tests/abi/test_check_header.py; \
-	python3 tests/abi/check_header.py --rule error-code-outparams --rule no-mixed-float-int --rule required-symbols --rule string-copy-ownership --rule diag-surface include/pure_simdjson.h; \
+	python3 tests/abi/check_header.py --rule error-code-outparams --rule no-mixed-float-int --rule required-symbols --rule string-copy-ownership --rule diag-surface --rule native-alloc-surface include/pure_simdjson.h; \
 	cc -Iinclude tests/abi/handle_layout.c -c -o "$$out"
 
 verify-docs:
-	@for pattern in 'ffi_wrap' 'catch_unwind' 'panic = "abort"' '\.get\(err\)' 'PURE_SIMDJSON_ERR_PARSER_BUSY' 'PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE' 'PURE_SIMDJSON_ERR_PRECISION_LOSS' 'pure_simdjson_element_get_int64' 'pure_simdjson_element_get_uint64' 'pure_simdjson_element_get_float64' 'SIMDJSON_PADDING' '\^0\.1\.x'; do \
+	@for pattern in 'ffi_wrap' 'catch_unwind' 'panic = "abort"' '\.get\(err\)' 'PURE_SIMDJSON_ERR_PARSER_BUSY' 'PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE' 'PURE_SIMDJSON_ERR_PRECISION_LOSS' 'pure_simdjson_element_get_int64' 'pure_simdjson_element_get_uint64' 'pure_simdjson_element_get_float64' 'pure_simdjson_native_alloc_stats_t' 'pure_simdjson_native_alloc_stats_reset' 'pure_simdjson_native_alloc_stats_snapshot' 'SIMDJSON_PADDING' '\^0\.1\.x'; do \
 		rg -q "$$pattern" docs/ffi-contract.md || { echo "verify-docs: docs/ffi-contract.md missing required pattern: $$pattern" >&2; exit 1; }; \
 	done
 
@@ -56,3 +57,21 @@ phase3-go-race:
 
 phase3-go-wrapper-remote:
 	./scripts/phase3-go-wrapper-smoke.sh
+
+bench-phase7:
+	go test ./... -run '^$$' -bench 'Benchmark(Tier1FullParse|Tier2Typed|Tier3SelectivePlaceholder)_' -benchmem -count=5
+
+bench-phase7-cold:
+	go test ./... -run '^$$' -bench 'Benchmark(ColdStart|Warm)_' -benchmem -count=5
+
+bench-phase7-diagnostics:
+	go test . -run '^$$' -bench 'BenchmarkTier1Diagnostics_' -benchmem -count=5
+
+bench-phase7-diagnostics-profile:
+	@test -n "$(OUT)" || { echo "usage: make bench-phase7-diagnostics-profile OUT=/tmp/tier1.cpu.pprof [BENCH='BenchmarkTier1Diagnostics_twitter_json/pure-simdjson-materialize-only$$']" >&2; exit 1; }
+	@bench='$(BENCH)'; \
+	if [ -z "$$bench" ]; then bench='BenchmarkTier1Diagnostics_twitter_json/pure-simdjson-materialize-only$$'; fi; \
+	go test . -run '^$$' -bench "$$bench" -benchmem -count=1 -cpuprofile "$(OUT)"
+
+bench-phase7-compare:
+	./scripts/bench/run_benchstat.sh --old "$(OLD)" --new "$(NEW)"

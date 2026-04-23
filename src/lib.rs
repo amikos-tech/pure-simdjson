@@ -14,7 +14,7 @@ use std::{
 ///
 /// This constant is part of the public C header and stays numerically pinned alongside
 /// `pure_simdjson_get_abi_version`.
-pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0000;
+pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0001;
 
 /// Public error codes for the stable ABI v0.1 surface.
 #[repr(i32)]
@@ -119,6 +119,21 @@ pub struct pure_simdjson_object_iter_t {
     pub index: u32,
     pub tag: u16,
     pub reserved: u16,
+}
+
+/// Diagnostic native allocator counters for the current telemetry epoch.
+///
+/// This surface reports allocations routed through the native shim/simdjson cdylib path only.
+/// It does not claim process-wide totals or Go heap activity.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct pure_simdjson_native_alloc_stats_t {
+    pub epoch: u64,
+    pub live_bytes: u64,
+    pub total_alloc_bytes: u64,
+    pub alloc_count: u64,
+    pub free_count: u64,
+    pub untracked_free_count: u64,
 }
 
 #[inline]
@@ -293,6 +308,37 @@ pub unsafe extern "C" fn pure_simdjson_copy_implementation_name(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_copy_implementation_name", || {
         runtime::copy_implementation_name(dst, dst_cap, out_written)
+    })
+}
+
+/// Reset the diagnostic native allocator telemetry epoch.
+///
+/// Existing live native allocations remain valid, but future snapshots exclude them from the
+/// reported counters until they are reallocated in the new epoch.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_native_alloc_stats_reset() -> pure_simdjson_error_code_t {
+    ffi_wrap(
+        "pure_simdjson_native_alloc_stats_reset",
+        || match runtime::native_alloc_stats_reset() {
+            Ok(()) => err_ok(),
+            Err(rc) => rc,
+        },
+    )
+}
+
+/// Snapshot the diagnostic native allocator counters for the current telemetry epoch.
+///
+/// # Safety
+/// `out_stats` must point to writable `pure_simdjson_native_alloc_stats_t` storage.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_native_alloc_stats_snapshot(
+    out_stats: *mut pure_simdjson_native_alloc_stats_t,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_native_alloc_stats_snapshot", || unsafe {
+        match runtime::native_alloc_stats_snapshot() {
+            Ok(stats) => write_out(out_stats, stats),
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -791,8 +837,8 @@ mod tests {
         let rc = unsafe { pure_simdjson_get_abi_version(&mut abi_version) };
 
         assert_eq!(rc, err_ok());
-        assert_eq!(PURE_SIMDJSON_ABI_VERSION, 0x0001_0000);
-        assert_eq!(abi_version, 0x0001_0000);
+        assert_eq!(PURE_SIMDJSON_ABI_VERSION, 0x0001_0001);
+        assert_eq!(abi_version, 0x0001_0001);
     }
 
     #[test]

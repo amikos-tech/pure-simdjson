@@ -4,7 +4,7 @@ cpp_compat = true
 usize_is_size_t = true
 documentation = true
 style = "both"
-after_includes = "#define PURE_SIMDJSON_ABI_VERSION 0x00010000"
+after_includes = "#define PURE_SIMDJSON_ABI_VERSION 0x00010001"
 
 [export]
 include = [
@@ -17,6 +17,7 @@ include = [
   "pure_simdjson_value_view_t",
   "pure_simdjson_array_iter_t",
   "pure_simdjson_object_iter_t",
+  "pure_simdjson_native_alloc_stats_t",
 ]
 exclude = [
   "psimdjson_parser",
@@ -24,6 +25,8 @@ exclude = [
   "psimdjson_element",
   "psimdjson_get_implementation_name_len",
   "psimdjson_copy_implementation_name",
+  "psimdjson_native_alloc_stats_reset",
+  "psimdjson_native_alloc_stats_snapshot",
   "psimdjson_padding_bytes",
   "psimdjson_parser_new",
   "psimdjson_parser_free",

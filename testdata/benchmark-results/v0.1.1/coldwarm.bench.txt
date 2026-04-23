@@ -1,0 +1,42 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/amikos-tech/pure-simdjson
+cpu: Apple M3 Max
+BenchmarkColdStart_twitter_json-16         	    5613	    297493 ns/op	2122.79 MB/s	         8.000 native-allocs/op	   8640732 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkColdStart_twitter_json-16         	    3852	    298775 ns/op	2113.68 MB/s	         8.000 native-allocs/op	   8640732 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkColdStart_twitter_json-16         	    3824	    295421 ns/op	2137.68 MB/s	         8.000 native-allocs/op	   8640732 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkColdStart_twitter_json-16         	    3524	    386622 ns/op	1633.42 MB/s	         8.000 native-allocs/op	   8640732 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkColdStart_twitter_json-16         	    3696	    342512 ns/op	1843.77 MB/s	         8.000 native-allocs/op	   8640732 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkColdStart_citm_catalog_json-16    	    1753	    691028 ns/op	2499.47 MB/s	         8.000 native-allocs/op	  23615068 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkColdStart_citm_catalog_json-16    	    2187	    722447 ns/op	2390.77 MB/s	         8.000 native-allocs/op	  23615068 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkColdStart_citm_catalog_json-16    	    1896	    653038 ns/op	2644.88 MB/s	         8.000 native-allocs/op	  23615068 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkColdStart_citm_catalog_json-16    	    2060	    654227 ns/op	2640.07 MB/s	         8.000 native-allocs/op	  23615068 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkColdStart_citm_catalog_json-16    	    1830	    606906 ns/op	2845.92 MB/s	         8.000 native-allocs/op	  23615068 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkColdStart_canada_json-16          	     501	   3092794 ns/op	 727.84 MB/s	         8.000 native-allocs/op	  30774236 native-bytes/op	         0 native-live-bytes	     489 B/op	      23 allocs/op
+BenchmarkColdStart_canada_json-16          	     541	   2390704 ns/op	 941.59 MB/s	         8.000 native-allocs/op	  30774236 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkColdStart_canada_json-16          	     513	   2307007 ns/op	 975.74 MB/s	         8.000 native-allocs/op	  30774236 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkColdStart_canada_json-16          	     525	   2350463 ns/op	 957.71 MB/s	         8.000 native-allocs/op	  30774236 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkColdStart_canada_json-16          	     487	   2868550 ns/op	 784.73 MB/s	         8.000 native-allocs/op	  30774236 native-bytes/op	         0 native-live-bytes	     488 B/op	      23 allocs/op
+BenchmarkWarm_twitter_json-16              	    6733	    245967 ns/op	2567.48 MB/s	         3.000 native-allocs/op	   6105064 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_twitter_json-16              	    5130	    243964 ns/op	2588.56 MB/s	         3.000 native-allocs/op	   6105064 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_twitter_json-16              	    4815	    259950 ns/op	2429.37 MB/s	         3.000 native-allocs/op	   6105064 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_twitter_json-16              	    5167	    264066 ns/op	2391.50 MB/s	         3.000 native-allocs/op	   6105064 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_twitter_json-16              	    4227	    313583 ns/op	2013.87 MB/s	         3.000 native-allocs/op	   6105064 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_citm_catalog_json-16         	    2098	    686826 ns/op	2514.76 MB/s	         3.000 native-allocs/op	  16696680 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_citm_catalog_json-16         	    1816	    746162 ns/op	2314.78 MB/s	         3.000 native-allocs/op	  16696680 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_citm_catalog_json-16         	    2227	    703740 ns/op	2454.32 MB/s	         3.000 native-allocs/op	  16696680 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_citm_catalog_json-16         	    1876	    718453 ns/op	2404.06 MB/s	         3.000 native-allocs/op	  16696680 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_citm_catalog_json-16         	    1609	    730250 ns/op	2365.22 MB/s	         3.000 native-allocs/op	  16696680 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_canada_json-16               	     438	   2828914 ns/op	 795.73 MB/s	         3.000 native-allocs/op	  21760488 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_canada_json-16               	     482	   2688579 ns/op	 837.26 MB/s	         3.000 native-allocs/op	  21760488 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_canada_json-16               	     415	   2452184 ns/op	 917.98 MB/s	         3.000 native-allocs/op	  21760488 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_canada_json-16               	     492	   2619057 ns/op	 859.49 MB/s	         3.000 native-allocs/op	  21760488 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+BenchmarkWarm_canada_json-16               	     410	   2647359 ns/op	 850.30 MB/s	         3.000 native-allocs/op	  21760488 native-bytes/op	         0 native-live-bytes	     328 B/op	      13 allocs/op
+PASS
+ok  	github.com/amikos-tech/pure-simdjson	47.187s
+PASS
+ok  	github.com/amikos-tech/pure-simdjson/cmd/pure-simdjson-bootstrap	0.314s
+PASS
+ok  	github.com/amikos-tech/pure-simdjson/internal/bootstrap	0.218s
+PASS
+ok  	github.com/amikos-tech/pure-simdjson/internal/ffi	0.190s

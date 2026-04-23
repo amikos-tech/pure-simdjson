@@ -14,7 +14,8 @@ use pure_simdjson::{
         PURE_SIMDJSON_ERR_PARSER_BUSY, PURE_SIMDJSON_ERR_WRONG_TYPE, PURE_SIMDJSON_OK,
     },
     pure_simdjson_get_abi_version, pure_simdjson_get_implementation_name_len,
-    pure_simdjson_handle_t, pure_simdjson_parser_copy_last_error, pure_simdjson_parser_free,
+    pure_simdjson_handle_t, pure_simdjson_native_alloc_stats_snapshot,
+    pure_simdjson_parser_copy_last_error, pure_simdjson_parser_free,
     pure_simdjson_parser_get_last_error_len, pure_simdjson_parser_get_last_error_offset,
     pure_simdjson_parser_new, pure_simdjson_parser_parse, pure_simdjson_parser_t,
     pure_simdjson_test_force_cpp_exception_for_tests,
@@ -122,6 +123,17 @@ fn implementation_name_round_trip_uses_real_bridge_name() {
     assert!(!name.is_empty());
     assert_ne!(name, b"contract-only");
 }
+
+#[test]
+fn native_alloc_stats_snapshot_null_out_is_invalid_argument() {
+    let rc = unsafe { pure_simdjson_native_alloc_stats_snapshot(ptr::null_mut()) };
+    assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_ARGUMENT);
+}
+
+// Native-alloc telemetry tests that assert exact counter values live in
+// `tests/rust_shim_native_alloc.rs` so they get an isolated test binary — the counters
+// are process-global and any other test that creates a parser in the same binary pollutes
+// their assertions.
 
 #[test]
 fn element_get_int64_reads_literal_42_root() {
