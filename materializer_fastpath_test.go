@@ -2,8 +2,11 @@ package purejson
 
 import (
 	"errors"
+	"reflect"
 	"runtime"
 	"testing"
+
+	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
 
 func TestFastMaterializerParity(t *testing.T) {
@@ -31,7 +34,13 @@ func TestFastMaterializerParity(t *testing.T) {
 		t.Fatalf("accessor baseline outer[2] = %v (%T), want float64(3.5)", outer[2], outer[2])
 	}
 
-	requireFastMaterializerLinkedForTest(t)
+	got, err := fastMaterializeElement(doc.Root())
+	if err != nil {
+		t.Fatalf("fastMaterializeElement() error = %v", err)
+	}
+	if !reflect.DeepEqual(got, baseline) {
+		t.Fatalf("fastMaterializeElement() = %#v, want %#v", got, baseline)
+	}
 }
 
 func TestFastMaterializerNumericSemantics(t *testing.T) {
@@ -52,7 +61,13 @@ func TestFastMaterializerNumericSemantics(t *testing.T) {
 		t.Fatalf("accessor baseline values[2] = %v (%T), want float64(1.25)", values[2], values[2])
 	}
 
-	requireFastMaterializerLinkedForTest(t)
+	got, err := fastMaterializeElement(doc.Root())
+	if err != nil {
+		t.Fatalf("fastMaterializeElement() error = %v", err)
+	}
+	if !reflect.DeepEqual(got, baseline) {
+		t.Fatalf("fastMaterializeElement() = %#v, want %#v", got, baseline)
+	}
 }
 
 func TestFastMaterializerOversizedLiteralParseRejected(t *testing.T) {
@@ -63,15 +78,13 @@ func TestFastMaterializerOversizedLiteralParseRejected(t *testing.T) {
 		}
 	})
 
-	doc, err := parser.Parse([]byte("18446744073709551616"))
+	doc, err := parser.Parse([]byte(`{"ok":1,"big":99999999999999999999999}`))
 	if doc != nil {
 		t.Fatal("Parse() oversized literal unexpectedly returned a document")
 	}
 	if !errors.Is(err, ErrInvalidJSON) {
 		t.Fatalf("Parse() oversized literal error = %v, want ErrInvalidJSON", err)
 	}
-
-	requireFastMaterializerLinkedForTest(t)
 }
 
 func TestFastMaterializerDuplicateKeySemantics(t *testing.T) {
@@ -98,7 +111,17 @@ func TestFastMaterializerDuplicateKeySemantics(t *testing.T) {
 		t.Fatalf("GetField(\"dup\").GetInt64() = %d, %v; want first duplicate int64(1)", got, err)
 	}
 
-	requireFastMaterializerLinkedForTest(t)
+	got, err := fastMaterializeElement(doc.Root())
+	if err != nil {
+		t.Fatalf("fastMaterializeElement() error = %v", err)
+	}
+	object, ok = got.(map[string]any)
+	if !ok {
+		t.Fatalf("fast materialized root = %T, want map[string]any", got)
+	}
+	if got, ok := object["dup"].(int64); !ok || got != 2 {
+		t.Fatalf("fast materialized dup = %v (%T), want last duplicate int64(2)", object["dup"], object["dup"])
+	}
 }
 
 func TestFastMaterializerStringOwnershipAfterCloseAndGC(t *testing.T) {
@@ -113,14 +136,17 @@ func TestFastMaterializerStringOwnershipAfterCloseAndGC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	baseline := materializeViaAccessorsForTest(t, doc.Root())
-	object, ok := baseline.(map[string]any)
+	got, err := fastMaterializeElement(doc.Root())
+	if err != nil {
+		t.Fatalf("fastMaterializeElement() error = %v", err)
+	}
+	object, ok := got.(map[string]any)
 	if !ok {
-		t.Fatalf("accessor baseline root = %T, want map[string]any", baseline)
+		t.Fatalf("fast materialized root = %T, want map[string]any", got)
 	}
 	value, ok := object["value"].(string)
 	if !ok || value != "survives" {
-		t.Fatalf("accessor baseline value = %v (%T), want %q", object["value"], object["value"], "survives")
+		t.Fatalf("fast materialized value = %v (%T), want %q", object["value"], object["value"], "survives")
 	}
 	if err := doc.Close(); err != nil {
 		t.Fatalf("doc.Close() error = %v", err)
@@ -129,8 +155,6 @@ func TestFastMaterializerStringOwnershipAfterCloseAndGC(t *testing.T) {
 	if value != "survives" {
 		t.Fatalf("materialized string after Close+GC = %q, want %q", value, "survives")
 	}
-
-	requireFastMaterializerLinkedForTest(t)
 }
 
 func TestFastMaterializerClosedDoc(t *testing.T) {
@@ -143,8 +167,9 @@ func TestFastMaterializerClosedDoc(t *testing.T) {
 	if _, err := root.TypeErr(); !errors.Is(err, ErrClosed) {
 		t.Fatalf("TypeErr() after Close error = %v, want ErrClosed", err)
 	}
-
-	requireFastMaterializerLinkedForTest(t)
+	if _, err := fastMaterializeElement(root); !errors.Is(err, ErrClosed) {
+		t.Fatalf("fastMaterializeElement() after Close error = %v, want ErrClosed", err)
+	}
 }
 
 func TestFastMaterializerSubtree(t *testing.T) {
@@ -175,33 +200,52 @@ func TestFastMaterializerSubtree(t *testing.T) {
 		t.Fatalf("accessor baseline inner[1] = %v (%T), want %q", inner[1], inner[1], "two")
 	}
 
-	requireFastMaterializerLinkedForTest(t)
+	got, err := fastMaterializeElement(outerField)
+	if err != nil {
+		t.Fatalf("fastMaterializeElement() error = %v", err)
+	}
+	if !reflect.DeepEqual(got, baseline) {
+		t.Fatalf("fastMaterializeElement() = %#v, want %#v", got, baseline)
+	}
 }
 
 func TestFastMaterializerConcurrentCloseGuard(t *testing.T) {
-	parser := mustNewParser(t)
-	t.Cleanup(func() {
-		if err := parser.Close(); err != nil {
-			t.Fatalf("parser.Close() cleanup error = %v", err)
-		}
-	})
-
-	doc, err := parser.Parse([]byte(`{"value":1}`))
-	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
-	}
-	if _, err := parser.Parse([]byte(`{"value":2}`)); !errors.Is(err, ErrParserBusy) {
-		t.Fatalf("Parse() while doc live error = %v, want ErrParserBusy", err)
-	}
+	_, doc := mustParseDoc(t, `{"value":1}`)
 	root := doc.Root()
+
+	doc.mu.Lock()
+	if _, err := fastMaterializeElement(root); !errors.Is(err, ErrParserBusy) {
+		t.Fatalf("fastMaterializeElement() with doc.mu held error = %v, want ErrParserBusy", err)
+	}
+	doc.mu.Unlock()
+
 	if err := doc.Close(); err != nil {
 		t.Fatalf("doc.Close() error = %v", err)
 	}
-	if _, err := root.TypeErr(); !errors.Is(err, ErrClosed) {
-		t.Fatalf("TypeErr() after Close error = %v, want ErrClosed", err)
-	}
+}
 
-	requireFastMaterializerLinkedForTest(t)
+func TestFastMaterializerFramesFullyConsumed(t *testing.T) {
+	t.Run("single scalar succeeds", func(t *testing.T) {
+		got, err := buildAnyFromFrames([]ffi.InternalFrame{
+			{Kind: uint32(ffi.ValueKindInt64), Int64Value: 7},
+		})
+		if err != nil {
+			t.Fatalf("buildAnyFromFrames() error = %v", err)
+		}
+		if got != int64(7) {
+			t.Fatalf("buildAnyFromFrames() = %v (%T), want int64(7)", got, got)
+		}
+	})
+
+	t.Run("trailing frame fails", func(t *testing.T) {
+		_, err := buildAnyFromFrames([]ffi.InternalFrame{
+			{Kind: uint32(ffi.ValueKindInt64), Int64Value: 7},
+			{Kind: uint32(ffi.ValueKindNull)},
+		})
+		if !errors.Is(err, ErrInternal) {
+			t.Fatalf("buildAnyFromFrames() error = %v, want ErrInternal", err)
+		}
+	})
 }
 
 func materializeViaAccessorsForTest(t *testing.T, element Element) any {
@@ -288,9 +332,4 @@ func materializeViaAccessorsForTest(t *testing.T, element Element) any {
 		t.Fatalf("unsupported ElementType %v", kind)
 		return nil
 	}
-}
-
-func requireFastMaterializerLinkedForTest(t *testing.T) {
-	t.Helper()
-	t.Skip("fast materializer implementation not linked")
 }
