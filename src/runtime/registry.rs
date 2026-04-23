@@ -1110,3 +1110,122 @@ pub(crate) fn object_get_field(
         encode_descendant_view_locked(entry, doc, value_json_index)
     })
 }
+
+#[cfg(test)]
+mod materialize_tests {
+    use super::*;
+    use crate::{
+        runtime::psdj_internal_frame_t,
+        pure_simdjson_value_kind_t::{
+            PURE_SIMDJSON_VALUE_KIND_ARRAY, PURE_SIMDJSON_VALUE_KIND_BOOL,
+            PURE_SIMDJSON_VALUE_KIND_INT64, PURE_SIMDJSON_VALUE_KIND_NULL,
+            PURE_SIMDJSON_VALUE_KIND_OBJECT, PURE_SIMDJSON_VALUE_KIND_STRING,
+            PURE_SIMDJSON_VALUE_KIND_UINT64,
+        },
+    };
+    use std::{ptr, slice};
+
+    fn parse_root(json: &[u8]) -> (pure_simdjson_parser_t, pure_simdjson_doc_t, pure_simdjson_value_view_t) {
+        let parser = parser_new().expect("parser_new should succeed");
+        let doc = parser_parse(parser, json).expect("parser_parse should succeed");
+        let root = doc_root(doc).expect("doc_root should succeed");
+        (parser, doc, root)
+    }
+
+    fn cleanup(parser: pure_simdjson_parser_t, doc: pure_simdjson_doc_t) {
+        assert_eq!(doc_free(doc), err_ok());
+        assert_eq!(parser_free(parser), err_ok());
+    }
+
+    fn build_frames(view: &pure_simdjson_value_view_t) -> Vec<psdj_internal_frame_t> {
+        let (frames, frame_count) =
+            materialize_build(view as *const _).expect("materialize_build should succeed");
+        assert!(!frames.is_null());
+        assert_ne!(frame_count, 0);
+
+        // SAFETY: materialize_build returns a doc-owned frame span that remains valid while the
+        // owning doc is live; callers copy it before freeing the doc in these tests.
+        unsafe { slice::from_raw_parts(frames, frame_count).to_vec() }
+    }
+
+    fn frame_key(frame: &psdj_internal_frame_t) -> &[u8] {
+        if frame.key_len == 0 {
+            assert!(frame.key_ptr.is_null());
+            return &[];
+        }
+        assert!(!frame.key_ptr.is_null());
+        // SAFETY: non-empty key spans are borrowed from the live simdjson document.
+        unsafe { slice::from_raw_parts(frame.key_ptr, frame.key_len) }
+    }
+
+    fn frame_string(frame: &psdj_internal_frame_t) -> &[u8] {
+        if frame.string_len == 0 {
+            assert!(frame.string_ptr.is_null());
+            return &[];
+        }
+        assert!(!frame.string_ptr.is_null());
+        // SAFETY: non-empty string spans are borrowed from the live simdjson document.
+        unsafe { slice::from_raw_parts(frame.string_ptr, frame.string_len) }
+    }
+
+    #[test]
+    fn materialize_build_returns_preorder_root_frame_stream() {
+        let (parser, doc, root) =
+            parse_root(br#"{"a":[1,true,null,"x"],"n":18446744073709551615}"#);
+
+        let frames = build_frames(&root);
+
+        assert_eq!(frames.len(), 7);
+        assert_eq!(
+            frames[0].kind,
+            PURE_SIMDJSON_VALUE_KIND_OBJECT as u32,
+            "root frame kind"
+        );
+        assert_eq!(frames[0].child_count, 2);
+        assert_eq!(frames[0].reserved, 0);
+
+        assert_eq!(frame_key(&frames[1]), b"a");
+        assert_eq!(frames[1].kind, PURE_SIMDJSON_VALUE_KIND_ARRAY as u32);
+        assert_eq!(frames[1].child_count, 4);
+
+        assert_eq!(frames[2].kind, PURE_SIMDJSON_VALUE_KIND_INT64 as u32);
+        assert_eq!(frames[2].int64_value, 1);
+        assert_eq!(frames[3].kind, PURE_SIMDJSON_VALUE_KIND_BOOL as u32);
+        assert_eq!(frames[3].flags, 1);
+        assert_eq!(frames[4].kind, PURE_SIMDJSON_VALUE_KIND_NULL as u32);
+        assert_eq!(frames[5].kind, PURE_SIMDJSON_VALUE_KIND_STRING as u32);
+        assert_eq!(frame_string(&frames[5]), b"x");
+
+        assert_eq!(frame_key(&frames[6]), b"n");
+        assert_eq!(frames[6].kind, PURE_SIMDJSON_VALUE_KIND_UINT64 as u32);
+        assert_eq!(frames[6].uint64_value, u64::MAX);
+
+        cleanup(parser, doc);
+    }
+
+    #[test]
+    fn materialize_build_accepts_descendant_subtree_views() {
+        let (parser, doc, root) =
+            parse_root(br#"{"a":[1,true,null,"x"],"n":18446744073709551615}"#);
+        let array_view = object_get_field(&root as *const _, b"a")
+            .expect("object_get_field should resolve a descendant view");
+
+        let frames = build_frames(&array_view);
+
+        assert_eq!(frames.len(), 5);
+        assert_eq!(frames[0].kind, PURE_SIMDJSON_VALUE_KIND_ARRAY as u32);
+        assert_eq!(frames[0].child_count, 4);
+        assert_eq!(frame_key(&frames[0]), b"");
+        assert_eq!(frames[4].kind, PURE_SIMDJSON_VALUE_KIND_STRING as u32);
+        assert_eq!(frame_string(&frames[4]), b"x");
+
+        cleanup(parser, doc);
+    }
+
+    #[test]
+    fn materialize_build_rejects_null_outside_registry_validation() {
+        let result = materialize_build(ptr::null());
+
+        assert_eq!(result, Err(err_invalid_argument()));
+    }
+}
