@@ -10,6 +10,7 @@ on:
       - build.rs
       - include/pure_simdjson.h
       - src/**
+      - tests/*.rs
       - tests/smoke/**
 
 permissions:
