@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.1
-milestone_name: Release
-status: executing
-stopped_at: Completed 07-06-PLAN.md
-last_updated: "2026-04-23T12:48:24Z"
+milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
+status: planning
+stopped_at: Phase 08 context gathered
+last_updated: "2026-04-23T14:39:24.243Z"
 last_activity: 2026-04-23
 progress:
-  total_phases: 12
+  total_phases: 14
   completed_phases: 8
   total_plans: 37
   completed_plans: 37
@@ -179,8 +179,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T20:14:00.547Z
-Stopped at: Completed 07-04-PLAN.md
-Resume file: None
+Last session: 2026-04-23T14:39:24.239Z
+Stopped at: Phase 08 context gathered
+Resume file: .planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-CONTEXT.md
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z
