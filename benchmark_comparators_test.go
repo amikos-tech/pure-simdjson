@@ -15,8 +15,11 @@ const (
 	benchmarkFixtureTwitter = "twitter.json"
 	benchmarkFixtureCITM    = "citm_catalog.json"
 	benchmarkFixtureCanada  = "canada.json"
+)
 
-	benchmarkComparatorPureSimdjson   = "pure-simdjson"
+const benchmarkComparatorPureSimdjson = "pure-simdjson"
+
+const (
 	benchmarkComparatorEncodingAny    = "encoding-json-any"
 	benchmarkComparatorEncodingStruct = "encoding-json-struct"
 	benchmarkComparatorMinioSimdjson  = "minio-simdjson-go"
@@ -416,67 +419,5 @@ func benchmarkWarmPureParser(tb testing.TB, fixtureName string, data []byte) *Pa
 }
 
 func benchmarkMaterializePureElement(element Element) (any, error) {
-	kind := ElementType(element.view.KindHint)
-	if kind == TypeInvalid {
-		resolvedKind, err := element.TypeErr()
-		if err != nil {
-			return nil, err
-		}
-		kind = resolvedKind
-	}
-
-	switch kind {
-	case TypeNull:
-		return nil, nil
-	case TypeBool:
-		return element.GetBool()
-	case TypeInt64:
-		return element.GetInt64()
-	case TypeUint64:
-		return element.GetUint64()
-	case TypeFloat64:
-		return element.GetFloat64()
-	case TypeString:
-		return element.GetString()
-	case TypeArray:
-		array, err := element.AsArray()
-		if err != nil {
-			return nil, err
-		}
-
-		values := make([]any, 0, 8)
-		iter := array.Iter()
-		for iter.Next() {
-			value, err := benchmarkMaterializePureElement(iter.Value())
-			if err != nil {
-				return nil, err
-			}
-			values = append(values, value)
-		}
-		if err := iter.Err(); err != nil {
-			return nil, err
-		}
-		return values, nil
-	case TypeObject:
-		object, err := element.AsObject()
-		if err != nil {
-			return nil, err
-		}
-
-		values := make(map[string]any, 8)
-		iter := object.Iter()
-		for iter.Next() {
-			value, err := benchmarkMaterializePureElement(iter.Value())
-			if err != nil {
-				return nil, err
-			}
-			values[iter.Key()] = value
-		}
-		if err := iter.Err(); err != nil {
-			return nil, err
-		}
-		return values, nil
-	default:
-		return nil, fmt.Errorf("unsupported pure-simdjson element type %v", kind)
-	}
+	return fastMaterializeElement(element)
 }
