@@ -1111,6 +1111,14 @@ pub(crate) fn object_get_field(
     })
 }
 
+pub(crate) fn materialize_build(
+    view: *const pure_simdjson_value_view_t,
+) -> Result<(*const super::psdj_internal_frame_t, usize), pure_simdjson_error_code_t> {
+    with_resolved_view(view, |entry, json_index, _| {
+        super::native_materialize_build(entry.native_ptr, json_index)
+    })
+}
+
 #[cfg(test)]
 mod materialize_tests {
     use super::*;

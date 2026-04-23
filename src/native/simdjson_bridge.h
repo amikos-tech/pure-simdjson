@@ -15,6 +15,20 @@ typedef struct psimdjson_parser psimdjson_parser;
 typedef struct psimdjson_doc psimdjson_doc;
 typedef struct psimdjson_element psimdjson_element;
 
+typedef struct psdj_internal_frame_t {
+  uint32_t kind;
+  uint32_t flags;
+  uint32_t child_count;
+  uint32_t reserved;
+  const uint8_t *key_ptr;
+  size_t key_len;
+  const uint8_t *string_ptr;
+  size_t string_len;
+  int64_t int64_value;
+  uint64_t uint64_value;
+  double float64_value;
+} psdj_internal_frame_t;
+
 pure_simdjson_error_code_t psimdjson_get_implementation_name_len(size_t *out_len) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_copy_implementation_name(
     uint8_t *dst,
@@ -123,6 +137,10 @@ pure_simdjson_error_code_t psimdjson_object_get_field_index(
     size_t key_len,
     uint64_t *out_value_json_index
 ) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_materialize_build(psimdjson_doc *doc,
+                                                       uint64_t json_index,
+                                                       const psdj_internal_frame_t **out_frames,
+                                                       size_t *out_frame_count) PSIMDJSON_NOEXCEPT;
 
 pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(void) PSIMDJSON_NOEXCEPT;
 

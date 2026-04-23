@@ -41,6 +41,22 @@ pub(crate) struct psimdjson_element {
     _private: [u8; 0],
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct psdj_internal_frame_t {
+    pub(crate) kind: u32,
+    pub(crate) flags: u32,
+    pub(crate) child_count: u32,
+    pub(crate) reserved: u32,
+    pub(crate) key_ptr: *const u8,
+    pub(crate) key_len: usize,
+    pub(crate) string_ptr: *const u8,
+    pub(crate) string_len: usize,
+    pub(crate) int64_value: i64,
+    pub(crate) uint64_value: u64,
+    pub(crate) float64_value: f64,
+}
+
 unsafe extern "C" {
     fn psimdjson_get_implementation_name_len(out_len: *mut usize) -> pure_simdjson_error_code_t;
     fn psimdjson_copy_implementation_name(
@@ -145,6 +161,12 @@ unsafe extern "C" {
         key_ptr: *const u8,
         key_len: usize,
         out_value_json_index: *mut u64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_materialize_build(
+        doc: *mut psimdjson_doc,
+        json_index: u64,
+        out_frames: *mut *const psdj_internal_frame_t,
+        out_frame_count: *mut usize,
     ) -> pure_simdjson_error_code_t;
 
     fn psimdjson_test_force_cpp_exception() -> pure_simdjson_error_code_t;
@@ -560,6 +582,29 @@ pub(crate) fn native_object_get_field_index(
         return Err(err_internal());
     }
     Ok(value_json_index)
+}
+
+pub(crate) fn native_materialize_build(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<(*const psdj_internal_frame_t, usize), pure_simdjson_error_code_t> {
+    let mut frames = ptr::null();
+    let mut frame_count = 0_usize;
+    let rc = unsafe {
+        psimdjson_materialize_build(
+            doc_ptr as *mut psimdjson_doc,
+            json_index,
+            &mut frames,
+            &mut frame_count,
+        )
+    };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    if frames.is_null() || frame_count == 0 {
+        return Err(err_internal());
+    }
+    Ok((frames, frame_count))
 }
 
 pub(crate) fn selected_implementation_name_for_parser_new(
