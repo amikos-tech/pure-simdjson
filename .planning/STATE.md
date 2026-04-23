@@ -27,9 +27,9 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 
 Phase: 08 (low-overhead-dom-traversal-abi-and-specialized-go-any-materializer) — READY
 Plan: 0 of 0
-Status: Awaiting planning
+Status: Phase 07 shipped as PR #18; Phase 08 awaiting planning
 Last activity: 2026-04-23
-Shipping: `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline; Phase 08 now owns the low-overhead traversal/materialization follow-up before any new benchmark-positioning or release decision
+Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline; Phase 08 now owns the low-overhead traversal/materialization follow-up before any new benchmark-positioning or release decision
 
 Progress: [██████████] 100%
 
