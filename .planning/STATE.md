@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 08-02; ready for 08-03
-last_updated: "2026-04-23T17:29:57Z"
+stopped_at: Completed 08-03; ready for 08-04
+last_updated: "2026-04-23T17:45:14Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 14
   completed_phases: 8
   total_plans: 42
-  completed_plans: 39
-  percent: 93
+  completed_plans: 40
+  percent: 95
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-15)
 ## Current Position
 
 Phase: 08 (low-overhead-dom-traversal-abi-and-specialized-go-any-materializer) — EXECUTING
-Plan: 2 of 5
-Status: 08-02 complete; ready for 08-03
+Plan: 3 of 5
+Status: 08-03 complete; ready for 08-04
 Last activity: 2026-04-23
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline; Phase 08 now owns the low-overhead traversal/materialization follow-up before any new benchmark-positioning or release decision
 
-Progress: [█████████▎] 93%
+Progress: [█████████▌] 95%
 
 ## Performance Metrics
 
@@ -53,7 +53,7 @@ Progress: [█████████▎] 93%
 
 **Recent Trend:**
 
-- Last 5 plans: 07-02, 07-03, 07-04, 08-01, 08-02
+- Last 5 plans: 07-03, 07-04, 08-01, 08-02, 08-03
 - Trend: Stable
 
 | Phase 04 P01 | 16m | 2 tasks | 7 files |
@@ -79,6 +79,7 @@ Progress: [█████████▎] 93%
 | Phase 07 P04 | 4min | 2 tasks | 8 files |
 | Phase 08 P01 | 8min | 2 tasks | 5 files |
 | Phase 08 P02 | 12min | 2 tasks | 7 files |
+| Phase 08 P03 | 9min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -173,6 +174,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 08]: FastMaterializer oversized-literal parse-rejection tests use `18446744073709551616` as the current public `ErrInvalidJSON` fixture; larger BIGINT-style literals remain separate precision-loss behavior for later implementation plans.
 - [Phase 08]: `psdj_internal_materialize_build` validates `ValueView` once in the Rust registry, then traverses a root or subtree into doc-owned native frame scratch guarded by `materialize_in_progress`.
 - [Phase 08]: Oversized integer literals now normalize to parse-time `PURE_SIMDJSON_ERR_INVALID_JSON` at `psimdjson_parser_parse`, so the internal frame builder never exposes BIGINT nodes or partial frame spans.
+- [Phase 08]: Go mirrors `psdj_internal_frame_t` as a 72-byte `ffi.InternalFrame`, binds `psdj_internal_materialize_build`, and consumes the borrowed frame slice without copying it in `internal/ffi`.
+- [Phase 08]: `fastMaterializeElement` stays internal, holds `doc.mu` while consuming borrowed frames, copies keys/strings at the Go value boundary, and rejects leftover or under-consumed frame spans with `ErrInternal`.
+- [Phase 08]: `Doc.isClosed()` now uses a non-blocking mutex check so fast-materializer contention surfaces `ErrParserBusy` instead of deadlocking before the `TryLock` guard.
 
 ### Pending Todos
 
@@ -185,8 +189,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T17:29:57Z
-Stopped at: Completed 08-02; ready for 08-03
-Resume file: .planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-03-PLAN.md
+Last session: 2026-04-23T17:45:14Z
+Stopped at: Completed 08-03; ready for 08-04
+Resume file: .planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-04-PLAN.md
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z
