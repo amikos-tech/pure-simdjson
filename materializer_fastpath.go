@@ -21,14 +21,91 @@ func fastMaterializeElement(element Element) (any, error) {
 		return nil, ErrClosed
 	}
 
-	frames, rc := doc.parser.library.bindings.InternalMaterializeBuild(&element.view)
-	if err := wrapStatus(rc); err != nil {
-		return nil, err
-	}
+	bindings := doc.parser.library.bindings
 	// KeepAlive must run after the final borrowed frame read.
 	defer runtime.KeepAlive(doc)
 
+	if !bindings.HasInternalMaterializeBuild() {
+		return materializeElementViaAccessors(element)
+	}
+
+	frames, rc := bindings.InternalMaterializeBuild(&element.view)
+	if err := wrapStatus(rc); err != nil {
+		return nil, err
+	}
+
 	return buildAnyFromFrames(frames)
+}
+
+func materializeElementViaAccessors(element Element) (any, error) {
+	kind := ElementType(element.view.KindHint)
+	if kind == TypeInvalid {
+		resolvedKind, err := element.TypeErr()
+		if err != nil {
+			return nil, err
+		}
+		kind = resolvedKind
+	}
+
+	switch kind {
+	case TypeNull:
+		isNull, err := element.IsNullErr()
+		if err != nil {
+			return nil, err
+		}
+		if !isNull {
+			return nil, ErrInternal
+		}
+		return nil, nil
+	case TypeBool:
+		return element.GetBool()
+	case TypeInt64:
+		return element.GetInt64()
+	case TypeUint64:
+		return element.GetUint64()
+	case TypeFloat64:
+		return element.GetFloat64()
+	case TypeString:
+		return element.GetString()
+	case TypeArray:
+		array, err := element.AsArray()
+		if err != nil {
+			return nil, err
+		}
+		iter := array.Iter()
+		values := make([]any, 0)
+		for iter.Next() {
+			value, err := materializeElementViaAccessors(iter.Value())
+			if err != nil {
+				return nil, err
+			}
+			values = append(values, value)
+		}
+		if err := iter.Err(); err != nil {
+			return nil, err
+		}
+		return values, nil
+	case TypeObject:
+		object, err := element.AsObject()
+		if err != nil {
+			return nil, err
+		}
+		iter := object.Iter()
+		values := make(map[string]any)
+		for iter.Next() {
+			value, err := materializeElementViaAccessors(iter.Value())
+			if err != nil {
+				return nil, err
+			}
+			values[iter.Key()] = value
+		}
+		if err := iter.Err(); err != nil {
+			return nil, err
+		}
+		return values, nil
+	default:
+		return nil, ErrInternal
+	}
 }
 
 func buildAnyFromFrames(frames []ffi.InternalFrame) (any, error) {

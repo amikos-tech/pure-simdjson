@@ -44,6 +44,8 @@ type Bindings struct {
 	objectIterNext           func(*ObjectIter, *ValueView, *ValueView, *byte) int32
 	objectGetField           func(*ValueView, *byte, uintptr, *ValueView) int32
 	internalMaterializeBuild func(*ValueView, **InternalFrame, *uintptr) int32
+	hasNativeAllocStats      bool
+	hasInternalMaterializer  bool
 }
 
 type SymbolLookup func(handle uintptr, name string) (uintptr, error)
@@ -58,8 +60,6 @@ func Bind(handle uintptr, lookup SymbolLookup) (*Bindings, error) {
 		{name: "pure_simdjson_get_abi_version", target: &b.getABIVersion},
 		{name: "pure_simdjson_get_implementation_name_len", target: &b.getImplementationNameLen},
 		{name: "pure_simdjson_copy_implementation_name", target: &b.copyImplementationName},
-		{name: "pure_simdjson_native_alloc_stats_reset", target: &b.nativeAllocStatsReset},
-		{name: "pure_simdjson_native_alloc_stats_snapshot", target: &b.nativeAllocStatsSnapshot},
 		{name: "pure_simdjson_parser_new", target: &b.parserNew},
 		{name: "pure_simdjson_parser_free", target: &b.parserFree},
 		{name: "pure_simdjson_parser_parse", target: &b.parserParse},
@@ -81,7 +81,6 @@ func Bind(handle uintptr, lookup SymbolLookup) (*Bindings, error) {
 		{name: "pure_simdjson_object_iter_new", target: &b.objectIterNew},
 		{name: "pure_simdjson_object_iter_next", target: &b.objectIterNext},
 		{name: "pure_simdjson_object_get_field", target: &b.objectGetField},
-		{name: "psdj_internal_materialize_build", target: &b.internalMaterializeBuild},
 	}
 
 	for _, symbol := range symbols {
@@ -89,6 +88,24 @@ func Bind(handle uintptr, lookup SymbolLookup) (*Bindings, error) {
 			return nil, err
 		}
 	}
+	resetRegistered, err := registerOptionalFunc(handle, lookup, "pure_simdjson_native_alloc_stats_reset", &b.nativeAllocStatsReset)
+	if err != nil {
+		return nil, err
+	}
+	snapshotRegistered, err := registerOptionalFunc(handle, lookup, "pure_simdjson_native_alloc_stats_snapshot", &b.nativeAllocStatsSnapshot)
+	if err != nil {
+		return nil, err
+	}
+	b.hasNativeAllocStats = resetRegistered && snapshotRegistered
+	if !b.hasNativeAllocStats {
+		b.nativeAllocStatsReset = nil
+		b.nativeAllocStatsSnapshot = nil
+	}
+	registered, err := registerOptionalFunc(handle, lookup, "psdj_internal_materialize_build", &b.internalMaterializeBuild)
+	if err != nil {
+		return nil, err
+	}
+	b.hasInternalMaterializer = registered
 
 	return b, nil
 }
@@ -99,6 +116,25 @@ func registerFunc(handle uintptr, lookup SymbolLookup, name string, target any) 
 		return fmt.Errorf("lookup %s: %w", name, err)
 	}
 
+	return registerResolvedFunc(name, target, sym)
+}
+
+func registerOptionalFunc(handle uintptr, lookup SymbolLookup, name string, target any) (bool, error) {
+	sym, err := lookup(handle, name)
+	if err != nil {
+		// Internal symbols may be absent from released/bootstrap artifacts. Treat
+		// lookup failure as "feature unavailable" instead of failing binding
+		// before the public ABI/version checks run.
+		return false, nil
+	}
+
+	if err := registerResolvedFunc(name, target, sym); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func registerResolvedFunc(name string, target any, sym uintptr) (err error) {
 	defer func() {
 		if panicVal := recover(); panicVal != nil {
 			err = fmt.Errorf("register %s: %v", name, panicVal)
@@ -107,6 +143,14 @@ func registerFunc(handle uintptr, lookup SymbolLookup, name string, target any) 
 
 	purego.RegisterFunc(target, sym)
 	return nil
+}
+
+func (b *Bindings) HasInternalMaterializeBuild() bool {
+	return b != nil && b.hasInternalMaterializer
+}
+
+func (b *Bindings) HasNativeAllocStats() bool {
+	return b != nil && b.hasNativeAllocStats
 }
 
 func (b *Bindings) ABI() (uint32, int32) {
@@ -144,12 +188,20 @@ func (b *Bindings) ImplementationName() (string, int32) {
 }
 
 func (b *Bindings) NativeAllocStatsReset() int32 {
+	if b == nil || b.nativeAllocStatsReset == nil {
+		return int32(ErrInternal)
+	}
+
 	rc := b.nativeAllocStatsReset()
 	runtime.KeepAlive(b)
 	return rc
 }
 
 func (b *Bindings) NativeAllocStatsSnapshot() (NativeAllocStats, int32) {
+	if b == nil || b.nativeAllocStatsSnapshot == nil {
+		return NativeAllocStats{}, int32(ErrInternal)
+	}
+
 	var stats NativeAllocStats
 	rc := b.nativeAllocStatsSnapshot(&stats)
 	runtime.KeepAlive(b)
@@ -373,6 +425,10 @@ func (b *Bindings) ObjectGetField(view *ValueView, key string) (ValueView, int32
 }
 
 func (b *Bindings) InternalMaterializeBuild(view *ValueView) ([]InternalFrame, int32) {
+	if b == nil || b.internalMaterializeBuild == nil {
+		return nil, int32(ErrInternal)
+	}
+
 	var ptr *InternalFrame
 	var count uintptr
 	rc := b.internalMaterializeBuild(view, &ptr, &count)

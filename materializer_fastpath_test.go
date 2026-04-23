@@ -43,6 +43,19 @@ func TestFastMaterializerParity(t *testing.T) {
 	}
 }
 
+func TestAccessorMaterializerParity(t *testing.T) {
+	_, doc := mustParseDoc(t, `{"outer":[1,18446744073709551615,3.5,true,null,"value",{"nested":"yes"}]}`)
+
+	want := materializeViaAccessorsForTest(t, doc.Root())
+	got, err := materializeElementViaAccessors(doc.Root())
+	if err != nil {
+		t.Fatalf("materializeElementViaAccessors() error = %v", err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("materializeElementViaAccessors() = %#v, want %#v", got, want)
+	}
+}
+
 func TestFastMaterializerNumericSemantics(t *testing.T) {
 	_, doc := mustParseDoc(t, `[9223372036854775807,18446744073709551615,1.25]`)
 

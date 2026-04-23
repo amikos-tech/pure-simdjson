@@ -21,6 +21,7 @@ Ship a precision-preserving, cgo-free simdjson DOM API for Go with honest benchm
 - [x] **Phase 7: Benchmarks + Release-Facing Artifacts** — Three-tier benchmark harness vs `encoding/json`, `simdjson-go`, `sonic`, `goccy/go-json`; correctness oracle; benchmark/docs/legal artifacts; explicit handoff to later performance and release work
 - [ ] **Phase 8: Low-overhead DOM traversal ABI and specialized Go any materializer** — Fold the old DOM-materialization backlog into the active milestone with a lower-overhead traversal surface, one-copy string extraction, exact container sizing, and a specialized Go `any` builder
 - [ ] **Phase 9: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh** — Reframe the benchmark story around measured Tier 1/Tier 2/Tier 3 strengths, then rerun and publish evidence after Phase 8 lands
+- [ ] **Phase 09.1: Bootstrap artifact and ABI alignment for default installs (INSERTED)** — Align the bootstrap-pinned public artifact/version/checksum state with the current ABI and validate the default-install path after Phase 9 locks the benchmark/release story
 
 ## Phase Details
 
@@ -385,7 +386,7 @@ The remaining phases follow established patterns from `pure-tokenizers`, `pure-o
 **Mapped:** 64
 **Orphans:** 0
 
-Phases 8 and 9 are follow-on performance and positioning work against already-mapped BENCH/DOC requirements. They do not introduce new requirement IDs; they exist to replace an invalidated benchmark assumption with measured evidence and a lower-overhead implementation path.
+Phases 8, 9, and 09.1 are follow-on performance, positioning, and release-alignment work against already-mapped BENCH/DOC requirements. They do not introduce new requirement IDs; they exist to replace an invalidated benchmark assumption with measured evidence, a lower-overhead implementation path, and release/bootstrap state that matches the current ABI.
 
 ## Out of Scope for v0.1
 
@@ -411,6 +412,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 7. Benchmarks + Release-Facing Artifacts | 6/6 | Complete | 2026-04-23 |
 | 8. Low-overhead DOM traversal ABI and specialized Go any materializer | 1/5 | In progress | — |
 | 9. Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh | 0/0 | Not started | — |
+| 9.1. Bootstrap artifact and ABI alignment for default installs | 0/0 | Not started | — |
 
 Plan counts populated by `/gsd-plan-phase`.
 
@@ -489,6 +491,18 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 9 to break down)
+
+### Phase 09.1: Bootstrap artifact and ABI alignment for default installs (INSERTED)
+
+**Goal:** After Phase 9 locks the public benchmark/release story, align the bootstrap-pinned artifact/version/checksum state with a published library that matches the current Go/native ABI, then revalidate the default-install path so `NewParser()` succeeds through the intended bootstrap contract instead of relying on locally built libraries.
+
+**Requirements:** TBD — promoted from the Phase 8/Phase 9 handoff after the loader compatibility fix proved bind-time optional-symbol handling is no longer the blocker, while the default bootstrap path remains pinned to `v0.1.0` and therefore fails at the ABI gate against the current `0x00010001` expectation.
+
+**Depends on:** Phase 9
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 09.1 to break down)
 
 ---
 *Roadmap created: 2026-04-14 from PROJECT.md, REQUIREMENTS.md, and research/SUMMARY.md*

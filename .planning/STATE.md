@@ -7,7 +7,7 @@ stopped_at: Phase 08 complete; next up Phase 09 discussion/planning
 last_updated: "2026-04-23T21:26:00Z"
 last_activity: 2026-04-23
 progress:
-  total_phases: 14
+  total_phases: 15
   completed_phases: 9
   total_plans: 42
   completed_plans: 42
@@ -94,6 +94,7 @@ Progress: [██████████] 100%
 - Phase 07 learnings were extracted on 2026-04-23 into `.planning/phases/07-benchmarks-v0.1-release/07-LEARNINGS.md`, preserving benchmark positioning decisions, execution lessons, reusable patterns, and surprises for Phase 08 and Phase 09 planning
 - Phase 08 added: Low-overhead DOM traversal ABI and specialized Go any materializer. This folds the old 999.6 DOM-materialization ABI idea into the active milestone after Tier 1 diagnostics showed materialization, not parse, dominates the current full-`any` path
 - Phase 09 added: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh. This phase exists to replace the invalidated BENCH-07 headline with a measured benchmark story after Phase 08 lands
+- Phase 09.1 inserted after Phase 09: Bootstrap artifact and ABI alignment for default installs (URGENT)
 - Backlog items 999.6 and 999.7 were retired from the parking lot: 999.6 is now active milestone work under Phase 08, and 999.7's diagnostic split was implemented during Phase 07 investigation to justify the new direction
 
 ### Decisions
