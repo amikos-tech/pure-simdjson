@@ -56,6 +56,20 @@ type ValueView struct {
 	Reserved uint32
 }
 
+type InternalFrame struct {
+	Kind         uint32
+	Flags        uint32
+	ChildCount   uint32
+	Reserved     uint32
+	KeyPtr       uintptr
+	KeyLen       uintptr
+	StringPtr    uintptr
+	StringLen    uintptr
+	Int64Value   int64
+	Uint64Value  uint64
+	Float64Value float64
+}
+
 type ArrayIter struct {
 	Doc      DocHandle
 	State0   uint64

@@ -28,21 +28,22 @@ type Bindings struct {
 	parserCopyLastError      func(ParserHandle, *byte, uintptr, *uintptr) int32
 	parserGetLastErrorOffset func(ParserHandle, *uint64) int32
 
-	docFree           func(DocHandle) int32
-	docRoot           func(DocHandle, *ValueView) int32
-	elementType       func(*ValueView, *uint32) int32
-	elementGetInt64   func(*ValueView, *int64) int32
-	elementGetUint64  func(*ValueView, *uint64) int32
-	elementGetFloat64 func(*ValueView, *float64) int32
-	elementGetString  func(*ValueView, **byte, *uintptr) int32
-	bytesFree         func(*byte, uintptr) int32
-	elementGetBool    func(*ValueView, *byte) int32
-	elementIsNull     func(*ValueView, *byte) int32
-	arrayIterNew      func(*ValueView, *ArrayIter) int32
-	arrayIterNext     func(*ArrayIter, *ValueView, *byte) int32
-	objectIterNew     func(*ValueView, *ObjectIter) int32
-	objectIterNext    func(*ObjectIter, *ValueView, *ValueView, *byte) int32
-	objectGetField    func(*ValueView, *byte, uintptr, *ValueView) int32
+	docFree                  func(DocHandle) int32
+	docRoot                  func(DocHandle, *ValueView) int32
+	elementType              func(*ValueView, *uint32) int32
+	elementGetInt64          func(*ValueView, *int64) int32
+	elementGetUint64         func(*ValueView, *uint64) int32
+	elementGetFloat64        func(*ValueView, *float64) int32
+	elementGetString         func(*ValueView, **byte, *uintptr) int32
+	bytesFree                func(*byte, uintptr) int32
+	elementGetBool           func(*ValueView, *byte) int32
+	elementIsNull            func(*ValueView, *byte) int32
+	arrayIterNew             func(*ValueView, *ArrayIter) int32
+	arrayIterNext            func(*ArrayIter, *ValueView, *byte) int32
+	objectIterNew            func(*ValueView, *ObjectIter) int32
+	objectIterNext           func(*ObjectIter, *ValueView, *ValueView, *byte) int32
+	objectGetField           func(*ValueView, *byte, uintptr, *ValueView) int32
+	internalMaterializeBuild func(*ValueView, **InternalFrame, *uintptr) int32
 }
 
 type SymbolLookup func(handle uintptr, name string) (uintptr, error)
@@ -80,6 +81,7 @@ func Bind(handle uintptr, lookup SymbolLookup) (*Bindings, error) {
 		{name: "pure_simdjson_object_iter_new", target: &b.objectIterNew},
 		{name: "pure_simdjson_object_iter_next", target: &b.objectIterNext},
 		{name: "pure_simdjson_object_get_field", target: &b.objectGetField},
+		{name: "psdj_internal_materialize_build", target: &b.internalMaterializeBuild},
 	}
 
 	for _, symbol := range symbols {
@@ -368,4 +370,23 @@ func (b *Bindings) ObjectGetField(view *ValueView, key string) (ValueView, int32
 	runtime.KeepAlive(view)
 	runtime.KeepAlive(b)
 	return value, rc
+}
+
+func (b *Bindings) InternalMaterializeBuild(view *ValueView) ([]InternalFrame, int32) {
+	var ptr *InternalFrame
+	var count uintptr
+	rc := b.internalMaterializeBuild(view, &ptr, &count)
+	runtime.KeepAlive(view)
+	runtime.KeepAlive(b)
+	if rc != int32(OK) {
+		return nil, rc
+	}
+	if count == 0 {
+		return nil, int32(OK)
+	}
+	// ptr == nil with a non-empty frame span is ErrInternal.
+	if ptr == nil {
+		return nil, int32(ErrInternal)
+	}
+	return unsafe.Slice(ptr, count), int32(OK)
 }
