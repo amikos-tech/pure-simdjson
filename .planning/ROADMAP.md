@@ -473,7 +473,7 @@ Plans:
 
 Plans:
 - [x] `08-01-PLAN.md` — Wave 0 guardrails, fast-materializer test names, public-header internal-symbol audit, and Phase 8 benchmark artifact directory
-- [ ] `08-02-PLAN.md` — Internal native frame-stream ABI, Rust/C++ bridge, cbindgen exclusion, and Rust root/subtree frame tests
+- [x] `08-02-PLAN.md` — Internal native frame-stream ABI, Rust/C++ bridge, cbindgen exclusion, and Rust root/subtree frame tests
 - [ ] `08-03-PLAN.md` — Go internal frame binding, unexported fast materializer, and active correctness/lifetime/subtree tests
 - [ ] `08-04-PLAN.md` — Tier 1 benchmark wiring through the fast materializer with stable diagnostic row names
 - [ ] `08-05-PLAN.md` — Phase 8 diagnostic benchmark capture, benchstat comparison, and internal Phase 9 handoff notes
