@@ -31,6 +31,19 @@ typedef struct psdj_internal_frame_t {
   double float64_value;
 } psdj_internal_frame_t;
 
+/* Layout is pinned across C++, Rust (psdj_internal_frame_t in
+ * src/runtime/mod.rs), and Go (InternalFrame in internal/ffi/types.go).
+ * Expressed in terms of field widths so 32-bit targets (pointer=4) would
+ * still pass without masking a real field addition. Go has the
+ * complementary offset-by-offset check in internal/ffi/types_test.go.
+ */
+#ifdef __cplusplus
+static_assert(
+    sizeof(psdj_internal_frame_t) == 16 + 4 * sizeof(void *) + 24,
+    "psdj_internal_frame_t layout changed - update C++ (this header), "
+    "Rust (src/runtime/mod.rs), and Go (InternalFrame) together");
+#endif
+
 pure_simdjson_error_code_t psimdjson_get_implementation_name_len(size_t *out_len) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_copy_implementation_name(
     uint8_t *dst,

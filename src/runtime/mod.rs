@@ -59,6 +59,17 @@ pub(crate) struct psdj_internal_frame_t {
     pub(crate) float64_value: f64,
 }
 
+// Layout is pinned across Rust, C++ (psdj_internal_frame_t in
+// simdjson_bridge.h), and Go (InternalFrame in internal/ffi/types.go).
+// Expressed in terms of field widths so 32-bit targets (pointer=4) would
+// still pass without masking a real field addition. Go has the
+// complementary offset-by-offset check in internal/ffi/types_test.go.
+const _: () = assert!(
+    core::mem::size_of::<psdj_internal_frame_t>()
+        == 16 + 4 * core::mem::size_of::<usize>() + 24,
+    "psdj_internal_frame_t layout changed — update Rust, C++ (simdjson_bridge.h), and Go (InternalFrame) together",
+);
+
 unsafe extern "C" {
     fn psimdjson_get_implementation_name_len(out_len: *mut usize) -> pure_simdjson_error_code_t;
     fn psimdjson_copy_implementation_name(
