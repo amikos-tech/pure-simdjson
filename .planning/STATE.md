@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: ready_to_plan
-stopped_at: Phase 08 complete; next up Phase 09 discussion/planning
+status: Phase 08 shipped — PR #19
+stopped_at: Phase 08 shipped; PR #19 open for review/CI
 last_updated: "2026-04-24T07:18:35Z"
 last_activity: 2026-04-24
 progress:
@@ -27,9 +27,9 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 Phase: 09 (benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — READY TO PLAN
 Plan: 0 of 0
-Status: Phase 08 complete; next up is Phase 09 discussion/planning
+Status: Phase 08 shipped; PR #19 open for review/CI
 Last activity: 2026-04-24
-Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline, Phase 08 now adds committed internal Tier 1 improvement evidence, and Phase 09 owns any public benchmark-positioning or release decision from here.
+Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline, Phase 08 now adds committed internal Tier 1 improvement evidence, and Phase 09 owns any public benchmark-positioning or release decision from here.
 
 Progress: [██████████] 100%
 
