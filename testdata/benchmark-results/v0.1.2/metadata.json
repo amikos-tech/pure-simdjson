@@ -1,0 +1,18 @@
+{
+  "captured_at_utc": "2026-04-24T12:53:27Z",
+  "commands": [
+    "go test ./... -run '^$' -bench 'Benchmark(Tier1FullParse|Tier2Typed|Tier3SelectivePlaceholder)_' -benchmem -count=10 -timeout 1200s > testdata/benchmark-results/v0.1.2/phase9.bench.txt",
+    "go test ./... -run '^$' -bench 'Benchmark(ColdStart|Warm)_' -benchmem -count=10 -timeout 1200s > testdata/benchmark-results/v0.1.2/coldwarm.bench.txt",
+    "go test ./... -run '^$' -bench 'BenchmarkTier1Diagnostics_' -benchmem -count=10 -timeout 1200s > testdata/benchmark-results/v0.1.2/tier1-diagnostics.bench.txt"
+  ],
+  "commit": "a47c561fd14ac1c580a38ba705ae7edab2debd1d",
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "go_version": "go version go1.24.13 linux/amd64",
+  "goarch": "amd64",
+  "goos": "linux",
+  "pkg": "github.com/amikos-tech/pure-simdjson",
+  "runner_arch": "X64",
+  "runner_os": "Linux",
+  "rustc_version": "rustc 1.89.0 (29483883e 2025-08-04)",
+  "snapshot": "v0.1.2"
+}
