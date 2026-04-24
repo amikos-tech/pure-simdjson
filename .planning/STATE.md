@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: "Phase 09 Plan 03 ready"
-stopped_at: Phase 09 Plan 03 docs refresh
-last_updated: "2026-04-24T14:10:00Z"
-last_activity: "2026-04-24 - Imported linux/amd64 pre-Phase-8 baseline evidence, regenerated v0.1.2 benchstat outputs, and passed the claim gate"
+status: "Phase 09 complete"
+stopped_at: Phase 09 complete; Phase 09.1 ready
+last_updated: "2026-04-24T14:25:00Z"
+last_activity: "2026-04-24 - Published v0.1.2 linux/amd64 benchmark docs, README positioning, and changelog notes from the passing claim gate"
 progress:
   total_phases: 16
   completed_phases: 9
@@ -25,10 +25,10 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 ## Current Position
 
-Phase: 09 (benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — IN PROGRESS
-Plan: 3 of 3 (ready)
-Status: Phase 09 Plan 03 ready
-Last activity: 2026-04-24 - Imported linux/amd64 pre-Phase-8 baseline evidence, regenerated v0.1.2 benchstat outputs, and passed the claim gate
+Phase: 09 (benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — COMPLETE
+Plan: 3 of 3 (complete)
+Status: Phase 09 complete; Phase 09.1 ready
+Last activity: 2026-04-24 - Published v0.1.2 linux/amd64 benchmark docs, README positioning, and changelog notes from the passing claim gate
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline, Phase 08 now adds committed internal Tier 1 improvement evidence, and Phase 09 owns any public benchmark-positioning or release decision from here.
 
 Progress: [██████████] 100%
@@ -206,14 +206,14 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Phase 09] Plan 09-02 now uses committed linux/amd64 CI evidence as the old/new baseline (`testdata/benchmark-results/v0.1.1-linux-amd64`) and the `v0.1.2` claim gate passes with empty `summary.json.errors`. Plan 09-03 docs may proceed.
+- [Phase 09.1] Bootstrap artifact and ABI alignment remains urgent before any v0.1.2 release tag or default-install claim.
 - [Phase 02 advisory] Review whether parse-time `simdjson::UNSUPPORTED_ARCHITECTURE` should map to `PURE_SIMDJSON_ERR_CPU_UNSUPPORTED` instead of `PURE_SIMDJSON_ERR_INTERNAL`.
 - [Phase 02 advisory] Clean up stale public comments for now-live exports and decide whether `last_error_offset` should remain sentinel-only or surface real offsets.
 
 ## Session Continuity
 
-Last session: 2026-04-24T14:10:00Z
-Stopped at: Phase 09 Plan 03 docs refresh
-Resume file: .planning/phases/09-benchmark-gate-recalibration-tier-1-2-3-positioning-and-post/09-03-PLAN.md
+Last session: 2026-04-24T14:25:00Z
+Stopped at: Phase 09 complete; Phase 09.1 ready
+Resume file: .planning/phases/09.1-bootstrap-artifact-and-abi-alignment-for-default-installs
 
-**Planned Phase:** 09 (Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — Plan 09-03 ready after linux/amd64 baseline correction — 2026-04-24T14:10:00Z
+**Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — ready after Phase 09 docs completion — 2026-04-24T14:25:00Z
