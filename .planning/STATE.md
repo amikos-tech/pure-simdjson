@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: Phase 08 shipped — PR #19
-stopped_at: Phase 08 shipped; PR #19 open for review/CI
-last_updated: "2026-04-24T07:18:35Z"
-last_activity: 2026-04-24
+status: "Phase 09 shipped — PR #21"
+stopped_at: Phase 09 shipped; PR #21 open for review/CI
+last_updated: "2026-04-24T18:02:04Z"
+last_activity: "2026-04-24 - Shipped Phase 09 in PR #21 and queued Phase 09.1"
 progress:
-  total_phases: 15
+  total_phases: 16
   completed_phases: 9
   total_plans: 42
   completed_plans: 42
@@ -21,15 +21,15 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 **Core value:** Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning: typed extraction and selective traversal are the primary story, while full `any` materialization is documented without overstating current wins.
-**Current focus:** Phase 09 — benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh
+**Current focus:** Phase 09.1 — bootstrap artifact and ABI alignment for default installs
 
 ## Current Position
 
-Phase: 09 (benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — READY TO PLAN
+Phase: 09.1 (bootstrap artifact and ABI alignment for default installs) — READY TO PLAN
 Plan: 0 of 0
-Status: Phase 08 shipped; PR #19 open for review/CI
-Last activity: 2026-04-24 - Completed quick task pr19-review-items-1-2-3-5: PR #19 polish items 1/2/3/5 (docs + native-side size asserts)
-Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline, Phase 08 now adds committed internal Tier 1 improvement evidence, and Phase 09 owns any public benchmark-positioning or release decision from here.
+Status: Phase 09 shipped; PR #21 open for review/CI
+Last activity: 2026-04-24 - Shipped Phase 09 in PR #21 and queued Phase 09.1
+Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
 
 Progress: [██████████] 100%
 
@@ -37,7 +37,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 33
+- Total plans completed: 34
 - Average duration: 11.1m
 - Total execution time: 1.4 hours
 
@@ -53,7 +53,7 @@ Progress: [██████████] 100%
 
 **Recent Trend:**
 
-- Last 5 plans: 08-01, 08-02, 08-03, 08-04, 08-05
+- Last 5 plans: 08-02, 08-03, 08-04, 08-05, 09-01
 - Trend: Stable
 
 | Phase 04 P01 | 16m | 2 tasks | 7 files |
@@ -82,6 +82,7 @@ Progress: [██████████] 100%
 | Phase 08 P03 | 9min | 2 tasks | 6 files |
 | Phase 08 P04 | 6min | 2 tasks | 2 files |
 | Phase 08 P05 | 29min | 2 tasks | 7 files |
+| Phase 09 P01 | 7min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,12 @@ Progress: [██████████] 100%
 | 2026-04-24 | phase8-pr-review-feedback | Applied Phase 8 PR review fixes for materializer depth guarding, optional-symbol/fallback observability, unsafe frame diagnostics, not-implemented telemetry status, span contract tests/docs, and benchmark regression checks. |
 | 2026-04-24 | pr19-review-items-1-2-3-5 | Addressed PR #19 polish items 1/2/3/5: documented `InternalMaterializeBuild` frame-span lifecycle, expanded the LIFO defer ordering comment in the fast materializer, added native-side (Rust + C++) size asserts for `psdj_internal_frame_t` (field-width expression, 32-bit safe), and documented `psimdjson_test_hold_materialize_guard`'s by-design `PARSER_BUSY` return. Comments-and-asserts only — Tier 1 diagnostics benchstat shows no regression (B/op and allocs/op identical, geomean sec/op within noise). |
 
+### Learning Extractions
+
+| Date | Phase | Output |
+|------|-------|--------|
+| 2026-04-24 | 08 | `.planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-LEARNINGS.md` |
+
 ### Roadmap Evolution
 
 - Phase 06.1 inserted after Phase 06: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (promoted from backlog item 999.4)
@@ -105,7 +112,8 @@ Progress: [██████████] 100%
 - Phase 08 added: Low-overhead DOM traversal ABI and specialized Go any materializer. This folds the old 999.6 DOM-materialization ABI idea into the active milestone after Tier 1 diagnostics showed materialization, not parse, dominates the current full-`any` path
 - Phase 09 added: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh. This phase exists to replace the invalidated BENCH-07 headline with a measured benchmark story after Phase 08 lands
 - Phase 09.1 inserted after Phase 09: Bootstrap artifact and ABI alignment for default installs (URGENT)
-- Backlog items 999.6 and 999.7 were retired from the parking lot: 999.6 is now active milestone work under Phase 08, and 999.7's diagnostic split was implemented during Phase 07 investigation to justify the new direction
+- Phase 10 added: Lightweight PR benchmark regression signal, promoted from backlog item 999.8 and explicitly scoped to a cheap Tier 1/Tier 2/Tier 3 `pull_request` benchmark check rather than the heavier Phase 9 release-evidence capture
+- Backlog items 999.6, 999.7, and 999.8 were retired from the parking lot: 999.6 is now active milestone work under Phase 08, 999.7's diagnostic split was implemented during Phase 07 investigation to justify the new direction, and 999.8 is now active milestone work under Phase 10
 
 ### Decisions
 
@@ -199,13 +207,14 @@ None yet.
 
 ### Blockers/Concerns
 
+- [Phase 09.1] Bootstrap artifact and ABI alignment remains urgent before any v0.1.2 release tag or default-install claim.
 - [Phase 02 advisory] Review whether parse-time `simdjson::UNSUPPORTED_ARCHITECTURE` should map to `PURE_SIMDJSON_ERR_CPU_UNSUPPORTED` instead of `PURE_SIMDJSON_ERR_INTERNAL`.
 - [Phase 02 advisory] Clean up stale public comments for now-live exports and decide whether `last_error_offset` should remain sentinel-only or surface real offsets.
 
 ## Session Continuity
 
-Last session: 2026-04-23T21:26:00Z
-Stopped at: Phase 08 complete; next up Phase 09 discussion/planning
-Resume file: .planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-VERIFICATION.md
+Last session: 2026-04-24T14:25:00Z
+Stopped at: Phase 09 shipped; PR #21 open for review/CI
+Resume file: .planning/phases/09.1-bootstrap-artifact-and-abi-alignment-for-default-installs
 
-**Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z
+**Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — ready after Phase 09 docs completion — 2026-04-24T14:25:00Z

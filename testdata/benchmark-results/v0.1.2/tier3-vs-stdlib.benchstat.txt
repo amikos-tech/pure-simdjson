@@ -1,0 +1,49 @@
+goos: linux
+goarch: amd64
+pkg: github.com/amikos-tech/pure-simdjson
+cpu: AMD EPYC 7763 64-Core Processor
+                                              │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-candidate.bench.txt │
+                                              │                                    sec/op                                     │                           sec/op                            vs base                │
+Tier3SelectivePlaceholder_twitter_json-4                                                                         4999.7µ ± 1%                                                  313.0µ ± 1%  -93.74% (p=0.000 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json-4                                                                    17.844m ± 1%                                                  1.176m ± 1%  -93.41% (p=0.000 n=10)
+geomean                                                                                                           9.446m                                                       606.6µ       -93.58%
+
+                                              │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-candidate.bench.txt │
+                                              │                                      B/s                                      │                           B/s                             vs base                  │
+Tier3SelectivePlaceholder_twitter_json-4                                                                         120.5Mi ± 1%                                              1924.2Mi ± 1%  +1497.37% (p=0.000 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json-4                                                                    92.31Mi ± 1%                                             1401.00Mi ± 1%  +1417.78% (p=0.000 n=10)
+geomean                                                                                                          105.4Mi                                                    1.603Gi       +1457.07%
+
+                                              │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-candidate.bench.txt │
+                                              │                               native-allocs/op                                │                         native-allocs/op                          vs base          │
+Tier3SelectivePlaceholder_twitter_json-4                                                                         0.000 ± 0%                                                           3.000 ± 0%  ? (p=0.000 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json-4                                                                    0.000 ± 0%                                                           3.000 ± 0%  ? (p=0.000 n=10)
+geomean                                                                                                                     ¹                                                         3.000       ?
+¹ summaries must be >0 to compute geomean
+
+                                              │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-candidate.bench.txt │
+                                              │                                native-bytes/op                                │                         native-bytes/op                           vs base          │
+Tier3SelectivePlaceholder_twitter_json-4                                                                       0.000Mi ± 0%                                                         5.822Mi ± 0%  ? (p=0.000 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json-4                                                                   0.00Mi ± 0%                                                         15.92Mi ± 0%  ? (p=0.000 n=10)
+geomean                                                                                                                     ¹                                                       9.629Mi       ?
+¹ summaries must be >0 to compute geomean
+
+                                              │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-candidate.bench.txt │
+                                              │                               native-live-bytes                               │                     native-live-bytes                      vs base                 │
+Tier3SelectivePlaceholder_twitter_json-4                                                                         0.000 ± 0%                                                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json-4                                                                    0.000 ± 0%                                                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                                                                                                     ²                                                              +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                              │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-candidate.bench.txt │
+                                              │                                     B/op                                      │                            B/op                             vs base                │
+Tier3SelectivePlaceholder_twitter_json-4                                                                       115.289Ki ± 0%                                                 9.969Ki ± 0%  -91.35% (p=0.000 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json-4                                                                  1205.50Ki ± 0%                                                 86.09Ki ± 0%  -92.86% (p=0.000 n=10)
+geomean                                                                                                          372.8Ki                                                      29.30Ki       -92.14%
+
+                                              │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-candidate.bench.txt │
+                                              │                                   allocs/op                                   │                         allocs/op                           vs base                │
+Tier3SelectivePlaceholder_twitter_json-4                                                                          1205.0 ± 0%                                                   324.0 ± 0%  -73.11% (p=0.000 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json-4                                                                    16.923k ± 0%                                                  2.873k ± 0%  -83.02% (p=0.000 n=10)
+geomean                                                                                                           4.516k                                                        964.8       -78.63%

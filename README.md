@@ -60,8 +60,8 @@ This snippet is derived from [example_test.go](example_test.go).
 
 ## Benchmark Snapshot
 
-The current benchmark evidence is published in [results-v0.1.1.md](docs/benchmarks/results-v0.1.1.md) with the methodology in [benchmarks.md](docs/benchmarks.md). Comparator tables omit unsupported libraries on a given target instead of showing synthetic `N/A` rows.
+The current benchmark evidence is published in [v0.1.2 results](docs/benchmarks/results-v0.1.2.md) with the [benchmark methodology](docs/benchmarks.md). Comparator tables omit unsupported libraries on a given target instead of showing synthetic `N/A` rows.
 
-Tier 1 is a strict full `any` materialization benchmark, and on the current `darwin/arm64` DOM ABI it is still slower than `encoding/json` for the three published corpus files: `0.21x` on `twitter.json`, `0.20x` on `citm_catalog.json`, and `0.17x` on `canada.json`. The current strength story is Tier 2 typed extraction and Tier 3 selective traversal on the DOM API, where the same snapshot shows `10.08x` to `14.52x` wins over `encoding/json` struct decoding in Tier 2 and `15.19x` to `20.05x` wins in the Tier 3 placeholder rows.
+On the `linux/amd64` CI target, Tier 1 full `any` materialization now beats `encoding/json` + `any` by `3.15x` on `twitter.json`, `3.39x` on `citm_catalog.json`, and `2.47x` on `canada.json`. Tier 2 typed extraction beats `encoding/json` + struct by `12.49x` to `14.56x`, and Tier 3 selective traversal on the current DOM API beats `encoding/json` + struct by `15.18x` to `15.97x`. Headline numbers come from linux/amd64; other platforms may differ.
 
-Use Tier 1 as the worst-case “parse and build a full generic Go tree” reference point. Use Tier 2 and Tier 3 as the representative performance story for the current API. Bootstrap and install details remain in [docs/bootstrap.md](docs/bootstrap.md).
+The `v0.1.2` benchmark snapshot is upcoming-release evidence; Phase 09.1 still owns bootstrap artifact and default-install alignment before a release tag. Bootstrap and install details remain in [docs/bootstrap.md](docs/bootstrap.md).

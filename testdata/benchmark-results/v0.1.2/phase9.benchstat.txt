@@ -1,0 +1,305 @@
+goos: linux
+goarch: amd64
+pkg: github.com/amikos-tech/pure-simdjson
+cpu: AMD EPYC 7763 64-Core Processor
+                                                                   │ testdata/benchmark-results/v0.1.1-linux-amd64/phase7.bench.txt │ testdata/benchmark-results/v0.1.2/phase9.bench.txt │
+                                                                   │                             sec/op                             │           sec/op            vs base                │
+Tier1FullParse_twitter_json/pure-simdjson-4                                                                            39.339m ± 1%                  2.044m ± 2%  -94.80% (p=0.000 n=10)
+Tier1FullParse_twitter_json/encoding-json-any-4                                                                         6.511m ± 3%                  6.443m ± 1%        ~ (p=0.075 n=10)
+Tier1FullParse_twitter_json/encoding-json-struct-4                                                                      4.842m ± 1%                  4.994m ± 1%   +3.15% (p=0.002 n=10)
+Tier1FullParse_twitter_json/minio-simdjson-go-4                                                                         3.222m ± 2%                  3.184m ± 0%   -1.17% (p=0.000 n=10)
+Tier1FullParse_twitter_json/bytedance-sonic-4                                                                           2.037m ± 1%                  2.009m ± 1%   -1.37% (p=0.000 n=10)
+Tier1FullParse_twitter_json/goccy-go-json-4                                                                             3.683m ± 0%                  3.510m ± 1%   -4.69% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/pure-simdjson-4                                                                      104.847m ± 1%                  5.113m ± 1%  -95.12% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/encoding-json-any-4                                                                    17.95m ± 1%                  17.34m ± 1%   -3.43% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/encoding-json-struct-4                                                                 18.40m ± 1%                  17.53m ± 1%   -4.74% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/minio-simdjson-go-4                                                                    7.603m ± 1%                  7.424m ± 1%   -2.36% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/bytedance-sonic-4                                                                      5.382m ± 2%                  5.191m ± 1%   -3.55% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/goccy-go-json-4                                                                        8.921m ± 1%                  8.553m ± 1%   -4.13% (p=0.000 n=10)
+Tier1FullParse_canada_json/pure-simdjson-4                                                                             255.40m ± 1%                  14.16m ± 3%  -94.46% (p=0.000 n=10)
+Tier1FullParse_canada_json/encoding-json-any-4                                                                          35.84m ± 1%                  34.93m ± 1%   -2.53% (p=0.000 n=10)
+Tier1FullParse_canada_json/encoding-json-struct-4                                                                       38.27m ± 0%                  38.77m ± 1%   +1.30% (p=0.001 n=10)
+Tier1FullParse_canada_json/minio-simdjson-go-4                                                                          22.89m ± 1%                  22.67m ± 1%        ~ (p=0.143 n=10)
+Tier1FullParse_canada_json/bytedance-sonic-4                                                                            14.29m ± 2%                  14.52m ± 1%   +1.59% (p=0.007 n=10)
+Tier1FullParse_canada_json/goccy-go-json-4                                                                              29.13m ± 1%                  28.91m ± 1%        ~ (p=0.063 n=10)
+Tier3SelectivePlaceholder_twitter_json/pure-simdjson-4                                                                  315.2µ ± 2%                  313.0µ ± 1%        ~ (p=0.105 n=10)
+Tier3SelectivePlaceholder_twitter_json/encoding-json-struct-4                                                           4.839m ± 1%                  5.000m ± 1%   +3.33% (p=0.000 n=10)
+Tier3SelectivePlaceholder_twitter_json/bytedance-sonic-4                                                                815.2µ ± 2%                  801.3µ ± 1%   -1.70% (p=0.003 n=10)
+Tier3SelectivePlaceholder_twitter_json/goccy-go-json-4                                                                  851.9µ ± 1%                  856.5µ ± 1%        ~ (p=0.105 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/pure-simdjson-4                                                             1.180m ± 0%                  1.176m ± 1%        ~ (p=0.218 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/encoding-json-struct-4                                                      18.46m ± 2%                  17.84m ± 1%   -3.31% (p=0.000 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/bytedance-sonic-4                                                           2.297m ± 3%                  2.338m ± 2%        ~ (p=0.218 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/goccy-go-json-4                                                             2.847m ± 1%                  2.879m ± 2%        ~ (p=0.105 n=10)
+Tier2Typed_twitter_json/pure-simdjson-4                                                                                 368.7µ ± 1%                  368.6µ ± 1%        ~ (p=0.796 n=10)
+Tier2Typed_twitter_json/encoding-json-struct-4                                                                          4.841m ± 1%                  5.039m ± 1%   +4.10% (p=0.000 n=10)
+Tier2Typed_twitter_json/bytedance-sonic-4                                                                               801.4µ ± 1%                  833.9µ ± 1%   +4.05% (p=0.000 n=10)
+Tier2Typed_twitter_json/goccy-go-json-4                                                                                 847.7µ ± 2%                  879.2µ ± 1%   +3.72% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json/pure-simdjson-4                                                                            1.234m ± 1%                  1.231m ± 1%        ~ (p=0.143 n=10)
+Tier2Typed_citm_catalog_json/encoding-json-struct-4                                                                     18.62m ± 1%                  17.92m ± 1%   -3.74% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json/bytedance-sonic-4                                                                          2.274m ± 2%                  2.462m ± 1%   +8.26% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json/goccy-go-json-4                                                                            2.823m ± 1%                  2.892m ± 1%   +2.44% (p=0.000 n=10)
+Tier2Typed_canada_json/pure-simdjson-4                                                                                  3.174m ± 1%                  3.133m ± 1%   -1.30% (p=0.000 n=10)
+Tier2Typed_canada_json/encoding-json-struct-4                                                                           38.84m ± 0%                  39.12m ± 0%   +0.72% (p=0.000 n=10)
+Tier2Typed_canada_json/bytedance-sonic-4                                                                                6.882m ± 1%                  7.117m ± 1%   +3.42% (p=0.000 n=10)
+Tier2Typed_canada_json/goccy-go-json-4                                                                                  18.57m ± 1%                  18.17m ± 0%   -2.15% (p=0.000 n=10)
+geomean                                                                                                                 6.059m                       4.790m       -20.95%
+
+                                                                   │ testdata/benchmark-results/v0.1.1-linux-amd64/phase7.bench.txt │ testdata/benchmark-results/v0.1.2/phase9.bench.txt │
+                                                                   │                              B/s                               │           B/s             vs base                  │
+Tier1FullParse_twitter_json/pure-simdjson-4                                                                            15.31Mi ± 1%              294.62Mi ± 2%  +1824.23% (p=0.000 n=10)
+Tier1FullParse_twitter_json/encoding-json-any-4                                                                        92.50Mi ± 3%               93.47Mi ± 1%          ~ (p=0.075 n=10)
+Tier1FullParse_twitter_json/encoding-json-struct-4                                                                     124.4Mi ± 1%               120.6Mi ± 1%     -3.06% (p=0.001 n=10)
+Tier1FullParse_twitter_json/minio-simdjson-go-4                                                                        186.9Mi ± 2%               189.1Mi ± 0%     +1.19% (p=0.000 n=10)
+Tier1FullParse_twitter_json/bytedance-sonic-4                                                                          295.7Mi ± 1%               299.8Mi ± 1%     +1.39% (p=0.000 n=10)
+Tier1FullParse_twitter_json/goccy-go-json-4                                                                            163.5Mi ± 0%               171.6Mi ± 1%     +4.92% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/pure-simdjson-4                                                                       15.71Mi ± 1%              322.15Mi ± 1%  +1950.38% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/encoding-json-any-4                                                                   91.75Mi ± 1%               95.01Mi ± 1%     +3.55% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/encoding-json-struct-4                                                                89.50Mi ± 1%               93.95Mi ± 1%     +4.97% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/minio-simdjson-go-4                                                                   216.6Mi ± 1%               221.9Mi ± 1%     +2.42% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/bytedance-sonic-4                                                                     306.1Mi ± 2%               317.3Mi ± 1%     +3.68% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/goccy-go-json-4                                                                       184.6Mi ± 1%               192.6Mi ± 1%     +4.31% (p=0.000 n=10)
+Tier1FullParse_canada_json/pure-simdjson-4                                                                             8.407Mi ± 1%             151.615Mi ± 3%  +1703.52% (p=0.000 n=10)
+Tier1FullParse_canada_json/encoding-json-any-4                                                                         59.90Mi ± 1%               61.45Mi ± 1%     +2.60% (p=0.000 n=10)
+Tier1FullParse_canada_json/encoding-json-struct-4                                                                      56.10Mi ± 0%               55.38Mi ± 1%     -1.28% (p=0.001 n=10)
+Tier1FullParse_canada_json/minio-simdjson-go-4                                                                         93.78Mi ± 1%               94.71Mi ± 1%          ~ (p=0.143 n=10)
+Tier1FullParse_canada_json/bytedance-sonic-4                                                                           150.2Mi ± 2%               147.9Mi ± 1%     -1.56% (p=0.007 n=10)
+Tier1FullParse_canada_json/goccy-go-json-4                                                                             73.71Mi ± 1%               74.25Mi ± 1%          ~ (p=0.063 n=10)
+Tier3SelectivePlaceholder_twitter_json/pure-simdjson-4                                                                 1.866Gi ± 2%               1.879Gi ± 1%          ~ (p=0.105 n=10)
+Tier3SelectivePlaceholder_twitter_json/encoding-json-struct-4                                                          124.5Mi ± 1%               120.5Mi ± 1%     -3.22% (p=0.000 n=10)
+Tier3SelectivePlaceholder_twitter_json/bytedance-sonic-4                                                               738.8Mi ± 2%               751.6Mi ± 1%     +1.73% (p=0.003 n=10)
+Tier3SelectivePlaceholder_twitter_json/goccy-go-json-4                                                                 707.0Mi ± 2%               703.2Mi ± 1%          ~ (p=0.105 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/pure-simdjson-4                                                            1.363Gi ± 0%               1.368Gi ± 1%          ~ (p=0.218 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/encoding-json-struct-4                                                     89.25Mi ± 2%               92.31Mi ± 1%     +3.42% (p=0.000 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/bytedance-sonic-4                                                          717.1Mi ± 3%               704.5Mi ± 2%          ~ (p=0.218 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/goccy-go-json-4                                                            578.7Mi ± 1%               572.1Mi ± 2%          ~ (p=0.105 n=10)
+Tier2Typed_twitter_json/pure-simdjson-4                                                                                1.595Gi ± 1%               1.596Gi ± 1%          ~ (p=0.796 n=10)
+Tier2Typed_twitter_json/encoding-json-struct-4                                                                         124.4Mi ± 1%               119.5Mi ± 1%     -3.94% (p=0.000 n=10)
+Tier2Typed_twitter_json/bytedance-sonic-4                                                                              751.5Mi ± 1%               722.2Mi ± 1%     -3.89% (p=0.000 n=10)
+Tier2Typed_twitter_json/goccy-go-json-4                                                                                710.5Mi ± 2%               685.0Mi ± 1%     -3.59% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json/pure-simdjson-4                                                                           1.303Gi ± 1%               1.307Gi ± 1%          ~ (p=0.143 n=10)
+Tier2Typed_citm_catalog_json/encoding-json-struct-4                                                                    88.49Mi ± 1%               91.92Mi ± 1%     +3.89% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json/bytedance-sonic-4                                                                         724.4Mi ± 2%               669.1Mi ± 1%     -7.63% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json/goccy-go-json-4                                                                           583.5Mi ± 1%               569.6Mi ± 1%     -2.39% (p=0.000 n=10)
+Tier2Typed_canada_json/pure-simdjson-4                                                                                 676.3Mi ± 1%               685.2Mi ± 1%     +1.32% (p=0.000 n=10)
+Tier2Typed_canada_json/encoding-json-struct-4                                                                          55.26Mi ± 0%               54.87Mi ± 0%     -0.71% (p=0.000 n=10)
+Tier2Typed_canada_json/bytedance-sonic-4                                                                               311.9Mi ± 1%               301.6Mi ± 1%     -3.30% (p=0.000 n=10)
+Tier2Typed_canada_json/goccy-go-json-4                                                                                 115.6Mi ± 1%               118.1Mi ± 0%     +2.19% (p=0.000 n=10)
+geomean                                                                                                                201.2Mi                    254.5Mi         +26.50%
+
+                                                                   │ testdata/benchmark-results/v0.1.1-linux-amd64/phase7.bench.txt │ testdata/benchmark-results/v0.1.2/phase9.bench.txt │
+                                                                   │                        native-allocs/op                        │    native-allocs/op      vs base                   │
+Tier1FullParse_twitter_json/pure-simdjson-4                                                                            3.000 ± 0%                 12.000 ± 0%  +300.00% (p=0.000 n=10)
+Tier1FullParse_twitter_json/encoding-json-any-4                                                                        0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/encoding-json-struct-4                                                                     0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/minio-simdjson-go-4                                                                        0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/bytedance-sonic-4                                                                          0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/goccy-go-json-4                                                                            0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/pure-simdjson-4                                                                       3.000 ± 0%                 13.000 ± 0%  +333.33% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/encoding-json-any-4                                                                   0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/encoding-json-struct-4                                                                0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/minio-simdjson-go-4                                                                   0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/bytedance-sonic-4                                                                     0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/goccy-go-json-4                                                                       0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/pure-simdjson-4                                                                             3.000 ± 0%                 15.000 ± 0%  +400.00% (p=0.000 n=10)
+Tier1FullParse_canada_json/encoding-json-any-4                                                                         0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/encoding-json-struct-4                                                                      0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/minio-simdjson-go-4                                                                         0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/bytedance-sonic-4                                                                           0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/goccy-go-json-4                                                                             0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/pure-simdjson-4                                                                 3.000 ± 0%                  3.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/encoding-json-struct-4                                                          0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/bytedance-sonic-4                                                               0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/goccy-go-json-4                                                                 0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/pure-simdjson-4                                                            3.000 ± 0%                  3.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/encoding-json-struct-4                                                     0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/bytedance-sonic-4                                                          0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/goccy-go-json-4                                                            0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/pure-simdjson-4                                                                                3.000 ± 0%                  3.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/encoding-json-struct-4                                                                         0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/bytedance-sonic-4                                                                              0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/goccy-go-json-4                                                                                0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/pure-simdjson-4                                                                           3.000 ± 0%                  3.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/encoding-json-struct-4                                                                    0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/bytedance-sonic-4                                                                         0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/goccy-go-json-4                                                                           0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/pure-simdjson-4                                                                                 3.000 ± 0%                  3.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/encoding-json-struct-4                                                                          0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/bytedance-sonic-4                                                                               0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/goccy-go-json-4                                                                                 0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+geomean                                                                                                                           ²                             +12.46%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                                   │ testdata/benchmark-results/v0.1.1-linux-amd64/phase7.bench.txt │ testdata/benchmark-results/v0.1.2/phase9.bench.txt │
+                                                                   │                        native-bytes/op                         │     native-bytes/op      vs base                   │
+Tier1FullParse_twitter_json/pure-simdjson-4                                                                          5.822Mi ± 0%                9.184Mi ± 0%   +57.74% (p=0.000 n=10)
+Tier1FullParse_twitter_json/encoding-json-any-4                                                                        0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/encoding-json-struct-4                                                                     0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/minio-simdjson-go-4                                                                        0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/bytedance-sonic-4                                                                          0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/goccy-go-json-4                                                                            0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/pure-simdjson-4                                                                     15.92Mi ± 0%                22.65Mi ± 0%   +42.24% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/encoding-json-any-4                                                                   0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/encoding-json-struct-4                                                                0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/minio-simdjson-go-4                                                                   0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/bytedance-sonic-4                                                                     0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/goccy-go-json-4                                                                       0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/pure-simdjson-4                                                                           20.75Mi ± 0%                47.70Mi ± 0%  +129.86% (p=0.000 n=10)
+Tier1FullParse_canada_json/encoding-json-any-4                                                                         0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/encoding-json-struct-4                                                                      0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/minio-simdjson-go-4                                                                         0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/bytedance-sonic-4                                                                           0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/goccy-go-json-4                                                                             0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/pure-simdjson-4                                                               5.822Mi ± 0%                5.822Mi ± 0%    +0.00% (p=0.000 n=10)
+Tier3SelectivePlaceholder_twitter_json/encoding-json-struct-4                                                          0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/bytedance-sonic-4                                                               0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/goccy-go-json-4                                                                 0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/pure-simdjson-4                                                          15.92Mi ± 0%                15.92Mi ± 0%    +0.00% (p=0.000 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/encoding-json-struct-4                                                     0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/bytedance-sonic-4                                                          0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/goccy-go-json-4                                                            0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/pure-simdjson-4                                                                              5.822Mi ± 0%                5.822Mi ± 0%    +0.00% (p=0.000 n=10)
+Tier2Typed_twitter_json/encoding-json-struct-4                                                                         0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/bytedance-sonic-4                                                                              0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/goccy-go-json-4                                                                                0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/pure-simdjson-4                                                                         15.92Mi ± 0%                15.92Mi ± 0%    +0.00% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json/encoding-json-struct-4                                                                    0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/bytedance-sonic-4                                                                         0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/goccy-go-json-4                                                                           0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/pure-simdjson-4                                                                               20.75Mi ± 0%                20.75Mi ± 0%    +0.00% (p=0.000 n=10)
+Tier2Typed_canada_json/encoding-json-struct-4                                                                          0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/bytedance-sonic-4                                                                               0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/goccy-go-json-4                                                                                 0.000 ± 0%                  0.000 ± 0%         ~ (p=1.000 n=10) ¹
+geomean                                                                                                                           ²                              +4.41%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                                   │ testdata/benchmark-results/v0.1.1-linux-amd64/phase7.bench.txt │ testdata/benchmark-results/v0.1.2/phase9.bench.txt │
+                                                                   │                       native-live-bytes                        │     native-live-bytes      vs base                 │
+Tier1FullParse_twitter_json/pure-simdjson-4                                                                            0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/encoding-json-any-4                                                                        0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/encoding-json-struct-4                                                                     0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/minio-simdjson-go-4                                                                        0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/bytedance-sonic-4                                                                          0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/goccy-go-json-4                                                                            0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/pure-simdjson-4                                                                       0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/encoding-json-any-4                                                                   0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/encoding-json-struct-4                                                                0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/minio-simdjson-go-4                                                                   0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/bytedance-sonic-4                                                                     0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/goccy-go-json-4                                                                       0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/pure-simdjson-4                                                                             0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/encoding-json-any-4                                                                         0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/encoding-json-struct-4                                                                      0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/minio-simdjson-go-4                                                                         0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/bytedance-sonic-4                                                                           0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/goccy-go-json-4                                                                             0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/pure-simdjson-4                                                                 0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/encoding-json-struct-4                                                          0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/bytedance-sonic-4                                                               0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/goccy-go-json-4                                                                 0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/pure-simdjson-4                                                            0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/encoding-json-struct-4                                                     0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/bytedance-sonic-4                                                          0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/goccy-go-json-4                                                            0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/pure-simdjson-4                                                                                0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/encoding-json-struct-4                                                                         0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/bytedance-sonic-4                                                                              0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/goccy-go-json-4                                                                                0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/pure-simdjson-4                                                                           0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/encoding-json-struct-4                                                                    0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/bytedance-sonic-4                                                                         0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/goccy-go-json-4                                                                           0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/pure-simdjson-4                                                                                 0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/encoding-json-struct-4                                                                          0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/bytedance-sonic-4                                                                               0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/goccy-go-json-4                                                                                 0.000 ± 0%                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                                                                                                           ²                              +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                                   │ testdata/benchmark-results/v0.1.1-linux-amd64/phase7.bench.txt │ testdata/benchmark-results/v0.1.2/phase9.bench.txt │
+                                                                   │                              B/op                              │           B/op            vs base                  │
+Tier1FullParse_twitter_json/pure-simdjson-4                                                                            9.142Mi ± 0%               1.412Mi ± 0%  -84.55% (p=0.000 n=10)
+Tier1FullParse_twitter_json/encoding-json-any-4                                                                        1.980Mi ± 0%               1.980Mi ± 0%        ~ (p=0.683 n=10)
+Tier1FullParse_twitter_json/encoding-json-struct-4                                                                     115.3Ki ± 0%               115.3Ki ± 0%        ~ (p=0.350 n=10)
+Tier1FullParse_twitter_json/minio-simdjson-go-4                                                                        4.160Mi ± 0%               4.160Mi ± 0%        ~ (p=0.868 n=10)
+Tier1FullParse_twitter_json/bytedance-sonic-4                                                                          2.416Mi ± 0%               2.416Mi ± 0%        ~ (p=0.796 n=10)
+Tier1FullParse_twitter_json/goccy-go-json-4                                                                            2.557Mi ± 0%               2.557Mi ± 0%        ~ (p=0.971 n=10)
+Tier1FullParse_citm_catalog_json/pure-simdjson-4                                                                      26.260Mi ± 0%               4.388Mi ± 0%  -83.29% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/encoding-json-any-4                                                                   4.893Mi ± 0%               4.893Mi ± 0%        ~ (p=0.096 n=10)
+Tier1FullParse_citm_catalog_json/encoding-json-struct-4                                                                1.176Mi ± 0%               1.176Mi ± 0%        ~ (p=0.814 n=10)
+Tier1FullParse_citm_catalog_json/minio-simdjson-go-4                                                                   10.24Mi ± 0%               10.24Mi ± 0%   +0.00% (p=0.049 n=10)
+Tier1FullParse_citm_catalog_json/bytedance-sonic-4                                                                     8.250Mi ± 0%               8.249Mi ± 0%   -0.01% (p=0.043 n=10)
+Tier1FullParse_citm_catalog_json/goccy-go-json-4                                                                       7.080Mi ± 0%               7.080Mi ± 0%        ~ (p=0.754 n=10)
+Tier1FullParse_canada_json/pure-simdjson-4                                                                            62.432Mi ± 0%               4.723Mi ± 0%  -92.43% (p=0.000 n=10)
+Tier1FullParse_canada_json/encoding-json-any-4                                                                         10.09Mi ± 0%               10.09Mi ± 0%        ~ (p=0.130 n=10)
+Tier1FullParse_canada_json/encoding-json-struct-4                                                                      5.977Mi ± 0%               5.977Mi ± 0%        ~ (p=0.688 n=10)
+Tier1FullParse_canada_json/minio-simdjson-go-4                                                                         14.48Mi ± 0%               14.48Mi ± 0%        ~ (p=0.181 n=10)
+Tier1FullParse_canada_json/bytedance-sonic-4                                                                           19.98Mi ± 0%               19.98Mi ± 0%        ~ (p=0.796 n=10)
+Tier1FullParse_canada_json/goccy-go-json-4                                                                             10.82Mi ± 0%               10.84Mi ± 0%        ~ (p=0.315 n=10)
+Tier3SelectivePlaceholder_twitter_json/pure-simdjson-4                                                                 9.969Ki ± 0%               9.969Ki ± 0%        ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/encoding-json-struct-4                                                          115.3Ki ± 0%               115.3Ki ± 0%        ~ (p=1.000 n=10)
+Tier3SelectivePlaceholder_twitter_json/bytedance-sonic-4                                                               693.1Ki ± 0%               693.1Ki ± 0%        ~ (p=0.579 n=10)
+Tier3SelectivePlaceholder_twitter_json/goccy-go-json-4                                                                 677.0Ki ± 0%               677.3Ki ± 0%   +0.03% (p=0.000 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/pure-simdjson-4                                                            86.09Ki ± 0%               86.09Ki ± 0%        ~ (p=0.635 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/encoding-json-struct-4                                                     1.177Mi ± 0%               1.177Mi ± 0%        ~ (p=0.303 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/bytedance-sonic-4                                                          2.572Mi ± 0%               2.571Mi ± 0%        ~ (p=0.353 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/goccy-go-json-4                                                            2.460Mi ± 0%               2.461Mi ± 0%        ~ (p=0.315 n=10)
+Tier2Typed_twitter_json/pure-simdjson-4                                                                                22.63Ki ± 0%               22.63Ki ± 0%        ~ (p=1.000 n=10)
+Tier2Typed_twitter_json/encoding-json-struct-4                                                                         115.3Ki ± 0%               115.3Ki ± 0%        ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/bytedance-sonic-4                                                                              692.7Ki ± 0%               694.1Ki ± 0%   +0.20% (p=0.000 n=10)
+Tier2Typed_twitter_json/goccy-go-json-4                                                                                677.0Ki ± 0%               677.7Ki ± 0%   +0.10% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json/pure-simdjson-4                                                                           120.7Ki ± 0%               120.7Ki ± 0%        ~ (p=1.000 n=10)
+Tier2Typed_citm_catalog_json/encoding-json-struct-4                                                                    1.177Mi ± 0%               1.177Mi ± 0%        ~ (p=1.000 n=10)
+Tier2Typed_citm_catalog_json/bytedance-sonic-4                                                                         2.571Mi ± 0%               2.574Mi ± 0%   +0.13% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json/goccy-go-json-4                                                                           2.460Mi ± 0%               2.460Mi ± 0%        ~ (p=0.684 n=10)
+Tier2Typed_canada_json/pure-simdjson-4                                                                                 134.9Ki ± 0%               134.9Ki ± 0%        ~ (p=1.000 n=10)
+Tier2Typed_canada_json/encoding-json-struct-4                                                                          5.977Mi ± 0%               5.977Mi ± 0%        ~ (p=0.510 n=10)
+Tier2Typed_canada_json/bytedance-sonic-4                                                                               6.789Mi ± 0%               6.791Mi ± 0%   +0.03% (p=0.000 n=10)
+Tier2Typed_canada_json/goccy-go-json-4                                                                                 6.539Mi ± 0%               6.554Mi ± 0%   +0.24% (p=0.029 n=10)
+geomean                                                                                                                1.701Mi                    1.444Mi       -15.12%
+¹ all samples are equal
+
+                                                                   │ testdata/benchmark-results/v0.1.1-linux-amd64/phase7.bench.txt │ testdata/benchmark-results/v0.1.2/phase9.bench.txt │
+                                                                   │                           allocs/op                            │        allocs/op          vs base                  │
+Tier1FullParse_twitter_json/pure-simdjson-4                                                                            286.52k ± 0%                28.06k ± 0%  -90.21% (p=0.000 n=10)
+Tier1FullParse_twitter_json/encoding-json-any-4                                                                         32.12k ± 0%                32.12k ± 0%        ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/encoding-json-struct-4                                                                      1.205k ± 0%                1.205k ± 0%        ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/minio-simdjson-go-4                                                                         30.72k ± 0%                30.72k ± 0%        ~ (p=1.000 n=10)
+Tier1FullParse_twitter_json/bytedance-sonic-4                                                                           13.00k ± 0%                13.00k ± 0%        ~ (p=1.000 n=10) ¹
+Tier1FullParse_twitter_json/goccy-go-json-4                                                                             40.56k ± 0%                40.56k ± 0%        ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/pure-simdjson-4                                                                       747.63k ± 0%                76.33k ± 0%  -89.79% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json/encoding-json-any-4                                                                    95.86k ± 0%                95.86k ± 0%        ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/encoding-json-struct-4                                                                 16.92k ± 0%                16.92k ± 0%        ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/minio-simdjson-go-4                                                                    87.52k ± 0%                87.52k ± 0%        ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/bytedance-sonic-4                                                                      58.67k ± 0%                58.67k ± 0%        ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json/goccy-go-json-4                                                                        124.1k ± 0%                124.1k ± 0%        ~ (p=1.000 n=10)
+Tier1FullParse_canada_json/pure-simdjson-4                                                                             1842.2k ± 0%                223.3k ± 0%  -87.88% (p=0.000 n=10)
+Tier1FullParse_canada_json/encoding-json-any-4                                                                          392.5k ± 0%                392.5k ± 0%        ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/encoding-json-struct-4                                                                       114.2k ± 0%                114.2k ± 0%        ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/minio-simdjson-go-4                                                                          223.2k ± 0%                223.2k ± 0%        ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/bytedance-sonic-4                                                                            223.9k ± 0%                223.9k ± 0%        ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json/goccy-go-json-4                                                                              446.5k ± 0%                446.5k ± 0%        ~ (p=1.000 n=10)
+Tier3SelectivePlaceholder_twitter_json/pure-simdjson-4                                                                   324.0 ± 0%                 324.0 ± 0%        ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/encoding-json-struct-4                                                           1.205k ± 0%                1.205k ± 0%        ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/bytedance-sonic-4                                                                 217.0 ± 0%                 217.0 ± 0%        ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_twitter_json/goccy-go-json-4                                                                   574.0 ± 0%                 574.0 ± 0%        ~ (p=1.000 n=10)
+Tier3SelectivePlaceholder_citm_catalog_json/pure-simdjson-4                                                             2.873k ± 0%                2.873k ± 0%        ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/encoding-json-struct-4                                                      16.92k ± 0%                16.92k ± 0%        ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/bytedance-sonic-4                                                           5.443k ± 0%                5.443k ± 0%        ~ (p=1.000 n=10) ¹
+Tier3SelectivePlaceholder_citm_catalog_json/goccy-go-json-4                                                             14.50k ± 0%                14.50k ± 0%        ~ (p=1.000 n=10)
+Tier2Typed_twitter_json/pure-simdjson-4                                                                                  692.0 ± 0%                 692.0 ± 0%        ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/encoding-json-struct-4                                                                          1.205k ± 0%                1.205k ± 0%        ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/bytedance-sonic-4                                                                                217.0 ± 0%                 217.0 ± 0%        ~ (p=1.000 n=10) ¹
+Tier2Typed_twitter_json/goccy-go-json-4                                                                                  574.0 ± 0%                 575.0 ± 0%   +0.17% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json/pure-simdjson-4                                                                            3.144k ± 0%                3.144k ± 0%        ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/encoding-json-struct-4                                                                     16.92k ± 0%                16.92k ± 0%        ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/bytedance-sonic-4                                                                          5.443k ± 0%                5.443k ± 0%        ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json/goccy-go-json-4                                                                            14.50k ± 0%                14.50k ± 0%        ~ (p=0.526 n=10)
+Tier2Typed_canada_json/pure-simdjson-4                                                                                  4.169k ± 0%                4.169k ± 0%        ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/encoding-json-struct-4                                                                           114.2k ± 0%                114.2k ± 0%        ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/bytedance-sonic-4                                                                                58.10k ± 0%                58.10k ± 0%        ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json/goccy-go-json-4                                                                                  223.2k ± 0%                223.2k ± 0%        ~ (p=0.083 n=10)
+geomean                                                                                                                 17.37k                     14.55k       -16.20%
+¹ all samples are equal

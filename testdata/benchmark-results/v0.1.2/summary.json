@@ -1,0 +1,108 @@
+{
+  "claims": {
+    "readme_mode": "tier1_headline",
+    "tier1_headline_allowed": true,
+    "tier2_headline_allowed": true,
+    "tier3_headline_allowed": true
+  },
+  "errors": [],
+  "fixtures": {
+    "tier1": {
+      "canada_json": {
+        "allowed": true,
+        "benchstat_significant_win": true,
+        "median_win": true,
+        "pure_ns_op": 14159129.5,
+        "ratio_vs_encoding_json_any": 2.467267955985571,
+        "stdlib_ns_op": 34934366.5
+      },
+      "citm_catalog_json": {
+        "allowed": true,
+        "benchstat_significant_win": true,
+        "median_win": true,
+        "pure_ns_op": 5113116.0,
+        "ratio_vs_encoding_json_any": 3.3908880612135537,
+        "stdlib_ns_op": 17338004.0
+      },
+      "twitter_json": {
+        "allowed": true,
+        "benchstat_significant_win": true,
+        "median_win": true,
+        "pure_ns_op": 2044151.0,
+        "ratio_vs_encoding_json_any": 3.151988527266332,
+        "stdlib_ns_op": 6443140.5
+      }
+    },
+    "tier2": {
+      "canada_json": {
+        "allowed": true,
+        "baseline_pure_ns_op": 3174444.0,
+        "benchstat_significant_win": true,
+        "median_win": true,
+        "no_material_regression_vs_v0.1.1": true,
+        "pure_ns_op": 3133063.5,
+        "ratio_vs_encoding_json_struct": 12.4875440603103,
+        "stdlib_ns_op": 39124268.5
+      },
+      "citm_catalog_json": {
+        "allowed": true,
+        "baseline_pure_ns_op": 1234220.5,
+        "benchstat_significant_win": true,
+        "median_win": true,
+        "no_material_regression_vs_v0.1.1": true,
+        "pure_ns_op": 1231068.5,
+        "ratio_vs_encoding_json_struct": 14.555537730028833,
+        "stdlib_ns_op": 17918864.0
+      },
+      "twitter_json": {
+        "allowed": true,
+        "baseline_pure_ns_op": 368692.5,
+        "benchstat_significant_win": true,
+        "median_win": true,
+        "no_material_regression_vs_v0.1.1": true,
+        "pure_ns_op": 368603.0,
+        "ratio_vs_encoding_json_struct": 13.67041234064834,
+        "stdlib_ns_op": 5038955.0
+      }
+    },
+    "tier3": {
+      "citm_catalog_json": {
+        "allowed": true,
+        "baseline_pure_ns_op": 1180310.0,
+        "benchstat_significant_win": true,
+        "median_win": true,
+        "no_material_regression_vs_v0.1.1": true,
+        "pure_ns_op": 1175721.5,
+        "ratio_vs_encoding_json_struct": 15.177440405742347,
+        "stdlib_ns_op": 17844443.0
+      },
+      "twitter_json": {
+        "allowed": true,
+        "baseline_pure_ns_op": 315250.0,
+        "benchstat_significant_win": true,
+        "median_win": true,
+        "no_material_regression_vs_v0.1.1": true,
+        "pure_ns_op": 313001.0,
+        "ratio_vs_encoding_json_struct": 15.97355599502877,
+        "stdlib_ns_op": 4999739.0
+      }
+    }
+  },
+  "snapshot": "v0.1.2",
+  "target": {
+    "captured_at_utc": "2026-04-24T12:53:27Z",
+    "commit": "a47c561fd14ac1c580a38ba705ae7edab2debd1d",
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "go_version": "go version go1.24.13 linux/amd64",
+    "goarch": "amd64",
+    "goos": "linux",
+    "pkg": "github.com/amikos-tech/pure-simdjson",
+    "runner_arch": "X64",
+    "runner_os": "Linux",
+    "rustc_version": "rustc 1.89.0 (29483883e 2025-08-04)"
+  },
+  "thresholds": {
+    "tier1_headline": "benchstat_significant_win_vs_encoding_json_any_every_fixture",
+    "tier2_tier3": "no_material_regression_vs_linux_amd64_baseline_and_win_vs_encoding_json_struct_every_fixture"
+  }
+}

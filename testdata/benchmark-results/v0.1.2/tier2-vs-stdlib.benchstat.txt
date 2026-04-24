@@ -1,0 +1,56 @@
+goos: linux
+goarch: amd64
+pkg: github.com/amikos-tech/pure-simdjson
+cpu: AMD EPYC 7763 64-Core Processor
+                               │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-candidate.bench.txt │
+                               │                                    sec/op                                     │                           sec/op                            vs base                │
+Tier2Typed_twitter_json-4                                                                         5039.0µ ± 1%                                                  368.6µ ± 1%  -92.68% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json-4                                                                    17.919m ± 1%                                                  1.231m ± 1%  -93.13% (p=0.000 n=10)
+Tier2Typed_canada_json-4                                                                          39.124m ± 0%                                                  3.133m ± 1%  -91.99% (p=0.000 n=10)
+geomean                                                                                            15.23m                                                       1.124m       -92.62%
+
+                               │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-candidate.bench.txt │
+                               │                                      B/s                                      │                           B/s                             vs base                  │
+Tier2Typed_twitter_json-4                                                                         119.5Mi ± 1%                                              1633.9Mi ± 1%  +1267.07% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json-4                                                                    91.92Mi ± 1%                                             1338.02Mi ± 1%  +1355.56% (p=0.000 n=10)
+Tier2Typed_canada_json-4                                                                          54.87Mi ± 0%                                              685.20Mi ± 1%  +1148.78% (p=0.000 n=10)
+geomean                                                                                           84.48Mi                                                    1.117Gi       +1254.47%
+
+                               │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-candidate.bench.txt │
+                               │                               native-allocs/op                                │                         native-allocs/op                          vs base          │
+Tier2Typed_twitter_json-4                                                                         0.000 ± 0%                                                           3.000 ± 0%  ? (p=0.000 n=10)
+Tier2Typed_citm_catalog_json-4                                                                    0.000 ± 0%                                                           3.000 ± 0%  ? (p=0.000 n=10)
+Tier2Typed_canada_json-4                                                                          0.000 ± 0%                                                           3.000 ± 0%  ? (p=0.000 n=10)
+geomean                                                                                                      ¹                                                         3.000       ?
+¹ summaries must be >0 to compute geomean
+
+                               │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-candidate.bench.txt │
+                               │                                native-bytes/op                                │                         native-bytes/op                           vs base          │
+Tier2Typed_twitter_json-4                                                                       0.000Mi ± 0%                                                         5.822Mi ± 0%  ? (p=0.000 n=10)
+Tier2Typed_citm_catalog_json-4                                                                   0.00Mi ± 0%                                                         15.92Mi ± 0%  ? (p=0.000 n=10)
+Tier2Typed_canada_json-4                                                                         0.00Mi ± 0%                                                         20.75Mi ± 0%  ? (p=0.000 n=10)
+geomean                                                                                                      ¹                                                       12.44Mi       ?
+¹ summaries must be >0 to compute geomean
+
+                               │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-candidate.bench.txt │
+                               │                               native-live-bytes                               │                     native-live-bytes                      vs base                 │
+Tier2Typed_twitter_json-4                                                                         0.000 ± 0%                                                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_citm_catalog_json-4                                                                    0.000 ± 0%                                                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier2Typed_canada_json-4                                                                          0.000 ± 0%                                                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                                                                                      ²                                                              +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                               │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-candidate.bench.txt │
+                               │                                     B/op                                      │                            B/op                             vs base                │
+Tier2Typed_twitter_json-4                                                                        115.29Ki ± 0%                                                 22.63Ki ± 0%  -80.37% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json-4                                                                   1205.5Ki ± 0%                                                 120.7Ki ± 0%  -89.99% (p=0.000 n=10)
+Tier2Typed_canada_json-4                                                                         6120.9Ki ± 0%                                                 134.9Ki ± 0%  -97.80% (p=0.000 n=10)
+geomean                                                                                           947.5Ki                                                      71.69Ki       -92.43%
+
+                               │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier2-candidate.bench.txt │
+                               │                                   allocs/op                                   │                         allocs/op                           vs base                │
+Tier2Typed_twitter_json-4                                                                          1205.0 ± 0%                                                   692.0 ± 0%  -42.57% (p=0.000 n=10)
+Tier2Typed_citm_catalog_json-4                                                                    16.923k ± 0%                                                  3.144k ± 0%  -81.42% (p=0.000 n=10)
+Tier2Typed_canada_json-4                                                                         114.177k ± 0%                                                  4.169k ± 0%  -96.35% (p=0.000 n=10)
+geomean                                                                                            13.25k                                                       2.085k       -84.27%

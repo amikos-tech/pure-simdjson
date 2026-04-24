@@ -94,7 +94,7 @@ func TestPhase7ReleaseArtifactContract(t *testing.T) {
 			"## Quick Start",
 			"## Supported Platforms",
 			"## Benchmark Snapshot",
-			"results-v0.1.1.md",
+			"results-v0.1.2.md",
 			"docs/bootstrap.md",
 			"Tier 1",
 			"Tier 2",
@@ -115,7 +115,7 @@ func TestPhase7ReleaseArtifactContract(t *testing.T) {
 			"native allocator",
 			"materialization dominates parse",
 			"run_benchstat.sh",
-			"testdata/benchmark-results/v0.1.1",
+			"testdata/benchmark-results/v0.1.2",
 		)
 	})
 
@@ -143,7 +143,7 @@ func TestPhase7ReleaseArtifactContract(t *testing.T) {
 			"README",
 			"NOTICE",
 			"LICENSE",
-			"results-v0.1.1",
+			"results-v0.1.2",
 			"Phase 8",
 			"Phase 9",
 		)

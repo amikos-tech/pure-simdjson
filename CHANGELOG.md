@@ -10,6 +10,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 - Benchmark harness coverage for Tier 1 full materialization, Tier 2 typed extraction, Tier 3 selective placeholder reads, cold/warm parser lifecycle, and the JSONTestSuite correctness oracle.
 - Committed benchmark evidence under `testdata/benchmark-results/v0.1.1/`, including `phase7.bench.txt`, `coldwarm.bench.txt`, and `tier1-diagnostics.bench.txt`.
+- Committed linux/amd64 benchmark baseline evidence under `testdata/benchmark-results/v0.1.1-linux-amd64/` for future CI-based claim gates.
+- Committed `testdata/benchmark-results/v0.1.2/` evidence and the claim-gated `docs/benchmarks/results-v0.1.2.md` benchmark snapshot.
 - Repo-root `LICENSE` and `NOTICE` files covering the project MIT license and vendored simdjson attribution.
 
 ### Changed — ABI
@@ -19,6 +21,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Changed
 - Releases now follow the org-standard tag-driven CI publish flow shared with `pure-onnx` and `pure-tokenizers`.
 - Benchmark positioning now treats Tier 1 as the full-`any` worst-case workload on the current DOM ABI, while deferring ABI-level Tier 1 improvement and any new public patch-release decision to Phase 8 and Phase 9.
+- README benchmark-positioning now uses the linux/amd64 `v0.1.2` evidence and keeps third-party comparator detail in `docs/benchmarks/results-v0.1.2.md`.
 
 ### Documentation
 - Added a consumer-facing `README.md` with installation, quick start, supported platforms, and a benchmark snapshot linked to `docs/benchmarks/results-v0.1.1.md`.

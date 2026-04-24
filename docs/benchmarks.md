@@ -1,6 +1,6 @@
 # Benchmark Methodology
 
-This project publishes benchmark results from committed `go test -bench` output under [testdata/benchmark-results/v0.1.1](../testdata/benchmark-results/v0.1.1). The current public snapshot is [results-v0.1.1.md](benchmarks/results-v0.1.1.md).
+This project publishes benchmark results from committed `go test -bench` output under [testdata/benchmark-results/v0.1.2](../testdata/benchmark-results/v0.1.2). The current public snapshot is [results-v0.1.2.md](benchmarks/results-v0.1.2.md). GitHub Actions artifacts are retention-limited transport; the committed `testdata/benchmark-results/v0.1.2/` files are the durable source of truth.
 
 ## Tier Definitions
 
@@ -31,15 +31,15 @@ These diagnostic rows are intentionally not additive accounting. `materialize-on
 Capture the main benchmark snapshot:
 
 ```sh
-go test ./... -run '^$' -bench 'Benchmark(Tier1FullParse|Tier2Typed|Tier3SelectivePlaceholder)_' -benchmem -count=5 > testdata/benchmark-results/v0.1.1/phase7.bench.txt
-go test ./... -run '^$' -bench 'Benchmark(ColdStart|Warm)_' -benchmem -count=5 > testdata/benchmark-results/v0.1.1/coldwarm.bench.txt
-go test ./... -run '^$' -bench 'BenchmarkTier1Diagnostics_' -benchmem -count=1 > testdata/benchmark-results/v0.1.1/tier1-diagnostics.bench.txt
+go test ./... -run '^$' -bench 'Benchmark(Tier1FullParse|Tier2Typed|Tier3SelectivePlaceholder)_' -benchmem -count=10 -timeout 1200s > testdata/benchmark-results/v0.1.2/phase9.bench.txt
+go test ./... -run '^$' -bench 'Benchmark(ColdStart|Warm)_' -benchmem -count=10 -timeout 1200s > testdata/benchmark-results/v0.1.2/coldwarm.bench.txt
+go test ./... -run '^$' -bench 'BenchmarkTier1Diagnostics_' -benchmem -count=10 -timeout 1200s > testdata/benchmark-results/v0.1.2/tier1-diagnostics.bench.txt
 ```
 
 Compare two benchmark captures with `benchstat`:
 
 ```sh
-./scripts/bench/run_benchstat.sh --old testdata/benchmark-results/v0.1.1/phase7.bench.txt --new /path/to/new-phase7.bench.txt
+./scripts/bench/run_benchstat.sh --old testdata/benchmark-results/v0.1.1-linux-amd64/phase7.bench.txt --new testdata/benchmark-results/v0.1.2/phase9.bench.txt
 ```
 
 ## Interpretation Notes
@@ -48,9 +48,9 @@ Compare two benchmark captures with `benchstat`:
 - Tier 2 answers: “How fast is the current typed extraction path users are expected to write?”
 - Tier 3 answers: “How fast is selective traversal on the current DOM API before On-Demand exists?”
 
-For the current Phase 7 snapshot, the honest summary is:
+For the current v0.1.2 linux/amd64 snapshot, the honest summary is:
 
-- Tier 1 full `any` materialization is not the current strength of the DOM ABI.
-- Tier 2 and Tier 3 are the current performance strengths.
-- x86_64 parity with `minio/simdjson-go` requires a real x86_64 host; Rosetta-backed local runs are not used as a parity claim.
-- All relative ratios reported in the snapshot (Tier 1 `0.2x`-class numbers, Tier 2/3 `10x`+ numbers) are toolchain- and hardware-specific. The v0.1.1 snapshot was captured on `darwin/arm64` Apple M3 Max; expect the ratios to shift on `linux/amd64`, older Apple silicon, and different Go/`rustc` versions.
+- Tier 1 full `any` materialization is now claim-gated as a linux/amd64 strength after the Phase 8 materializer work.
+- Tier 2 typed extraction and Tier 3 selective DOM traversal remain strong stdlib-relative paths.
+- Old/new gates compare against committed linux/amd64 CI evidence under `testdata/benchmark-results/v0.1.1-linux-amd64/`; the older darwin/arm64 `v0.1.1` files remain historical context only.
+- All relative ratios reported in the snapshot are toolchain- and hardware-specific. Headline numbers come from linux/amd64; other platforms may differ.

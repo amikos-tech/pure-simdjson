@@ -19,9 +19,10 @@ Ship a precision-preserving, cgo-free simdjson DOM API for Go with honest benchm
 - [x] **Phase 5: Bootstrap + Distribution** — Implement R2 download with GitHub fallback, SHA-256 verification, OS cache, env overrides, and the bootstrap CLI
 - [x] **Phase 6: CI Release Matrix + Platform Coverage** — Build, sign, and publish artifacts for all five targets plus Alpine smoke-test, with cosign and ad-hoc macOS codesign
 - [x] **Phase 7: Benchmarks + Release-Facing Artifacts** — Three-tier benchmark harness vs `encoding/json`, `simdjson-go`, `sonic`, `goccy/go-json`; correctness oracle; benchmark/docs/legal artifacts; explicit handoff to later performance and release work
-- [ ] **Phase 8: Low-overhead DOM traversal ABI and specialized Go any materializer** — Fold the old DOM-materialization backlog into the active milestone with a lower-overhead traversal surface, one-copy string extraction, exact container sizing, and a specialized Go `any` builder
-- [ ] **Phase 9: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh** — Reframe the benchmark story around measured Tier 1/Tier 2/Tier 3 strengths, then rerun and publish evidence after Phase 8 lands
+- [x] **Phase 8: Low-overhead DOM traversal ABI and specialized Go any materializer** — Fold the old DOM-materialization backlog into the active milestone with a lower-overhead traversal surface, one-copy string extraction, exact container sizing, and a specialized Go `any` builder
+- [x] **Phase 9: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh** — Reframe the benchmark story around measured Tier 1/Tier 2/Tier 3 strengths, then rerun and publish evidence after Phase 8 lands
 - [ ] **Phase 09.1: Bootstrap artifact and ABI alignment for default installs (INSERTED)** — Align the bootstrap-pinned public artifact/version/checksum state with the current ABI and validate the default-install path after Phase 9 locks the benchmark/release story
+- [ ] **Phase 10: Lightweight PR benchmark regression signal** — Add a cheap pull-request benchmark workflow covering Tier 1/2/3 so every PR gets a useful regression signal without waiting for the heavier release-grade benchmark capture path
 
 ## Phase Details
 
@@ -410,8 +411,8 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 5. Bootstrap + Distribution | 6/6 | Complete | 2026-04-20 |
 | 6. CI Release Matrix | 6/6 | Complete | 2026-04-21 |
 | 7. Benchmarks + Release-Facing Artifacts | 6/6 | Complete | 2026-04-23 |
-| 8. Low-overhead DOM traversal ABI and specialized Go any materializer | 1/5 | In progress | — |
-| 9. Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh | 0/0 | Not started | — |
+| 8. Low-overhead DOM traversal ABI and specialized Go any materializer | 5/5 | Complete | 2026-04-24 |
+| 9. Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh | 3/3 | Complete | 2026-04-24 |
 | 9.1. Bootstrap artifact and ABI alignment for default installs | 0/0 | Not started | — |
 
 Plan counts populated by `/gsd-plan-phase`.
@@ -464,17 +465,6 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
-### Phase 999.8: PR-head CI coverage for feature branches (BACKLOG)
-
-**Goal:** [Captured for future planning] Add CI coverage that runs on pull requests and/or every feature-branch head, including docs-only shipping commits, so each PR shows an up-to-date check signal on the exact merge candidate. Phase 8 exposed the gap: `phase2-rust-shim-smoke` passed on the implementation commit, but the final `.planning/STATE.md` shipping commit did not trigger a new run because the workflow has path filters and no general `pull_request` trigger. Future planning should decide the right balance between cheap always-on PR checks, path-filtered expensive matrix jobs, branch protection requirements, and manual dispatch fallbacks.
-
-**Requirements:** TBD
-
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
 ### Phase 8: Low-overhead DOM traversal ABI and specialized Go any materializer
 
 **Goal:** Replace the current accessor-shaped Tier 1 materialization path with a lower-overhead traversal/materialization substrate that preserves correctness while removing avoidable per-node FFI and string handoff cost. This phase explicitly folds the old `999.6` backlog idea into the active milestone.
@@ -495,13 +485,15 @@ Plans:
 
 **Goal:** Reframe BENCH-07 around the measured Tier 1/Tier 2/Tier 3 behavior, rerun the benchmark corpus after Phase 8 lands, and update the public benchmark/docs story so release claims match reality instead of the original `>=3x vs encoding/json + any` assumption.
 
-**Requirements:** TBD
+**Requirements:** BENCH-01, BENCH-02, BENCH-03, BENCH-04, BENCH-05, BENCH-07, DOC-01, DOC-06
 
 **Depends on:** Phase 8
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 9 to break down)
+- [x] `09-01-PLAN.md` — Claim gate, release-snapshot capture script, linux/amd64 workflow, and v0.1.2 evidence directory
+- [x] `09-02-PLAN.md` — Real linux/amd64 benchmark evidence capture/import, benchstat outputs, metadata, and summary.json
+- [x] `09-03-PLAN.md` — Public benchmark docs, README benchmark snapshot, changelog update, and Phase 09.1 release boundary
 
 ### Phase 09.1: Bootstrap artifact and ABI alignment for default installs (INSERTED)
 
@@ -514,6 +506,18 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 09.1 to break down)
+
+### Phase 10: Lightweight PR benchmark regression signal
+
+**Goal:** Promote the old PR-head CI coverage backlog into active milestone work by adding a cheap `pull_request` benchmark workflow that exercises representative Tier 1/Tier 2/Tier 3 paths and reports a strong regression signal on the exact merge candidate without requiring the full release-grade benchmark capture flow from Phase 9. The intended outcome is that every non-trivial PR gets a modest but durable performance check, while the heavier linux/amd64 evidence capture remains the release/public-claim gate.
+
+**Requirements:** TBD — promoted from backlog item `999.8` and narrowed to lightweight benchmark coverage rather than general branch-head CI. Planning should decide the exact benchmark subset, acceptable runtime budget, benchstat/regression threshold policy, advisory-vs-blocking semantics, and whether docs-only changes skip the job.
+
+**Depends on:** Phase 09.1
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 10 to break down)
 
 ---
 *Roadmap created: 2026-04-14 from PROJECT.md, REQUIREMENTS.md, and research/SUMMARY.md*
