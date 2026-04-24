@@ -6,11 +6,15 @@
     "tier3_headline_allowed": false
   },
   "errors": [
-    "tier2 regression for twitter_json: old=299108.00ns/op new=368603.00ns/op",
-    "tier2 regression for citm_catalog_json: old=983510.00ns/op new=1231068.50ns/op",
-    "tier2 regression for canada_json: old=2882704.00ns/op new=3133063.50ns/op",
-    "tier3 regression for twitter_json: old=191788.00ns/op new=313001.00ns/op",
-    "tier3 regression for citm_catalog_json: old=587661.00ns/op new=1175721.50ns/op"
+    "baseline target metadata mismatch: baseline phase7.bench.txt goos=darwin snapshot goos=linux",
+    "baseline target metadata mismatch: baseline phase7.bench.txt goarch=arm64 snapshot goarch=amd64",
+    "baseline target metadata mismatch: baseline phase7.bench.txt cpu=Apple M3 Max snapshot cpu=AMD EPYC 7763 64-Core Processor",
+    "baseline target metadata mismatch: baseline coldwarm.bench.txt goos=darwin snapshot goos=linux",
+    "baseline target metadata mismatch: baseline coldwarm.bench.txt goarch=arm64 snapshot goarch=amd64",
+    "baseline target metadata mismatch: baseline coldwarm.bench.txt cpu=Apple M3 Max snapshot cpu=AMD EPYC 7763 64-Core Processor",
+    "baseline target metadata mismatch: baseline tier1-diagnostics.bench.txt goos=darwin snapshot goos=linux",
+    "baseline target metadata mismatch: baseline tier1-diagnostics.bench.txt goarch=arm64 snapshot goarch=amd64",
+    "baseline target metadata mismatch: baseline tier1-diagnostics.bench.txt cpu=Apple M3 Max snapshot cpu=AMD EPYC 7763 64-Core Processor"
   ],
   "fixtures": {
     "tier1": {

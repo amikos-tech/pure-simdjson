@@ -76,8 +76,13 @@ def build_phase9_text(
     return "\n".join(lines) + "\n"
 
 
-def build_baseline_phase7_text(*, tier2_ns: float = 75.0, tier3_ns: float = 65.0) -> str:
-    lines = bench_header()
+def build_baseline_phase7_text(
+    *,
+    tier2_ns: float = 75.0,
+    tier3_ns: float = 65.0,
+    metadata: dict[str, str] | None = None,
+) -> str:
+    lines = bench_header(metadata)
     for fixture in FIXTURES:
         lines.append(bench_row(f"BenchmarkTier2Typed_{fixture}/pure-simdjson", tier2_ns))
     for fixture in TIER3_FIXTURES:
@@ -136,15 +141,25 @@ class CheckBenchmarkClaimsTests(unittest.TestCase):
         tier3_benchstat_significant: bool = True,
         tier2_snapshot_ns: float = 60.0,
         tier3_snapshot_ns: float = 50.0,
+        baseline_metadata: dict[str, str] | None = None,
     ) -> tuple[pathlib.Path, pathlib.Path]:
         baseline = root / "baseline"
         snapshot = root / "snapshot"
         baseline.mkdir()
         snapshot.mkdir()
 
-        (baseline / "phase7.bench.txt").write_text(build_baseline_phase7_text(), encoding="utf-8")
-        (baseline / "coldwarm.bench.txt").write_text(build_coldwarm_text(), encoding="utf-8")
-        (baseline / "tier1-diagnostics.bench.txt").write_text(build_diagnostics_text(), encoding="utf-8")
+        (baseline / "phase7.bench.txt").write_text(
+            build_baseline_phase7_text(metadata=baseline_metadata),
+            encoding="utf-8",
+        )
+        (baseline / "coldwarm.bench.txt").write_text(
+            build_coldwarm_text(baseline_metadata),
+            encoding="utf-8",
+        )
+        (baseline / "tier1-diagnostics.bench.txt").write_text(
+            build_diagnostics_text(baseline_metadata),
+            encoding="utf-8",
+        )
 
         if phase9_text is None:
             phase9_text = build_phase9_text(
@@ -297,6 +312,29 @@ class CheckBenchmarkClaimsTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(payload["claims"]["tier2_headline_allowed"])
         self.assertTrue(any("tier2" in error and "regression" in error for error in payload["errors"]))
+
+    def test_cross_platform_baseline_fails_with_metadata_mismatch_not_regression(self) -> None:
+        baseline_metadata = {
+            "goos": "darwin",
+            "goarch": "arm64",
+            "pkg": "github.com/amikos-tech/pure-simdjson",
+            "cpu": "Apple M3 Max",
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            baseline, snapshot = self.write_evidence(
+                pathlib.Path(temp_dir),
+                baseline_metadata=baseline_metadata,
+                tier2_snapshot_ns=90.0,
+                tier3_snapshot_ns=90.0,
+            )
+            result = self.run_gate(baseline, snapshot)
+
+        payload = self.parse_stdout(result)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(
+            any("baseline target metadata mismatch" in error for error in payload["errors"])
+        )
+        self.assertFalse(any("regression for" in error for error in payload["errors"]))
 
 
 if __name__ == "__main__":

@@ -261,6 +261,30 @@ def verify_metadata(
     return errors
 
 
+def verify_baseline_target_matches_snapshot(
+    *,
+    baseline_metadatas: list[tuple[str, dict[str, str]]],
+    snapshot_metadata: dict[str, str],
+) -> list[str]:
+    errors: list[str] = []
+    for source_name, baseline_metadata in baseline_metadatas:
+        for key in RAW_METADATA_KEYS:
+            baseline_value = baseline_metadata.get(key)
+            snapshot_value = snapshot_metadata.get(key)
+            if baseline_value is None:
+                errors.append(f"{source_name} missing metadata key: {key}")
+                continue
+            if snapshot_value is None:
+                errors.append(f"snapshot phase9.bench.txt missing metadata key: {key}")
+                continue
+            if baseline_value != snapshot_value:
+                errors.append(
+                    "baseline target metadata mismatch: "
+                    f"{source_name} {key}={baseline_value} snapshot {key}={snapshot_value}"
+                )
+    return errors
+
+
 def has_significant_win(benchstat_text: str, row: str) -> bool:
     for line in benchstat_text.splitlines():
         if row not in line:
@@ -312,6 +336,7 @@ def tier_status(
     baseline_samples: dict[str, list[dict[str, float]]],
     benchstat_text_value: str,
     errors: list[str],
+    compare_baseline: bool,
 ) -> tuple[bool, dict[str, Any]]:
     fixture_statuses: dict[str, Any] = {}
     allowed = True
@@ -322,11 +347,11 @@ def tier_status(
         old = median_ns(baseline_samples, pure_row)
         pure = median_ns(phase9_samples, pure_row)
         stdlib = median_ns(phase9_samples, struct_row)
-        no_regression = old is not None and pure is not None and pure <= old
+        no_regression = compare_baseline and old is not None and pure is not None and pure <= old
         median_win = pure is not None and stdlib is not None and pure < stdlib
         significant = has_significant_win(benchstat_text_value, row)
         row_allowed = bool(no_regression and median_win and significant)
-        if old is not None and pure is not None and pure > old:
+        if compare_baseline and old is not None and pure is not None and pure > old:
             errors.append(f"{tier_name} regression for {fixture}: old={old:.2f}ns/op new={pure:.2f}ns/op")
         fixture_statuses[fixture] = {
             "baseline_pure_ns_op": old,
@@ -368,8 +393,12 @@ def generate_payload(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
 
     try:
         baseline_metadata, baseline_phase7 = parse_benchmark_file(args.baseline_dir / "phase7.bench.txt")
-        _, _baseline_coldwarm = parse_benchmark_file(args.baseline_dir / "coldwarm.bench.txt")
-        _, _baseline_diagnostics = parse_benchmark_file(args.baseline_dir / "tier1-diagnostics.bench.txt")
+        baseline_coldwarm_metadata, _baseline_coldwarm = parse_benchmark_file(
+            args.baseline_dir / "coldwarm.bench.txt"
+        )
+        baseline_diagnostics_metadata, _baseline_diagnostics = parse_benchmark_file(
+            args.baseline_dir / "tier1-diagnostics.bench.txt"
+        )
         phase9_metadata, phase9_samples = parse_benchmark_file(args.snapshot_dir / "phase9.bench.txt")
         coldwarm_metadata, coldwarm_samples = parse_benchmark_file(args.snapshot_dir / "coldwarm.bench.txt")
         diagnostics_metadata, diagnostic_samples = parse_benchmark_file(
@@ -414,6 +443,17 @@ def generate_payload(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     )
     errors.extend(require_rows(baseline_phase7, required_baseline_rows(), source_name="baseline phase7.bench.txt"))
 
+    baseline_target_errors = verify_baseline_target_matches_snapshot(
+        baseline_metadatas=[
+            ("baseline phase7.bench.txt", baseline_metadata),
+            ("baseline coldwarm.bench.txt", baseline_coldwarm_metadata),
+            ("baseline tier1-diagnostics.bench.txt", baseline_diagnostics_metadata),
+        ],
+        snapshot_metadata=phase9_metadata,
+    )
+    errors.extend(baseline_target_errors)
+    compare_baseline = not baseline_target_errors
+
     tier1_benchstat = read_text(args.snapshot_dir / "tier1-vs-stdlib.benchstat.txt")
     tier2_benchstat = read_text(args.snapshot_dir / "tier2-vs-stdlib.benchstat.txt")
     tier3_benchstat = read_text(args.snapshot_dir / "tier3-vs-stdlib.benchstat.txt")
@@ -427,6 +467,7 @@ def generate_payload(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         baseline_samples=baseline_phase7,
         benchstat_text_value=tier2_benchstat,
         errors=errors,
+        compare_baseline=compare_baseline,
     )
     tier3_allowed, tier3_fixtures = tier_status(
         tier_name="tier3",
@@ -436,6 +477,7 @@ def generate_payload(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         baseline_samples=baseline_phase7,
         benchstat_text_value=tier3_benchstat,
         errors=errors,
+        compare_baseline=compare_baseline,
     )
 
     payload["claims"] = {
