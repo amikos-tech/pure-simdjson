@@ -114,7 +114,12 @@ def build_diagnostics_text(metadata: dict[str, str] | None = None) -> str:
     return "\n".join(lines) + "\n"
 
 
-def benchstat_text(rows: list[str], *, significant: bool = True) -> str:
+def benchstat_text(
+    rows: list[str],
+    *,
+    significant: bool = True,
+    strip_benchmark_prefix: bool = False,
+) -> str:
     marker = "-20.00%" if significant else "~"
     return "\n".join(
         [
@@ -123,7 +128,11 @@ def benchstat_text(rows: list[str], *, significant: bool = True) -> str:
             "pkg: github.com/amikos-tech/pure-simdjson",
             "cpu: Synthetic CPU",
             "              │ old ns/op │ new ns/op │   delta │",
-            *[f"{row}   100.0 ± 1%   80.0 ± 1%   {marker}" for row in rows],
+            *[
+                f"{row.removeprefix('Benchmark') if strip_benchmark_prefix else row}   "
+                f"100.0 ± 1%   80.0 ± 1%   {marker}"
+                for row in rows
+            ],
         ]
     ) + "\n"
 
@@ -142,6 +151,7 @@ class CheckBenchmarkClaimsTests(unittest.TestCase):
         tier2_snapshot_ns: float = 60.0,
         tier3_snapshot_ns: float = 50.0,
         baseline_metadata: dict[str, str] | None = None,
+        strip_benchmark_prefix_in_benchstat: bool = False,
     ) -> tuple[pathlib.Path, pathlib.Path]:
         baseline = root / "baseline"
         snapshot = root / "snapshot"
@@ -176,6 +186,7 @@ class CheckBenchmarkClaimsTests(unittest.TestCase):
             benchstat_text(
                 [f"BenchmarkTier1FullParse_{fixture}" for fixture in FIXTURES],
                 significant=tier1_benchstat_significant,
+                strip_benchmark_prefix=strip_benchmark_prefix_in_benchstat,
             ),
             encoding="utf-8",
         )
@@ -183,6 +194,7 @@ class CheckBenchmarkClaimsTests(unittest.TestCase):
             benchstat_text(
                 [f"BenchmarkTier2Typed_{fixture}" for fixture in FIXTURES],
                 significant=tier2_benchstat_significant,
+                strip_benchmark_prefix=strip_benchmark_prefix_in_benchstat,
             ),
             encoding="utf-8",
         )
@@ -190,6 +202,7 @@ class CheckBenchmarkClaimsTests(unittest.TestCase):
             benchstat_text(
                 [f"BenchmarkTier3SelectivePlaceholder_{fixture}" for fixture in TIER3_FIXTURES],
                 significant=tier3_benchstat_significant,
+                strip_benchmark_prefix=strip_benchmark_prefix_in_benchstat,
             ),
             encoding="utf-8",
         )
@@ -262,6 +275,20 @@ class CheckBenchmarkClaimsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(payload["errors"], [])
         self.assertEqual(payload["claims"]["readme_mode"], "conservative_current_strengths")
+
+    def test_real_benchstat_rows_without_benchmark_prefix_are_significant(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            baseline, snapshot = self.write_evidence(
+                pathlib.Path(temp_dir),
+                strip_benchmark_prefix_in_benchstat=True,
+            )
+            result = self.run_gate(baseline, snapshot)
+
+        payload = self.parse_stdout(result)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(payload["claims"]["tier1_headline_allowed"])
+        self.assertTrue(payload["claims"]["tier2_headline_allowed"])
+        self.assertTrue(payload["claims"]["tier3_headline_allowed"])
 
     def test_missing_required_files_returns_machine_readable_error(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

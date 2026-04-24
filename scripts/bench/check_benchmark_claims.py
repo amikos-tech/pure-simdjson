@@ -89,7 +89,7 @@ def empty_payload(snapshot: str, target: str) -> dict[str, Any]:
         },
         "thresholds": {
             "tier1_headline": "benchstat_significant_win_vs_encoding_json_any_every_fixture",
-            "tier2_tier3": "no_material_regression_vs_v0.1.1_and_win_vs_encoding_json_struct_every_fixture",
+            "tier2_tier3": "no_material_regression_vs_linux_amd64_baseline_and_win_vs_encoding_json_struct_every_fixture",
         },
         "claims": {
             "tier1_headline_allowed": False,
@@ -286,8 +286,9 @@ def verify_baseline_target_matches_snapshot(
 
 
 def has_significant_win(benchstat_text: str, row: str) -> bool:
+    row_aliases = (row, row.removeprefix("Benchmark"))
     for line in benchstat_text.splitlines():
-        if row not in line:
+        if not any(row_alias in line for row_alias in row_aliases):
             continue
         if "~" in line:
             return False

@@ -1,42 +1,32 @@
 {
   "claims": {
-    "readme_mode": "conservative_current_strengths",
-    "tier1_headline_allowed": false,
-    "tier2_headline_allowed": false,
-    "tier3_headline_allowed": false
+    "readme_mode": "tier1_headline",
+    "tier1_headline_allowed": true,
+    "tier2_headline_allowed": true,
+    "tier3_headline_allowed": true
   },
-  "errors": [
-    "baseline target metadata mismatch: baseline phase7.bench.txt goos=darwin snapshot goos=linux",
-    "baseline target metadata mismatch: baseline phase7.bench.txt goarch=arm64 snapshot goarch=amd64",
-    "baseline target metadata mismatch: baseline phase7.bench.txt cpu=Apple M3 Max snapshot cpu=AMD EPYC 7763 64-Core Processor",
-    "baseline target metadata mismatch: baseline coldwarm.bench.txt goos=darwin snapshot goos=linux",
-    "baseline target metadata mismatch: baseline coldwarm.bench.txt goarch=arm64 snapshot goarch=amd64",
-    "baseline target metadata mismatch: baseline coldwarm.bench.txt cpu=Apple M3 Max snapshot cpu=AMD EPYC 7763 64-Core Processor",
-    "baseline target metadata mismatch: baseline tier1-diagnostics.bench.txt goos=darwin snapshot goos=linux",
-    "baseline target metadata mismatch: baseline tier1-diagnostics.bench.txt goarch=arm64 snapshot goarch=amd64",
-    "baseline target metadata mismatch: baseline tier1-diagnostics.bench.txt cpu=Apple M3 Max snapshot cpu=AMD EPYC 7763 64-Core Processor"
-  ],
+  "errors": [],
   "fixtures": {
     "tier1": {
       "canada_json": {
-        "allowed": false,
-        "benchstat_significant_win": false,
+        "allowed": true,
+        "benchstat_significant_win": true,
         "median_win": true,
         "pure_ns_op": 14159129.5,
         "ratio_vs_encoding_json_any": 2.467267955985571,
         "stdlib_ns_op": 34934366.5
       },
       "citm_catalog_json": {
-        "allowed": false,
-        "benchstat_significant_win": false,
+        "allowed": true,
+        "benchstat_significant_win": true,
         "median_win": true,
         "pure_ns_op": 5113116.0,
         "ratio_vs_encoding_json_any": 3.3908880612135537,
         "stdlib_ns_op": 17338004.0
       },
       "twitter_json": {
-        "allowed": false,
-        "benchstat_significant_win": false,
+        "allowed": true,
+        "benchstat_significant_win": true,
         "median_win": true,
         "pure_ns_op": 2044151.0,
         "ratio_vs_encoding_json_any": 3.151988527266332,
@@ -45,31 +35,31 @@
     },
     "tier2": {
       "canada_json": {
-        "allowed": false,
-        "baseline_pure_ns_op": 2882704.0,
-        "benchstat_significant_win": false,
+        "allowed": true,
+        "baseline_pure_ns_op": 3174444.0,
+        "benchstat_significant_win": true,
         "median_win": true,
-        "no_material_regression_vs_v0.1.1": false,
+        "no_material_regression_vs_v0.1.1": true,
         "pure_ns_op": 3133063.5,
         "ratio_vs_encoding_json_struct": 12.4875440603103,
         "stdlib_ns_op": 39124268.5
       },
       "citm_catalog_json": {
-        "allowed": false,
-        "baseline_pure_ns_op": 983510.0,
-        "benchstat_significant_win": false,
+        "allowed": true,
+        "baseline_pure_ns_op": 1234220.5,
+        "benchstat_significant_win": true,
         "median_win": true,
-        "no_material_regression_vs_v0.1.1": false,
+        "no_material_regression_vs_v0.1.1": true,
         "pure_ns_op": 1231068.5,
         "ratio_vs_encoding_json_struct": 14.555537730028833,
         "stdlib_ns_op": 17918864.0
       },
       "twitter_json": {
-        "allowed": false,
-        "baseline_pure_ns_op": 299108.0,
-        "benchstat_significant_win": false,
+        "allowed": true,
+        "baseline_pure_ns_op": 368692.5,
+        "benchstat_significant_win": true,
         "median_win": true,
-        "no_material_regression_vs_v0.1.1": false,
+        "no_material_regression_vs_v0.1.1": true,
         "pure_ns_op": 368603.0,
         "ratio_vs_encoding_json_struct": 13.67041234064834,
         "stdlib_ns_op": 5038955.0
@@ -77,21 +67,21 @@
     },
     "tier3": {
       "citm_catalog_json": {
-        "allowed": false,
-        "baseline_pure_ns_op": 587661.0,
-        "benchstat_significant_win": false,
+        "allowed": true,
+        "baseline_pure_ns_op": 1180310.0,
+        "benchstat_significant_win": true,
         "median_win": true,
-        "no_material_regression_vs_v0.1.1": false,
+        "no_material_regression_vs_v0.1.1": true,
         "pure_ns_op": 1175721.5,
         "ratio_vs_encoding_json_struct": 15.177440405742347,
         "stdlib_ns_op": 17844443.0
       },
       "twitter_json": {
-        "allowed": false,
-        "baseline_pure_ns_op": 191788.0,
-        "benchstat_significant_win": false,
+        "allowed": true,
+        "baseline_pure_ns_op": 315250.0,
+        "benchstat_significant_win": true,
         "median_win": true,
-        "no_material_regression_vs_v0.1.1": false,
+        "no_material_regression_vs_v0.1.1": true,
         "pure_ns_op": 313001.0,
         "ratio_vs_encoding_json_struct": 15.97355599502877,
         "stdlib_ns_op": 4999739.0
@@ -113,6 +103,6 @@
   },
   "thresholds": {
     "tier1_headline": "benchstat_significant_win_vs_encoding_json_any_every_fixture",
-    "tier2_tier3": "no_material_regression_vs_v0.1.1_and_win_vs_encoding_json_struct_every_fixture"
+    "tier2_tier3": "no_material_regression_vs_linux_amd64_baseline_and_win_vs_encoding_json_struct_every_fixture"
   }
 }

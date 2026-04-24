@@ -2,11 +2,12 @@
 set -euo pipefail
 
 usage() {
-	echo "Usage: $0 [--snapshot <label>] [--out-dir <path>]" >&2
+	echo "Usage: $0 [--snapshot <label>] [--out-dir <path>] [--baseline-dir <path>]" >&2
 }
 
 snapshot="v0.1.2"
 out_dir="testdata/benchmark-results/v0.1.2"
+baseline_dir="testdata/benchmark-results/v0.1.1-linux-amd64"
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -27,6 +28,15 @@ while [[ $# -gt 0 ]]; do
 				exit 1
 			fi
 			out_dir="$1"
+			;;
+		--baseline-dir)
+			shift
+			if [[ $# -eq 0 ]]; then
+				usage
+				echo "missing value for --baseline-dir" >&2
+				exit 1
+			fi
+			baseline_dir="$1"
 			;;
 		-h|--help)
 			usage
@@ -108,11 +118,11 @@ current_step="Tier 1 diagnostics benchmark capture"
 go test ./... -run '^$' -bench 'BenchmarkTier1Diagnostics_' -benchmem -count=10 -timeout 1200s >"$diagnostics_bench"
 
 current_step="old/new phase9 benchstat"
-scripts/bench/run_benchstat.sh --old testdata/benchmark-results/v0.1.1/phase7.bench.txt --new "$phase9_bench" >"$stage_dir/phase9.benchstat.txt"
+scripts/bench/run_benchstat.sh --old "$baseline_dir/phase7.bench.txt" --new "$phase9_bench" >"$stage_dir/phase9.benchstat.txt"
 current_step="cold/warm benchstat"
-scripts/bench/run_benchstat.sh --old testdata/benchmark-results/v0.1.1/coldwarm.bench.txt --new "$coldwarm_bench" >"$stage_dir/coldwarm.benchstat.txt"
+scripts/bench/run_benchstat.sh --old "$baseline_dir/coldwarm.bench.txt" --new "$coldwarm_bench" >"$stage_dir/coldwarm.benchstat.txt"
 current_step="Tier 1 diagnostics benchstat"
-scripts/bench/run_benchstat.sh --old testdata/benchmark-results/v0.1.1/tier1-diagnostics.bench.txt --new "$diagnostics_bench" >"$stage_dir/tier1-diagnostics.benchstat.txt"
+scripts/bench/run_benchstat.sh --old "$baseline_dir/tier1-diagnostics.bench.txt" --new "$diagnostics_bench" >"$stage_dir/tier1-diagnostics.benchstat.txt"
 
 normalized_dir="$(mktemp -d "${out_parent}/.${out_base}.normalized.tmp.XXXXXX")"
 trap 'rm -rf "$normalized_dir"; cleanup' EXIT
@@ -178,7 +188,7 @@ PY
 complete_snapshot="true"
 
 current_step="benchmark claim gate"
-if ! python3 scripts/bench/check_benchmark_claims.py --baseline-dir testdata/benchmark-results/v0.1.1 --snapshot-dir "$stage_dir" --snapshot "$snapshot" --require-target linux/amd64 >"$stage_dir/summary.json"; then
+if ! python3 scripts/bench/check_benchmark_claims.py --baseline-dir "$baseline_dir" --snapshot-dir "$stage_dir" --snapshot "$snapshot" --require-target linux/amd64 >"$stage_dir/summary.json"; then
 	echo "benchmark claim gate failed; preserving complete snapshot in $out_dir" >&2
 	if [[ -f "$stage_dir/summary.json" ]]; then
 		echo "--- summary.json ---" >&2

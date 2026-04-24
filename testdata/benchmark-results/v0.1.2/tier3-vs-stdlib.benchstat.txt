@@ -1,7 +1,7 @@
 goos: linux
 goarch: amd64
 pkg: github.com/amikos-tech/pure-simdjson
-cpu: AMD EPYC 7763 64-Core Processor                
+cpu: AMD EPYC 7763 64-Core Processor
                                               │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier3-candidate.bench.txt │
                                               │                                    sec/op                                     │                           sec/op                            vs base                │
 Tier3SelectivePlaceholder_twitter_json-4                                                                         4999.7µ ± 1%                                                  313.0µ ± 1%  -93.74% (p=0.000 n=10)
