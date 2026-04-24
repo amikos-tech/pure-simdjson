@@ -1,0 +1,65 @@
+name: benchmark capture
+
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: Benchmark snapshot label, for example v0.1.2
+        required: true
+        default: v0.1.2
+        type: string
+
+concurrency:
+  group: benchmark-capture-${{ inputs.snapshot }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  capture:
+    name: capture linux amd64 benchmark evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+
+      - name: Install pinned Rust toolchain
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain-file: rust-toolchain.toml
+
+      - name: Install benchstat
+        run: |
+          set -euo pipefail
+          go install golang.org/x/perf/cmd/benchstat@latest
+          echo "$(go env GOPATH)/bin" >>"$GITHUB_PATH"
+
+      - name: Build native release library
+        run: cargo build --release
+
+      - name: Run comparator and oracle smoke checks
+        run: go test ./... -run 'TestTierNComparatorsAgree|TestJSONTestSuiteOracle' -count=1
+
+      - name: Capture benchmark evidence
+        run: bash scripts/bench/capture_release_snapshot.sh --snapshot "${{ inputs.snapshot }}" --out-dir "testdata/benchmark-results/${{ inputs.snapshot }}"
+
+      - name: Upload benchmark evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: benchmark-evidence-${{ inputs.snapshot }}-linux-amd64
+          if-no-files-found: error
+          path: testdata/benchmark-results/${{ inputs.snapshot }}/
+          retention-days: 30
