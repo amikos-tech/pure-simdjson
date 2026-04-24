@@ -11,6 +11,8 @@ const (
 type ErrorCode int32
 
 const (
+	// Values in this block must stay in lockstep with pure_simdjson.h and
+	// src/lib.rs; they are part of the cross-ABI error contract.
 	OK                 ErrorCode = 0
 	ErrInvalidArg      ErrorCode = 1
 	ErrInvalidHandle   ErrorCode = 2
@@ -18,6 +20,8 @@ const (
 	ErrWrongType       ErrorCode = 4
 	ErrElementNotFound ErrorCode = 5
 	ErrBufferTooSmall  ErrorCode = 6
+	ErrNotImplemented  ErrorCode = 7
+	ErrDepthLimit      ErrorCode = 8
 
 	ErrInvalidJSON      ErrorCode = 32
 	ErrNumberOutOfRange ErrorCode = 33
@@ -54,6 +58,21 @@ type ValueView struct {
 	State1   uint64
 	KindHint uint32
 	Reserved uint32
+}
+
+type InternalFrame struct {
+	Kind uint32
+	// Flags carries the bool payload for ValueKindBool; unused for other kinds.
+	Flags        uint32
+	ChildCount   uint32
+	Reserved     uint32
+	KeyPtr       uintptr
+	KeyLen       uintptr
+	StringPtr    uintptr
+	StringLen    uintptr
+	Int64Value   int64
+	Uint64Value  uint64
+	Float64Value float64
 }
 
 type ArrayIter struct {

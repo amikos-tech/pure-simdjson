@@ -3,10 +3,12 @@
 
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 struct psimdjson_element {
   simdjson::dom::element value{};
@@ -15,6 +17,13 @@ struct psimdjson_element {
 struct psimdjson_doc {
   simdjson::dom::document document{};
   psimdjson_element root{};
+  // Borrowed spans returned by psimdjson_materialize_build point into this
+  // scratch vector. The next build on the same doc clears/reuses it and
+  // invalidates any prior span; callers must consume or copy before re-entry.
+  std::vector<psdj_internal_frame_t> materialize_frames{};
+  // Guard is per-doc because Go serializes all live document access with
+  // Doc.mu; if that invariant changes, this scratch vector needs a wider guard.
+  bool materialize_in_progress{false};
 };
 
 struct psimdjson_parser {
@@ -69,7 +78,6 @@ pure_simdjson_error_code_t map_error(simdjson::error_code error) noexcept {
     case simdjson::BIGINT_ERROR:
       return PURE_SIMDJSON_ERR_PRECISION_LOSS;
     case simdjson::TAPE_ERROR:
-    case simdjson::DEPTH_ERROR:
     case simdjson::STRING_ERROR:
     case simdjson::T_ATOM_ERROR:
     case simdjson::F_ATOM_ERROR:
@@ -82,6 +90,8 @@ pure_simdjson_error_code_t map_error(simdjson::error_code error) noexcept {
     case simdjson::INCOMPLETE_ARRAY_OR_OBJECT:
     case simdjson::TRAILING_CONTENT:
       return PURE_SIMDJSON_ERR_INVALID_JSON;
+    case simdjson::DEPTH_ERROR:
+      return PURE_SIMDJSON_ERR_DEPTH_LIMIT;
     case simdjson::CAPACITY:
     case simdjson::MEMALLOC:
     case simdjson::IO_ERROR:
@@ -102,6 +112,15 @@ pure_simdjson_error_code_t map_error(simdjson::error_code error) noexcept {
     default:
       return PURE_SIMDJSON_ERR_INTERNAL;
   }
+}
+
+pure_simdjson_error_code_t map_parse_error(simdjson::error_code error) noexcept {
+  // Parse treats BIGINT as invalid JSON for the public v0.1 contract, while
+  // element accessors/materialization map BIGINT to precision loss.
+  if (error == simdjson::BIGINT_ERROR) {
+    return PURE_SIMDJSON_ERR_INVALID_JSON;
+  }
+  return map_error(error);
 }
 
 pure_simdjson_value_kind_t map_element_type(simdjson::dom::element_type type) noexcept {
@@ -248,6 +267,216 @@ uint64_t element_json_index(const simdjson::dom::element &element) noexcept {
   return uint64_t(tape_ref_of(element).json_index);
 }
 
+class materialize_build_guard {
+ public:
+  explicit materialize_build_guard(psimdjson_doc *doc) noexcept : doc_(doc) {
+    if (doc_ != nullptr && !doc_->materialize_in_progress) {
+      doc_->materialize_in_progress = true;
+      acquired_ = true;
+    }
+  }
+
+  materialize_build_guard(const materialize_build_guard &) = delete;
+  materialize_build_guard &operator=(const materialize_build_guard &) = delete;
+
+  ~materialize_build_guard() noexcept {
+    if (acquired_) {
+      doc_->materialize_in_progress = false;
+    }
+  }
+
+  bool acquired() const noexcept {
+    return acquired_;
+  }
+
+ private:
+  psimdjson_doc *doc_{nullptr};
+  bool acquired_{false};
+};
+
+void clear_materialize_outputs(
+    const psdj_internal_frame_t **out_frames,
+    size_t *out_frame_count
+) noexcept {
+  if (out_frames != nullptr) {
+    *out_frames = nullptr;
+  }
+  if (out_frame_count != nullptr) {
+    *out_frame_count = 0;
+  }
+}
+
+void set_frame_key(psdj_internal_frame_t &frame, std::string_view key) noexcept {
+  frame.key_len = key.size();
+  frame.key_ptr = key.empty() ? nullptr : reinterpret_cast<const uint8_t *>(key.data());
+}
+
+void reserve_materialize_frames(psimdjson_doc *doc, size_t child_hint) {
+  const size_t required = doc->materialize_frames.size() + 1 + child_hint;
+  if (required <= doc->materialize_frames.capacity()) {
+    return;
+  }
+
+  size_t new_capacity = doc->materialize_frames.capacity();
+  if (new_capacity == 0) {
+    new_capacity = required;
+  }
+  while (new_capacity < required) {
+    if (new_capacity > (std::numeric_limits<size_t>::max() / 2)) {
+      new_capacity = required;
+      break;
+    }
+    new_capacity *= 2;
+  }
+  doc->materialize_frames.reserve(new_capacity);
+}
+
+// simdjson saturates tape scope counts at 0xFFFFFF; saturated hints no longer
+// reflect the real child count and should not drive scratch-vector reserves.
+bool has_unsaturated_child_hint(size_t child_hint) noexcept {
+  constexpr size_t SATURATED_SCOPE_COUNT = 0xFFFFFF;
+  return child_hint < SATURATED_SCOPE_COUNT;
+}
+
+pure_simdjson_error_code_t append_materialize_frame(
+    psimdjson_doc *doc,
+    simdjson::dom::element element,
+    std::string_view key,
+    size_t depth
+) {
+  // Defense-in-depth: simdjson's parser cap catches user input first today.
+  // Keep the materializer bound in case future refactors decouple those depths.
+  constexpr size_t MAX_MATERIALIZE_FRAME_DEPTH = 1024;
+  if (depth > MAX_MATERIALIZE_FRAME_DEPTH) {
+    return PURE_SIMDJSON_ERR_DEPTH_LIMIT;
+  }
+
+  psdj_internal_frame_t frame{};
+  // Go reads flags as the bool payload for ValueKindBool; stale high bits would
+  // misdecode if a future kind reused this field.
+  frame.flags = 0;
+  set_frame_key(frame, key);
+
+  const auto type = element.type();
+  if (type == simdjson::dom::element_type::BIGINT) {
+    return PURE_SIMDJSON_ERR_PRECISION_LOSS;
+  }
+  frame.kind = map_element_type(type);
+
+  switch (type) {
+    case simdjson::dom::element_type::ARRAY: {
+      simdjson::dom::array array;
+      const auto error = element.get_array().get(array);
+      if (error != simdjson::SUCCESS) {
+        return map_error(error);
+      }
+
+      const auto frame_index = doc->materialize_frames.size();
+      const auto child_hint = array.size();
+      if (has_unsaturated_child_hint(child_hint)) {
+        reserve_materialize_frames(doc, child_hint);
+      }
+      doc->materialize_frames.push_back(frame);
+
+      uint64_t child_count = 0;
+      for (simdjson::dom::element child : array) {
+        const auto child_rc =
+            append_materialize_frame(doc, child, std::string_view{}, depth + 1);
+        if (child_rc != PURE_SIMDJSON_OK) {
+          return child_rc;
+        }
+        child_count++;
+        if (child_count > std::numeric_limits<uint32_t>::max()) {
+          return PURE_SIMDJSON_ERR_INTERNAL;
+        }
+      }
+      doc->materialize_frames[frame_index].child_count = uint32_t(child_count);
+      return PURE_SIMDJSON_OK;
+    }
+    case simdjson::dom::element_type::OBJECT: {
+      simdjson::dom::object object;
+      const auto error = element.get_object().get(object);
+      if (error != simdjson::SUCCESS) {
+        return map_error(error);
+      }
+
+      const auto frame_index = doc->materialize_frames.size();
+      const auto child_hint = object.size();
+      if (has_unsaturated_child_hint(child_hint)) {
+        reserve_materialize_frames(doc, child_hint);
+      }
+      doc->materialize_frames.push_back(frame);
+
+      uint64_t child_count = 0;
+      for (simdjson::dom::key_value_pair field : object) {
+        const auto child_rc = append_materialize_frame(doc, field.value, field.key, depth + 1);
+        if (child_rc != PURE_SIMDJSON_OK) {
+          return child_rc;
+        }
+        child_count++;
+        if (child_count > std::numeric_limits<uint32_t>::max()) {
+          return PURE_SIMDJSON_ERR_INTERNAL;
+        }
+      }
+      doc->materialize_frames[frame_index].child_count = uint32_t(child_count);
+      return PURE_SIMDJSON_OK;
+    }
+    case simdjson::dom::element_type::INT64: {
+      const auto error = element.get_int64().get(frame.int64_value);
+      if (error != simdjson::SUCCESS) {
+        return map_error(error);
+      }
+      doc->materialize_frames.push_back(frame);
+      return PURE_SIMDJSON_OK;
+    }
+    case simdjson::dom::element_type::UINT64: {
+      const auto error = element.get_uint64().get(frame.uint64_value);
+      if (error != simdjson::SUCCESS) {
+        return map_error(error);
+      }
+      doc->materialize_frames.push_back(frame);
+      return PURE_SIMDJSON_OK;
+    }
+    case simdjson::dom::element_type::DOUBLE: {
+      const auto error = element.get_double().get(frame.float64_value);
+      if (error != simdjson::SUCCESS) {
+        return map_error(error);
+      }
+      doc->materialize_frames.push_back(frame);
+      return PURE_SIMDJSON_OK;
+    }
+    case simdjson::dom::element_type::STRING: {
+      std::string_view value;
+      const auto error = element.get_string().get(value);
+      if (error != simdjson::SUCCESS) {
+        return map_error(error);
+      }
+      frame.string_len = value.size();
+      frame.string_ptr =
+          value.empty() ? nullptr : reinterpret_cast<const uint8_t *>(value.data());
+      doc->materialize_frames.push_back(frame);
+      return PURE_SIMDJSON_OK;
+    }
+    case simdjson::dom::element_type::BOOL: {
+      bool value = false;
+      const auto error = element.get_bool().get(value);
+      if (error != simdjson::SUCCESS) {
+        return map_error(error);
+      }
+      frame.flags = value ? 1 : 0;
+      doc->materialize_frames.push_back(frame);
+      return PURE_SIMDJSON_OK;
+    }
+    case simdjson::dom::element_type::NULL_VALUE:
+      doc->materialize_frames.push_back(frame);
+      return PURE_SIMDJSON_OK;
+    case simdjson::dom::element_type::BIGINT:
+      return PURE_SIMDJSON_ERR_PRECISION_LOSS;
+  }
+
+  return PURE_SIMDJSON_ERR_INTERNAL;
+}
+
 }  // namespace
 
 pure_simdjson_error_code_t psimdjson_get_implementation_name_len(size_t *out_len) noexcept {
@@ -331,7 +560,7 @@ pure_simdjson_error_code_t psimdjson_parser_parse(
         parser->parser.parse_into_document(doc->document, input_ptr, input_len, false).get(root);
     if (error != simdjson::SUCCESS) {
       set_last_error(parser, error);
-      return map_error(error);
+      return map_parse_error(error);
     }
 
     clear_last_error(parser);
@@ -659,6 +888,67 @@ pure_simdjson_error_code_t psimdjson_object_get_field_index(
 
     *out_value_json_index = element_json_index(value);
     return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_materialize_build(psimdjson_doc *doc,
+                                                       uint64_t json_index,
+                                                       const psdj_internal_frame_t **out_frames,
+                                                       size_t *out_frame_count) noexcept {
+  try {
+    if (doc == nullptr || out_frames == nullptr || out_frame_count == nullptr) {
+      clear_materialize_outputs(out_frames, out_frame_count);
+      return invalid_argument();
+    }
+
+    clear_materialize_outputs(out_frames, out_frame_count);
+    materialize_build_guard guard(doc);
+    if (!guard.acquired()) {
+      return PURE_SIMDJSON_ERR_PARSER_BUSY;
+    }
+
+    doc->materialize_frames.clear();
+    const auto rc =
+        append_materialize_frame(doc, element_at(doc, json_index), std::string_view{}, 0);
+    if (rc != PURE_SIMDJSON_OK) {
+      doc->materialize_frames.clear();
+      clear_materialize_outputs(out_frames, out_frame_count);
+      return rc;
+    }
+
+    if (doc->materialize_frames.empty()) {
+      return PURE_SIMDJSON_ERR_INTERNAL;
+    }
+
+    // Frame pointers are returned only after traversal completes. The returned
+    // span remains valid until the next psimdjson_materialize_build call on the
+    // same doc, which clears/reuses doc->materialize_frames.
+    *out_frames = doc->materialize_frames.data();
+    *out_frame_count = doc->materialize_frames.size();
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+// Test scaffolding: always returns PURE_SIMDJSON_ERR_PARSER_BUSY when doc
+// is valid. We acquire the materialize_build_guard, then call
+// psimdjson_materialize_build which re-acquires the same guard and fails
+// fast. This simulates the "materialize in progress" state so tests can
+// exercise the reentry guard without racing real workloads.
+pure_simdjson_error_code_t psimdjson_test_hold_materialize_guard(psimdjson_doc *doc,
+                                                                 uint64_t json_index) noexcept {
+  try {
+    if (doc == nullptr) {
+      return invalid_argument();
+    }
+
+    materialize_build_guard guard(doc);
+    if (!guard.acquired()) {
+      return PURE_SIMDJSON_ERR_PARSER_BUSY;
+    }
+
+    const psdj_internal_frame_t *frames = nullptr;
+    size_t frame_count = 0;
+    return psimdjson_materialize_build(doc, json_index, &frames, &frame_count);
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 

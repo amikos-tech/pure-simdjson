@@ -14,7 +14,7 @@ verify-contract:
 	cbindgen --config cbindgen.toml --crate pure_simdjson --output "$$tmp"; \
 	diff -u include/pure_simdjson.h "$$tmp"; \
 	python3 tests/abi/test_check_header.py; \
-	python3 tests/abi/check_header.py --rule error-code-outparams --rule no-mixed-float-int --rule required-symbols --rule string-copy-ownership --rule diag-surface --rule native-alloc-surface include/pure_simdjson.h; \
+	python3 tests/abi/check_header.py --rule error-code-outparams --rule no-mixed-float-int --rule no-internal-symbols --rule required-symbols --rule string-copy-ownership --rule diag-surface --rule native-alloc-surface include/pure_simdjson.h; \
 	cc -Iinclude tests/abi/handle_layout.c -c -o "$$out"
 
 verify-docs:

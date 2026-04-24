@@ -5,6 +5,15 @@ import "testing"
 // Benchmark-local staging model for the documented SIMDJSON_PADDING contract.
 const benchmarkStageInputPaddingBytes = 64
 
+const (
+	benchmarkTier1DiagnosticsPureFull            = "pure-simdjson-full"
+	benchmarkTier1DiagnosticsPureParseOnly       = "pure-simdjson-parse-only"
+	benchmarkTier1DiagnosticsPureMaterializeOnly = "pure-simdjson-materialize-only"
+	benchmarkTier1DiagnosticsPureStageReuse      = "pure-simdjson-stage-input-reuse-model"
+	benchmarkTier1DiagnosticsPureStageAlloc      = "pure-simdjson-stage-input-alloc-model"
+	benchmarkTier1DiagnosticsEncodingAnyFull     = "encoding-json-any-full"
+)
+
 var benchmarkStageInputSink byte
 
 func BenchmarkTier1Diagnostics_twitter_json(b *testing.B) {
@@ -26,22 +35,22 @@ func BenchmarkTier1Diagnostics_canada_json(b *testing.B) {
 func runTier1DiagnosticsBenchmark(b *testing.B, fixtureName string) {
 	data := loadBenchmarkFixture(b, fixtureName)
 
-	b.Run(benchmarkComparatorPureSimdjson+"-full", func(b *testing.B) {
+	b.Run(benchmarkTier1DiagnosticsPureFull, func(b *testing.B) {
 		benchmarkRunTier1DiagnosticsFullPureSimdjson(b, fixtureName, data)
 	})
-	b.Run(benchmarkComparatorPureSimdjson+"-parse-only", func(b *testing.B) {
+	b.Run(benchmarkTier1DiagnosticsPureParseOnly, func(b *testing.B) {
 		benchmarkRunTier1DiagnosticsParseOnly(b, fixtureName, data)
 	})
-	b.Run(benchmarkComparatorPureSimdjson+"-materialize-only", func(b *testing.B) {
+	b.Run(benchmarkTier1DiagnosticsPureMaterializeOnly, func(b *testing.B) {
 		benchmarkRunTier1DiagnosticsMaterializeOnly(b, fixtureName, data)
 	})
-	b.Run(benchmarkComparatorPureSimdjson+"-stage-input-reuse-model", func(b *testing.B) {
+	b.Run(benchmarkTier1DiagnosticsPureStageReuse, func(b *testing.B) {
 		benchmarkRunTier1DiagnosticsStageInputReuseModel(b, data)
 	})
-	b.Run(benchmarkComparatorPureSimdjson+"-stage-input-alloc-model", func(b *testing.B) {
+	b.Run(benchmarkTier1DiagnosticsPureStageAlloc, func(b *testing.B) {
 		benchmarkRunTier1DiagnosticsStageInputAllocModel(b, data)
 	})
-	b.Run(benchmarkComparatorEncodingAny+"-full", func(b *testing.B) {
+	b.Run(benchmarkTier1DiagnosticsEncodingAnyFull, func(b *testing.B) {
 		benchmarkRunTier1DiagnosticsEncodingJSONAnyFull(b, data)
 	})
 }
@@ -118,6 +127,7 @@ func benchmarkRunTier1DiagnosticsMaterializeOnly(b *testing.B, fixtureName strin
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
 	benchmarkRunWithNativeAllocMetrics(b, false, func() {
+		// Phase 8: rebuild Go maps/slices/strings on every materialize-only iteration; native frame scratch may be reused, final Go trees must not be cached.
 		for i := 0; i < b.N; i++ {
 			value, err := benchmarkMaterializePureElement(root)
 			if err != nil {

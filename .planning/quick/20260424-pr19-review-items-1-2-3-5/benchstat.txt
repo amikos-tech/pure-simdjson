@@ -1,0 +1,156 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/amikos-tech/pure-simdjson
+cpu: Apple M3 Max
+                                                                            │ /tmp/pr19-fixes-baseline.bench.txt │   /tmp/pr19-fixes-post.bench.txt   │
+                                                                            │               sec/op               │    sec/op     vs base              │
+Tier1Diagnostics_twitter_json/pure-simdjson-full-16                                                 921.5µ ± ∞ ¹   923.1µ ± ∞ ¹       ~ (p=1.000 n=5)
+Tier1Diagnostics_twitter_json/pure-simdjson-parse-only-16                                           179.2µ ± ∞ ¹   178.6µ ± ∞ ¹       ~ (p=0.095 n=5)
+Tier1Diagnostics_twitter_json/pure-simdjson-materialize-only-16                                     710.4µ ± ∞ ¹   704.6µ ± ∞ ¹       ~ (p=0.690 n=5)
+Tier1Diagnostics_twitter_json/pure-simdjson-stage-input-reuse-model-16                              7.756µ ± ∞ ¹   7.765µ ± ∞ ¹       ~ (p=0.841 n=5)
+Tier1Diagnostics_twitter_json/pure-simdjson-stage-input-alloc-model-16                              39.26µ ± ∞ ¹   37.94µ ± ∞ ¹       ~ (p=0.690 n=5)
+Tier1Diagnostics_twitter_json/encoding-json-any-full-16                                             3.697m ± ∞ ¹   3.781m ± ∞ ¹       ~ (p=0.222 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-full-16                                            2.548m ± ∞ ¹   2.456m ± ∞ ¹  -3.59% (p=0.032 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-parse-only-16                                      436.3µ ± ∞ ¹   436.5µ ± ∞ ¹       ~ (p=0.690 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-materialize-only-16                                2.042m ± ∞ ¹   1.981m ± ∞ ¹  -2.99% (p=0.032 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-stage-input-reuse-model-16                         24.57µ ± ∞ ¹   21.34µ ± ∞ ¹       ~ (p=0.222 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-stage-input-alloc-model-16                         101.8µ ± ∞ ¹   102.4µ ± ∞ ¹       ~ (p=0.151 n=5)
+Tier1Diagnostics_citm_catalog_json/encoding-json-any-full-16                                        9.327m ± ∞ ¹   9.243m ± ∞ ¹       ~ (p=0.095 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-full-16                                                  6.341m ± ∞ ¹   6.417m ± ∞ ¹       ~ (p=0.421 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-parse-only-16                                            1.743m ± ∞ ¹   1.736m ± ∞ ¹       ~ (p=0.548 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-materialize-only-16                                      4.336m ± ∞ ¹   4.566m ± ∞ ¹       ~ (p=0.095 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-stage-input-reuse-model-16                               34.43µ ± ∞ ¹   27.84µ ± ∞ ¹       ~ (p=0.548 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-stage-input-alloc-model-16                               200.7µ ± ∞ ¹   197.2µ ± ∞ ¹       ~ (p=0.690 n=5)
+Tier1Diagnostics_canada_json/encoding-json-any-full-16                                              19.06m ± ∞ ¹   18.79m ± ∞ ¹       ~ (p=0.151 n=5)
+geomean                                                                                             572.8µ         559.8µ        -2.28%
+¹ need >= 6 samples for confidence interval at level 0.95
+
+                                                                            │ /tmp/pr19-fixes-baseline.bench.txt │   /tmp/pr19-fixes-post.bench.txt    │
+                                                                            │                B/s                 │      B/s       vs base              │
+Tier1Diagnostics_twitter_json/pure-simdjson-full-16                                                653.5Mi ± ∞ ¹   652.4Mi ± ∞ ¹       ~ (p=1.000 n=5)
+Tier1Diagnostics_twitter_json/pure-simdjson-parse-only-16                                          3.282Gi ± ∞ ¹   3.292Gi ± ∞ ¹       ~ (p=0.095 n=5)
+Tier1Diagnostics_twitter_json/pure-simdjson-materialize-only-16                                    847.8Mi ± ∞ ¹   854.8Mi ± ∞ ¹       ~ (p=0.690 n=5)
+Tier1Diagnostics_twitter_json/pure-simdjson-stage-input-reuse-model-16                             75.83Gi ± ∞ ¹   75.74Gi ± ∞ ¹       ~ (p=0.841 n=5)
+Tier1Diagnostics_twitter_json/pure-simdjson-stage-input-alloc-model-16                             14.98Gi ± ∞ ¹   15.50Gi ± ∞ ¹       ~ (p=0.690 n=5)
+Tier1Diagnostics_twitter_json/encoding-json-any-full-16                                            162.9Mi ± ∞ ¹   159.3Mi ± ∞ ¹       ~ (p=0.222 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-full-16                                           646.5Mi ± ∞ ¹   670.6Mi ± ∞ ¹  +3.73% (p=0.032 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-parse-only-16                                     3.687Gi ± ∞ ¹   3.685Gi ± ∞ ¹       ~ (p=0.690 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-materialize-only-16                               806.8Mi ± ∞ ¹   831.7Mi ± ∞ ¹  +3.08% (p=0.032 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-stage-input-reuse-model-16                        65.48Gi ± ∞ ¹   75.39Gi ± ∞ ¹       ~ (p=0.222 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-stage-input-alloc-model-16                        15.81Gi ± ∞ ¹   15.70Gi ± ∞ ¹       ~ (p=0.151 n=5)
+Tier1Diagnostics_citm_catalog_json/encoding-json-any-full-16                                       176.6Mi ± ∞ ¹   178.2Mi ± ∞ ¹       ~ (p=0.095 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-full-16                                                 338.6Mi ± ∞ ¹   334.6Mi ± ∞ ¹       ~ (p=0.421 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-parse-only-16                                           1.202Gi ± ∞ ¹   1.208Gi ± ∞ ¹       ~ (p=0.548 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-materialize-only-16                                     495.1Mi ± ∞ ¹   470.2Mi ± ∞ ¹       ~ (p=0.095 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-stage-input-reuse-model-16                              60.89Gi ± ∞ ¹   75.31Gi ± ∞ ¹       ~ (p=0.548 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-stage-input-alloc-model-16                              10.44Gi ± ∞ ¹   10.63Gi ± ∞ ¹       ~ (p=0.690 n=5)
+Tier1Diagnostics_canada_json/encoding-json-any-full-16                                             112.6Mi ± ∞ ¹   114.3Mi ± ∞ ¹       ~ (p=0.151 n=5)
+geomean                                                                                            2.193Gi         2.245Gi        +2.33%
+¹ need >= 6 samples for confidence interval at level 0.95
+
+                                                                     │ /tmp/pr19-fixes-baseline.bench.txt │      /tmp/pr19-fixes-post.bench.txt      │
+                                                                     │          native-allocs/op          │ native-allocs/op  vs base                │
+Tier1Diagnostics_twitter_json/pure-simdjson-full-16                                           12.00 ± ∞ ¹        12.00 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/pure-simdjson-parse-only-16                                     3.000 ± ∞ ¹        3.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/pure-simdjson-materialize-only-16                              5.325m ± ∞ ¹       5.338m ± ∞ ¹       ~ (p=0.841 n=5)
+Tier1Diagnostics_twitter_json/encoding-json-any-full-16                                       0.000 ± ∞ ¹        0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-full-16                                      13.00 ± ∞ ¹        13.00 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-parse-only-16                                3.000 ± ∞ ¹        3.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-materialize-only-16                         16.75m ± ∞ ¹       16.89m ± ∞ ¹       ~ (p=0.802 n=5)
+Tier1Diagnostics_citm_catalog_json/encoding-json-any-full-16                                  0.000 ± ∞ ¹        0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-full-16                                            15.00 ± ∞ ¹        15.00 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-parse-only-16                                      3.000 ± ∞ ¹        3.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-materialize-only-16                               43.48m ± ∞ ¹       45.28m ± ∞ ¹       ~ (p=0.071 n=5)
+Tier1Diagnostics_canada_json/encoding-json-any-full-16                                        0.000 ± ∞ ¹        0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+geomean                                                                                                 ³                     +0.43%               ³
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+³ summaries must be >0 to compute geomean
+
+                                                                     │ /tmp/pr19-fixes-baseline.bench.txt │     /tmp/pr19-fixes-post.bench.txt      │
+                                                                     │          native-bytes/op           │ native-bytes/op  vs base                │
+Tier1Diagnostics_twitter_json/pure-simdjson-full-16                                         9.184Mi ± ∞ ¹     9.184Mi ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/pure-simdjson-parse-only-16                                   5.822Mi ± ∞ ¹     5.822Mi ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/pure-simdjson-materialize-only-16                             2.037Ki ± ∞ ¹     2.042Ki ± ∞ ¹       ~ (p=0.841 n=5)
+Tier1Diagnostics_twitter_json/encoding-json-any-full-16                                       0.000 ± ∞ ¹       0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-full-16                                    22.65Mi ± ∞ ¹     22.65Mi ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-parse-only-16                              15.92Mi ± ∞ ¹     15.92Mi ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-materialize-only-16                        11.54Ki ± ∞ ¹     11.63Ki ± ∞ ¹       ~ (p=0.802 n=5)
+Tier1Diagnostics_citm_catalog_json/encoding-json-any-full-16                                  0.000 ± ∞ ¹       0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-full-16                                          47.70Mi ± ∞ ¹     47.70Mi ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-parse-only-16                                    20.75Mi ± ∞ ¹     20.75Mi ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-materialize-only-16                              99.98Ki ± ∞ ¹    104.13Ki ± ∞ ¹       ~ (p=0.071 n=5)
+Tier1Diagnostics_canada_json/encoding-json-any-full-16                                        0.000 ± ∞ ¹       0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+geomean                                                                                                 ³                    +0.43%               ³
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+³ summaries must be >0 to compute geomean
+
+                                                                     │ /tmp/pr19-fixes-baseline.bench.txt │      /tmp/pr19-fixes-post.bench.txt       │
+                                                                     │         native-live-bytes          │ native-live-bytes  vs base                │
+Tier1Diagnostics_twitter_json/pure-simdjson-full-16                                           0.000 ± ∞ ¹         0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/pure-simdjson-parse-only-16                                     0.000 ± ∞ ¹         0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/pure-simdjson-materialize-only-16                             1.688Mi ± ∞ ¹       1.688Mi ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/encoding-json-any-full-16                                       0.000 ± ∞ ¹         0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-full-16                                      0.000 ± ∞ ¹         0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-parse-only-16                                0.000 ± ∞ ¹         0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-materialize-only-16                        3.375Mi ± ∞ ¹       3.375Mi ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/encoding-json-any-full-16                                  0.000 ± ∞ ¹         0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-full-16                                            0.000 ± ∞ ¹         0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-parse-only-16                                      0.000 ± ∞ ¹         0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-materialize-only-16                              13.50Mi ± ∞ ¹       13.50Mi ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/encoding-json-any-full-16                                        0.000 ± ∞ ¹         0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+geomean                                                                                                 ³                      +0.00%               ³
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+³ summaries must be >0 to compute geomean
+
+                                                                            │ /tmp/pr19-fixes-baseline.bench.txt │    /tmp/pr19-fixes-post.bench.txt     │
+                                                                            │                B/op                │     B/op       vs base                │
+Tier1Diagnostics_twitter_json/pure-simdjson-full-16                                                1.413Mi ± ∞ ¹   1.413Mi ± ∞ ¹       ~ (p=0.460 n=5)
+Tier1Diagnostics_twitter_json/pure-simdjson-parse-only-16                                            328.0 ± ∞ ¹     328.0 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/pure-simdjson-materialize-only-16                                    1.412Mi ± ∞ ¹   1.412Mi ± ∞ ¹       ~ (p=0.937 n=5)
+Tier1Diagnostics_twitter_json/pure-simdjson-stage-input-reuse-model-16                               0.000 ± ∞ ¹     0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/pure-simdjson-stage-input-alloc-model-16                             624.0Ki ± ∞ ¹   624.0Ki ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/encoding-json-any-full-16                                            1.980Mi ± ∞ ¹   1.980Mi ± ∞ ¹       ~ (p=0.881 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-full-16                                           4.388Mi ± ∞ ¹   4.388Mi ± ∞ ¹       ~ (p=0.897 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-parse-only-16                                       328.0 ± ∞ ¹     328.0 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-materialize-only-16                               4.388Mi ± ∞ ¹   4.388Mi ± ∞ ¹       ~ (p=0.643 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-stage-input-reuse-model-16                          0.000 ± ∞ ¹     0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-stage-input-alloc-model-16                        1.648Mi ± ∞ ¹   1.648Mi ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/encoding-json-any-full-16                                       4.893Mi ± ∞ ¹   4.893Mi ± ∞ ¹  -0.00% (p=0.048 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-full-16                                                 4.724Mi ± ∞ ¹   4.724Mi ± ∞ ¹       ~ (p=0.730 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-parse-only-16                                             328.0 ± ∞ ¹     328.0 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-materialize-only-16                                     4.724Mi ± ∞ ¹   4.724Mi ± ∞ ¹  -0.00% (p=0.048 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-stage-input-reuse-model-16                                0.000 ± ∞ ¹     0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-stage-input-alloc-model-16                              2.148Mi ± ∞ ¹   2.148Mi ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/encoding-json-any-full-16                                             10.09Mi ± ∞ ¹   10.09Mi ± ∞ ¹       ~ (p=0.595 n=5)
+geomean                                                                                                        ³                  +0.00%               ³
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+³ summaries must be >0 to compute geomean
+
+                                                                            │ /tmp/pr19-fixes-baseline.bench.txt │    /tmp/pr19-fixes-post.bench.txt    │
+                                                                            │             allocs/op              │  allocs/op    vs base                │
+Tier1Diagnostics_twitter_json/pure-simdjson-full-16                                                 28.06k ± ∞ ¹   28.06k ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/pure-simdjson-parse-only-16                                            13.00 ± ∞ ¹    13.00 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/pure-simdjson-materialize-only-16                                     28.05k ± ∞ ¹   28.05k ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/pure-simdjson-stage-input-reuse-model-16                               0.000 ± ∞ ¹    0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/pure-simdjson-stage-input-alloc-model-16                               1.000 ± ∞ ¹    1.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_twitter_json/encoding-json-any-full-16                                             32.12k ± ∞ ¹   32.12k ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-full-16                                            76.32k ± ∞ ¹   76.33k ± ∞ ¹  +0.00% (p=0.048 n=5)
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-parse-only-16                                       13.00 ± ∞ ¹    13.00 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-materialize-only-16                                76.31k ± ∞ ¹   76.31k ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-stage-input-reuse-model-16                          0.000 ± ∞ ¹    0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/pure-simdjson-stage-input-alloc-model-16                          1.000 ± ∞ ¹    1.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_citm_catalog_json/encoding-json-any-full-16                                        95.86k ± ∞ ¹   95.86k ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-full-16                                                  223.3k ± ∞ ¹   223.3k ± ∞ ¹       ~ (p=0.444 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-parse-only-16                                             13.00 ± ∞ ¹    13.00 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-materialize-only-16                                      223.2k ± ∞ ¹   223.2k ± ∞ ¹       ~ (p=0.444 n=5)
+Tier1Diagnostics_canada_json/pure-simdjson-stage-input-reuse-model-16                                0.000 ± ∞ ¹    0.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/pure-simdjson-stage-input-alloc-model-16                                1.000 ± ∞ ¹    1.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+Tier1Diagnostics_canada_json/encoding-json-any-full-16                                              392.5k ± ∞ ¹   392.5k ± ∞ ¹       ~ (p=1.000 n=5) ²
+geomean                                                                                                        ³                 +0.00%               ³
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+³ summaries must be >0 to compute geomean

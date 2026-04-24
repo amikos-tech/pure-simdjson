@@ -9,6 +9,10 @@
 
 /**
  * Public error codes for the stable ABI v0.1 surface.
+ *
+ * User-actionable statuses such as NOT_IMPLEMENTED and DEPTH_LIMIT stay
+ * distinct from INTERNAL so callers can route configuration/input recovery
+ * separately from native engine bug handling.
  */
 enum pure_simdjson_error_code_t
 #ifdef __cplusplus
@@ -22,6 +26,16 @@ enum pure_simdjson_error_code_t
   PURE_SIMDJSON_ERR_WRONG_TYPE = 4,
   PURE_SIMDJSON_ERR_ELEMENT_NOT_FOUND = 5,
   PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL = 6,
+  /**
+   * Optional diagnostic/export surface is absent from the loaded artifact.
+   * This is user-actionable and distinct from an internal native failure.
+   */
+  PURE_SIMDJSON_ERR_NOT_IMPLEMENTED = 7,
+  /**
+   * JSON nesting exceeds the parser/materializer depth contract. This is
+   * adversarial-input/user-actionable, not an internal native failure.
+   */
+  PURE_SIMDJSON_ERR_DEPTH_LIMIT = 8,
   PURE_SIMDJSON_ERR_INVALID_JSON = 32,
   PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE = 33,
   PURE_SIMDJSON_ERR_PRECISION_LOSS = 34,

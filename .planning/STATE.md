@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.1
-milestone_name: Release
-status: executing
-stopped_at: Completed 07-06-PLAN.md
-last_updated: "2026-04-23T07:55:57Z"
-last_activity: 2026-04-23
+milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
+status: Phase 08 shipped — PR #19
+stopped_at: Phase 08 shipped; PR #19 open for review/CI
+last_updated: "2026-04-24T07:18:35Z"
+last_activity: 2026-04-24
 progress:
-  total_phases: 12
-  completed_phases: 8
-  total_plans: 37
-  completed_plans: 37
+  total_phases: 15
+  completed_phases: 9
+  total_plans: 42
+  completed_plans: 42
   percent: 100
 ---
 
@@ -18,18 +18,18 @@ progress:
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-04-15)
+See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 **Core value:** Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning: typed extraction and selective traversal are the primary story, while full `any` materialization is documented without overstating current wins.
-**Current focus:** Phase 08 — low-overhead-dom-traversal-abi-and-specialized-go-any-materializer
+**Current focus:** Phase 09 — benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh
 
 ## Current Position
 
-Phase: 08 (low-overhead-dom-traversal-abi-and-specialized-go-any-materializer) — READY
+Phase: 09 (benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — READY TO PLAN
 Plan: 0 of 0
-Status: Phase 07 shipped as PR #18; Phase 08 awaiting planning
-Last activity: 2026-04-23
-Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline; Phase 08 now owns the low-overhead traversal/materialization follow-up before any new benchmark-positioning or release decision
+Status: Phase 08 shipped; PR #19 open for review/CI
+Last activity: 2026-04-24 - Completed quick task pr19-review-items-1-2-3-5: PR #19 polish items 1/2/3/5 (docs + native-side size asserts)
+Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline, Phase 08 now adds committed internal Tier 1 improvement evidence, and Phase 09 owns any public benchmark-positioning or release decision from here.
 
 Progress: [██████████] 100%
 
@@ -37,9 +37,9 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 32
-- Average duration: 11.2m
-- Total execution time: 1.3 hours
+- Total plans completed: 33
+- Average duration: 11.1m
+- Total execution time: 1.4 hours
 
 **By Phase:**
 
@@ -53,7 +53,7 @@ Progress: [██████████] 100%
 
 **Recent Trend:**
 
-- Last 5 plans: 04-01, 04-02, 04-03, 04-04, 04-05
+- Last 5 plans: 08-01, 08-02, 08-03, 08-04, 08-05
 - Trend: Stable
 
 | Phase 04 P01 | 16m | 2 tasks | 7 files |
@@ -77,8 +77,23 @@ Progress: [██████████] 100%
 | Phase 07 P02 | 15min | 2 tasks | 12 files |
 | Phase 07 P03 | 20min | 2 tasks | 17 files |
 | Phase 07 P04 | 4min | 2 tasks | 8 files |
+| Phase 08 P01 | 8min | 2 tasks | 5 files |
+| Phase 08 P02 | 12min | 2 tasks | 7 files |
+| Phase 08 P03 | 9min | 2 tasks | 6 files |
+| Phase 08 P04 | 6min | 2 tasks | 2 files |
+| Phase 08 P05 | 29min | 2 tasks | 7 files |
 
 ## Accumulated Context
+
+## Quick Tasks Completed
+
+| Date | Slug | Summary |
+|------|------|---------|
+| 2026-04-24 | phase8-final-polish | Added executable depth-boundary fence, clarified ERR_INTERNAL split rationale at the ABI enum, expanded cross-ABI numeric comments, and rechecked benchmark gates. |
+| 2026-04-24 | phase8-depth-doc-followup | Clarified depth-limit defense-in-depth docs, strengthened user-actionable enum comments, pinned the current accepted nesting boundary, and rechecked benchmark gates. |
+| 2026-04-24 | phase8-followup-feedback | Added observable depth-limit status/sentinel coverage, tightened materializer comments, filled adversarial string-span coverage, and rechecked benchmark gates. |
+| 2026-04-24 | phase8-pr-review-feedback | Applied Phase 8 PR review fixes for materializer depth guarding, optional-symbol/fallback observability, unsafe frame diagnostics, not-implemented telemetry status, span contract tests/docs, and benchmark regression checks. |
+| 2026-04-24 | pr19-review-items-1-2-3-5 | Addressed PR #19 polish items 1/2/3/5: documented `InternalMaterializeBuild` frame-span lifecycle, expanded the LIFO defer ordering comment in the fast materializer, added native-side (Rust + C++) size asserts for `psdj_internal_frame_t` (field-width expression, 32-bit safe), and documented `psimdjson_test_hold_materialize_guard`'s by-design `PARSER_BUSY` return. Comments-and-asserts only — Tier 1 diagnostics benchstat shows no regression (B/op and allocs/op identical, geomean sec/op within noise). |
 
 ### Roadmap Evolution
 
@@ -86,8 +101,10 @@ Progress: [██████████] 100%
 - Phase 06.1 execution produced the public bootstrap wrapper, hosted-runner validation workflow, contract tests, and operator runbook updates, and was shipped in PR #17; hosted GitHub Actions execution remains pending
 - Phase 07 is now planned as six plans: corpus/oracle foundation, Tier 1 + cold/warm harness, allocator telemetry surface, Tier 2/Tier 3 benchmark consumers, public docs/legal artifacts with committed evidence, and a closeout handoff that defers public patch-release work until the later benchmark-positioning phases
 - Phase 07 completed on 2026-04-23 as a benchmark/docs/legal baseline rather than a forced patch release: README, methodology doc, results snapshot, changelog, LICENSE, and NOTICE are now committed, and the closeout explicitly routes Tier 1 ABI work to Phase 08 and benchmark/release recalibration to Phase 09
+- Phase 07 learnings were extracted on 2026-04-23 into `.planning/phases/07-benchmarks-v0.1-release/07-LEARNINGS.md`, preserving benchmark positioning decisions, execution lessons, reusable patterns, and surprises for Phase 08 and Phase 09 planning
 - Phase 08 added: Low-overhead DOM traversal ABI and specialized Go any materializer. This folds the old 999.6 DOM-materialization ABI idea into the active milestone after Tier 1 diagnostics showed materialization, not parse, dominates the current full-`any` path
 - Phase 09 added: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh. This phase exists to replace the invalidated BENCH-07 headline with a measured benchmark story after Phase 08 lands
+- Phase 09.1 inserted after Phase 09: Bootstrap artifact and ABI alignment for default installs (URGENT)
 - Backlog items 999.6 and 999.7 were retired from the parking lot: 999.6 is now active milestone work under Phase 08, and 999.7's diagnostic split was implemented during Phase 07 investigation to justify the new direction
 
 ### Decisions
@@ -166,6 +183,15 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 07]: Tier 2 uses shared schema structs across supported comparators; pure-simdjson reaches them through DOM traversal only.
 - [Phase 07]: Tier 3 remains explicitly scoped as a DOM-era placeholder and does not imply a v0.1 On-Demand API.
 - [Phase 07]: Tier 1 and cold/warm benchmark outputs publish native-bytes/op, native-allocs/op, and native-live-bytes beside Go benchmem data.
+- [Phase 08]: `make verify-contract` passes `--rule no-internal-symbols` explicitly because its explicit rule list bypasses default header-audit rules.
+- [Phase 08]: FastMaterializer oversized-literal parse-rejection tests use `18446744073709551616` as the current public `ErrInvalidJSON` fixture; larger BIGINT-style literals remain separate precision-loss behavior for later implementation plans.
+- [Phase 08]: `psdj_internal_materialize_build` validates `ValueView` once in the Rust registry, then traverses a root or subtree into doc-owned native frame scratch guarded by `materialize_in_progress`.
+- [Phase 08]: Oversized integer literals now normalize to parse-time `PURE_SIMDJSON_ERR_INVALID_JSON` at `psimdjson_parser_parse`, so the internal frame builder never exposes BIGINT nodes or partial frame spans.
+- [Phase 08]: Go mirrors `psdj_internal_frame_t` as a 72-byte `ffi.InternalFrame`, binds `psdj_internal_materialize_build`, and consumes the borrowed frame slice without copying it in `internal/ffi`.
+- [Phase 08]: `fastMaterializeElement` stays internal, holds `doc.mu` while consuming borrowed frames, copies keys/strings at the Go value boundary, and rejects leftover or under-consumed frame spans with `ErrInternal`.
+- [Phase 08]: `Doc.isClosed()` now uses a non-blocking mutex check so fast-materializer contention surfaces `ErrParserBusy` instead of deadlocking before the `TryLock` guard.
+- [Phase 08]: Tier 1 full and materialize-only benchmark helpers now delegate to `fastMaterializeElement`, with literal diagnostic row labels and an explicit no-cache comment preserving Phase 7 benchstat continuity.
+- [Phase 08]: Native frame scratch growth must stay geometric; per-container reserve churn caused the first same-host Canada gate attempt to regress by orders of magnitude before the Phase 8 evidence rerun fixed it.
 
 ### Pending Todos
 
@@ -178,8 +204,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T20:14:00.547Z
-Stopped at: Completed 07-04-PLAN.md
-Resume file: None
+Last session: 2026-04-23T21:26:00Z
+Stopped at: Phase 08 complete; next up Phase 09 discussion/planning
+Resume file: .planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-VERIFICATION.md
 
 **Planned Phase:** 06 (CI Release Matrix + Platform Coverage) — 6 plans — 2026-04-21T06:09:04.343Z

@@ -168,7 +168,7 @@ def make_surface_header(
 
 
 class ParsePrototypesTests(unittest.TestCase):
-    def test_rejects_unparseable_pure_simdjson_prototype(self) -> None:
+    def test_rejects_unparseable_exported_prototype(self) -> None:
         header_text = (
             "pure_simdjson_error_code_t pure_simdjson_parser_new(void) "
             "PURE_SIMDJSON_NOEXCEPT;"
@@ -177,7 +177,7 @@ class ParsePrototypesTests(unittest.TestCase):
         with self.assertRaises(SystemExit) as excinfo:
             check_header.parse_prototypes(header_text)
 
-        self.assertIn("unparseable pure_simdjson prototype", str(excinfo.exception))
+        self.assertIn("unparseable exported prototype", str(excinfo.exception))
         self.assertIn("pure_simdjson_parser_new", str(excinfo.exception))
 
 
@@ -211,6 +211,43 @@ class RequiredSymbolsRuleTests(unittest.TestCase):
             "missing required symbols: pure_simdjson_object_get_field",
             str(excinfo.exception),
         )
+
+
+class InternalSymbolsRuleTests(unittest.TestCase):
+    def test_accepts_clean_public_surface(self) -> None:
+        header_text = make_required_symbols_header()
+        prototypes = check_header.parse_prototypes(header_text)
+        check_header.rule_no_internal_symbols(prototypes, header_text)
+
+    def test_rejects_psdj_internal_materialize_build(self) -> None:
+        header_text = make_required_symbols_header(
+            extra_symbols=["psdj_internal_materialize_build"]
+        )
+        prototypes = check_header.parse_prototypes(header_text)
+
+        with self.assertRaises(SystemExit) as excinfo:
+            check_header.rule_no_internal_symbols(prototypes, header_text)
+
+        self.assertIn(
+            "internal symbols must not appear in public header",
+            str(excinfo.exception),
+        )
+        self.assertIn("psdj_internal_materialize_build", str(excinfo.exception))
+
+    def test_rejects_psimdjson_materialize_build(self) -> None:
+        header_text = make_required_symbols_header(
+            extra_symbols=["psimdjson_materialize_build"]
+        )
+        prototypes = check_header.parse_prototypes(header_text)
+
+        with self.assertRaises(SystemExit) as excinfo:
+            check_header.rule_no_internal_symbols(prototypes, header_text)
+
+        self.assertIn(
+            "internal symbols must not appear in public header",
+            str(excinfo.exception),
+        )
+        self.assertIn("psimdjson_materialize_build", str(excinfo.exception))
 
 
 class ErrorCodeOutparamsRuleTests(unittest.TestCase):

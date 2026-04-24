@@ -17,6 +17,7 @@ Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest ben
 - [x] Validated in Phase 2: the repository builds vendored simdjson `v4.6.1` through `build.rs`, exposes a panic-safe C ABI with generation-stamped parser/doc handles, and proves the minimal `parser_new -> parser_parse -> doc_root -> element_get_int64` path through local and CI smoke checks
 - [x] Validated in Phase 3: Go consumers can load the shim through purego, manage `Parser`/`Doc` lifecycles safely, reuse parsers through `ParserPool`, and receive typed ABI/version errors instead of raw status codes
 - [x] Validated in Phase 4: the public DOM API now exposes typed scalar/string/bool/null accessors, cursor-pull array/object iteration, direct field lookup, executable examples, and package-wide DOC-03 coverage for the shipped v0.1 surface
+- [x] Validated in Phase 8: Tier 1 full `any` materialization now runs through an internal frame-stream ABI plus unexported Go fast materializer, and the repo contains same-host benchmark evidence proving the Phase 8 path improved the committed Phase 7 diagnostics without widening the public API
 
 ### Active
 
@@ -80,7 +81,7 @@ Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest ben
 
 ## Current State
 
-Phase 7 is in progress. The benchmark harness, correctness oracle, and native-allocation reporting now exist, and the key new finding is that Tier 1 full `any` materialization on the current DOM ABI is dominated by Go tree-building rather than parse time. Phase 7 therefore closes out truthful benchmark/docs/legal artifacts, while Phase 8 targets a lower-overhead traversal/materialization ABI and Phase 9 recalibrates the benchmark story after that work lands.
+Phase 8 is complete. The repo now has an internal frame-stream traversal/materialization path, an unexported Go fast `any` materializer wired into Tier 1 diagnostics, and committed same-host benchmark evidence under `testdata/benchmark-results/phase8/`. Phase 9 now owns the public benchmark repositioning, README/result updates, and any release decision informed by that evidence.
 
 ## Key Decisions
 
@@ -121,4 +122,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-20 after Phase 5 completion*
+*Last updated: 2026-04-23 after Phase 8 completion*

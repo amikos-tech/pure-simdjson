@@ -58,9 +58,15 @@ func (d *Doc) Close() error {
 }
 
 func (d *Doc) isClosed() bool {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return d.closed
+	// Use TryLock rather than Lock: callers on the fast path may hold d.mu
+	// already; blocking here would deadlock. Contention therefore reports
+	// "not closed" -- the outer caller's own guard surfaces ErrParserBusy.
+	if d.mu.TryLock() {
+		closed := d.closed
+		d.mu.Unlock()
+		return closed
+	}
+	return false
 }
 
 func (d *Doc) hasLeakedState() bool {

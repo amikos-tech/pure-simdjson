@@ -11,13 +11,15 @@ from typing import Callable, NoReturn
 
 PROTO_RE = re.compile(
     r"(?s)([A-Za-z_][\w\s\*]*?)\s+"
-    r"(pure_simdjson_[A-Za-z0-9_]+)\s*"
+    r"((?:pure_simdjson_|psdj_internal_|psimdjson_)[A-Za-z0-9_]+)\s*"
     r"\((.*?)\);"
 )
 COMMENT_RE = re.compile(r"(?s)/\*.*?\*/|//[^\n]*")
 ABI_VERSION_DEFINE_RE = re.compile(
     r"(?m)^#define\s+PURE_SIMDJSON_ABI_VERSION\s+0x00010001\s*$"
 )
+FORBIDDEN_INTERNAL_SYMBOL_PREFIXES = ("psdj_internal_", "psimdjson_")
+HEADER_SYMBOL_PREFIXES = ("pure_simdjson_",) + FORBIDDEN_INTERNAL_SYMBOL_PREFIXES
 
 STRUCT_TYPES = (
     "struct pure_simdjson_value_view_t",
@@ -97,7 +99,7 @@ def iter_prototype_statements(header_text: str) -> list[str]:
                 current = []
             continue
 
-        if "pure_simdjson_" not in line or "(" not in line:
+        if not any(prefix in line for prefix in HEADER_SYMBOL_PREFIXES) or "(" not in line:
             continue
 
         current = [line]
@@ -113,9 +115,12 @@ def parse_prototypes(header_text: str) -> dict[str, tuple[str, list[str]]]:
     for statement in iter_prototype_statements(header_text):
         match = PROTO_RE.fullmatch(statement)
         if match is None:
-            symbol_match = re.search(r"\b(pure_simdjson_[A-Za-z0-9_]+)\b", statement)
+            symbol_match = re.search(
+                r"\b((?:pure_simdjson_|psdj_internal_|psimdjson_)[A-Za-z0-9_]+)\b",
+                statement,
+            )
             symbol = symbol_match.group(1) if symbol_match else statement
-            fail(f"unparseable pure_simdjson prototype: {symbol}: {statement}")
+            fail(f"unparseable exported prototype: {symbol}: {statement}")
         return_type = normalize_space(match.group(1))
         name = match.group(2)
         params_blob = normalize_space(match.group(3))
@@ -172,6 +177,21 @@ def rule_required_symbols(prototypes: dict[str, tuple[str, list[str]]], _: str) 
     )
     if unexpected:
         fail("unexpected exported symbols: " + ", ".join(unexpected))
+
+
+def rule_no_internal_symbols(
+    prototypes: dict[str, tuple[str, list[str]]], _: str
+) -> None:
+    internal_symbols = sorted(
+        name
+        for name in prototypes
+        if name.startswith(FORBIDDEN_INTERNAL_SYMBOL_PREFIXES)
+    )
+    if internal_symbols:
+        fail(
+            "internal symbols must not appear in public header: "
+            + ", ".join(internal_symbols)
+        )
 
 
 def rule_string_copy_ownership(prototypes: dict[str, tuple[str, list[str]]], _: str) -> None:
@@ -278,6 +298,7 @@ def rule_native_alloc_surface(
 RULES: dict[str, Callable[[dict[str, tuple[str, list[str]]], str], None]] = {
     "error-code-outparams": rule_error_code_outparams,
     "no-mixed-float-int": rule_no_mixed_float_int,
+    "no-internal-symbols": rule_no_internal_symbols,
     "required-symbols": rule_required_symbols,
     "string-copy-ownership": rule_string_copy_ownership,
     "diag-surface": rule_diag_surface,

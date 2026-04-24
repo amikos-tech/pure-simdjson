@@ -35,6 +35,12 @@ var (
 	ErrElementNotFound = errors.New("element not found")
 	// ErrWrongType reports an accessor call on the wrong JSON value kind.
 	ErrWrongType = errors.New("wrong type")
+	// ErrNotImplemented reports an optional native diagnostic surface that is
+	// unavailable in the loaded artifact.
+	ErrNotImplemented = errors.New("not implemented")
+	// ErrDepthLimitExceeded reports JSON nesting deeper than the native parser
+	// or materializer depth contract can process.
+	ErrDepthLimitExceeded = errors.New("depth limit exceeded")
 	// ErrInternal reports native panics, internal failures, and any status code
 	// not mapped to a dedicated sentinel.
 	ErrInternal = errors.New("internal error")
@@ -199,6 +205,10 @@ func sentinelForStatus(code int32) error {
 		return ErrWrongType
 	case ffi.ErrElementNotFound:
 		return ErrElementNotFound
+	case ffi.ErrNotImplemented:
+		return ErrNotImplemented
+	case ffi.ErrDepthLimit:
+		return ErrDepthLimitExceeded
 	case ffi.ErrInvalidJSON:
 		return ErrInvalidJSON
 	case ffi.ErrNumberOutOfRange:

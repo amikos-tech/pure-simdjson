@@ -1,0 +1,6 @@
+PASS BenchmarkTier1Diagnostics_twitter_json/pure-simdjson-full old=27962032.00 new=861742.00 delta=96.92% threshold=10.00%
+PASS BenchmarkTier1Diagnostics_twitter_json/pure-simdjson-materialize-only old=31103942.00 new=678443.00 delta=97.82% threshold=10.00%
+PASS BenchmarkTier1Diagnostics_citm_catalog_json/pure-simdjson-full old=75919203.00 new=2349985.00 delta=96.90% threshold=10.00%
+PASS BenchmarkTier1Diagnostics_citm_catalog_json/pure-simdjson-materialize-only old=66541446.00 new=1921316.00 delta=97.11% threshold=10.00%
+PASS BenchmarkTier1Diagnostics_canada_json/pure-simdjson-full old=148995750.00 new=6139411.00 delta=95.88% threshold=10.00%
+PASS BenchmarkTier1Diagnostics_canada_json/pure-simdjson-materialize-only old=150756839.00 new=4428748.00 delta=97.06% threshold=10.00%

@@ -61,3 +61,33 @@ func TestWrapStatusMapsPanicAndCPPExceptionSeparately(t *testing.T) {
 		})
 	}
 }
+
+func TestWrapStatusMapsNotImplementedSeparately(t *testing.T) {
+	err := wrapStatus(int32(ffi.ErrNotImplemented))
+	if !errors.Is(err, ErrNotImplemented) {
+		t.Fatalf("wrapStatus(%d) error = %v, want ErrNotImplemented", ffi.ErrNotImplemented, err)
+	}
+
+	var nativeErr *Error
+	if !errors.As(err, &nativeErr) {
+		t.Fatalf("wrapStatus(%d) error = %v, want *Error", ffi.ErrNotImplemented, err)
+	}
+	if nativeErr.Code() != int32(ffi.ErrNotImplemented) {
+		t.Fatalf("wrapStatus(%d) native code = %d, want %d", ffi.ErrNotImplemented, nativeErr.Code(), ffi.ErrNotImplemented)
+	}
+}
+
+func TestWrapStatusMapsDepthLimitSeparately(t *testing.T) {
+	err := wrapStatus(int32(ffi.ErrDepthLimit))
+	if !errors.Is(err, ErrDepthLimitExceeded) {
+		t.Fatalf("wrapStatus(%d) error = %v, want ErrDepthLimitExceeded", ffi.ErrDepthLimit, err)
+	}
+
+	var nativeErr *Error
+	if !errors.As(err, &nativeErr) {
+		t.Fatalf("wrapStatus(%d) error = %v, want *Error", ffi.ErrDepthLimit, err)
+	}
+	if nativeErr.Code() != int32(ffi.ErrDepthLimit) {
+		t.Fatalf("wrapStatus(%d) native code = %d, want %d", ffi.ErrDepthLimit, nativeErr.Code(), ffi.ErrDepthLimit)
+	}
+}

@@ -15,6 +15,35 @@ typedef struct psimdjson_parser psimdjson_parser;
 typedef struct psimdjson_doc psimdjson_doc;
 typedef struct psimdjson_element psimdjson_element;
 
+typedef struct psdj_internal_frame_t {
+  /* Stores pure_simdjson_value_kind_t; kept as uint32_t to pin the v0.1 layout. */
+  uint32_t kind;
+  /* Bool payload for PURE_SIMDJSON_VALUE_KIND_BOOL; unused for other kinds. */
+  uint32_t flags;
+  uint32_t child_count;
+  uint32_t reserved;
+  const uint8_t *key_ptr;
+  size_t key_len;
+  const uint8_t *string_ptr;
+  size_t string_len;
+  int64_t int64_value;
+  uint64_t uint64_value;
+  double float64_value;
+} psdj_internal_frame_t;
+
+/* Layout is pinned across C++, Rust (psdj_internal_frame_t in
+ * src/runtime/mod.rs), and Go (InternalFrame in internal/ffi/types.go).
+ * Expressed in terms of field widths so 32-bit targets (pointer=4) would
+ * still pass without masking a real field addition. Go has the
+ * complementary offset-by-offset check in internal/ffi/types_test.go.
+ */
+#ifdef __cplusplus
+static_assert(
+    sizeof(psdj_internal_frame_t) == 16 + 4 * sizeof(void *) + 24,
+    "psdj_internal_frame_t layout changed - update C++ (this header), "
+    "Rust (src/runtime/mod.rs), and Go (InternalFrame) together");
+#endif
+
 pure_simdjson_error_code_t psimdjson_get_implementation_name_len(size_t *out_len) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_copy_implementation_name(
     uint8_t *dst,
@@ -123,6 +152,16 @@ pure_simdjson_error_code_t psimdjson_object_get_field_index(
     size_t key_len,
     uint64_t *out_value_json_index
 ) PSIMDJSON_NOEXCEPT;
+/*
+ * Returns a doc-owned frame span for json_index. The span is borrowed and is
+ * invalidated by the next psimdjson_materialize_build call on the same doc.
+ */
+pure_simdjson_error_code_t psimdjson_materialize_build(psimdjson_doc *doc,
+                                                       uint64_t json_index,
+                                                       const psdj_internal_frame_t **out_frames,
+                                                       size_t *out_frame_count) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_test_hold_materialize_guard(psimdjson_doc *doc,
+                                                                 uint64_t json_index) PSIMDJSON_NOEXCEPT;
 
 pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(void) PSIMDJSON_NOEXCEPT;
 
