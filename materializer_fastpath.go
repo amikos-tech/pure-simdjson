@@ -27,7 +27,12 @@ func fastMaterializeElement(element Element) (any, error) {
 	}
 
 	bindings := doc.parser.library.bindings
-	// KeepAlive must run after the final borrowed frame read.
+	// KeepAlive must run after the final borrowed frame read. Registered
+	// second on purpose: Go defers are LIFO, so this runs before the
+	// doc.mu.Unlock() deferred above, keeping doc (and the C++-owned
+	// materialize_frames span returned below) alive for the full
+	// duration of buildAnyFromFrames, including all nested string
+	// copies. Do not reorder with the Unlock defer.
 	defer runtime.KeepAlive(doc)
 
 	if !bindings.HasInternalMaterializeBuild() {

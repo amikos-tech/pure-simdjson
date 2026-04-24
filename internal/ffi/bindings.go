@@ -427,6 +427,12 @@ func (b *Bindings) ObjectGetField(view *ValueView, key string) (ValueView, int32
 	return value, rc
 }
 
+// InternalMaterializeBuild returns a borrowed frame span whose backing
+// storage lives in the C++ doc (psimdjson_doc::materialize_frames). The
+// caller must consume or copy out of the slice before the next
+// InternalMaterializeBuild call on the same doc, which clears and reuses
+// that buffer. Keep the owning doc alive (runtime.KeepAlive) for the full
+// duration of any read of the returned span.
 func (b *Bindings) InternalMaterializeBuild(view *ValueView) ([]InternalFrame, int32) {
 	if b == nil || b.internalMaterializeBuild == nil {
 		return nil, int32(ErrInternal)
