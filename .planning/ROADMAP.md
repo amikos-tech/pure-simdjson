@@ -19,8 +19,8 @@ Ship a precision-preserving, cgo-free simdjson DOM API for Go with honest benchm
 - [x] **Phase 5: Bootstrap + Distribution** — Implement R2 download with GitHub fallback, SHA-256 verification, OS cache, env overrides, and the bootstrap CLI
 - [x] **Phase 6: CI Release Matrix + Platform Coverage** — Build, sign, and publish artifacts for all five targets plus Alpine smoke-test, with cosign and ad-hoc macOS codesign
 - [x] **Phase 7: Benchmarks + Release-Facing Artifacts** — Three-tier benchmark harness vs `encoding/json`, `simdjson-go`, `sonic`, `goccy/go-json`; correctness oracle; benchmark/docs/legal artifacts; explicit handoff to later performance and release work
-- [ ] **Phase 8: Low-overhead DOM traversal ABI and specialized Go any materializer** — Fold the old DOM-materialization backlog into the active milestone with a lower-overhead traversal surface, one-copy string extraction, exact container sizing, and a specialized Go `any` builder
-- [ ] **Phase 9: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh** — Reframe the benchmark story around measured Tier 1/Tier 2/Tier 3 strengths, then rerun and publish evidence after Phase 8 lands
+- [x] **Phase 8: Low-overhead DOM traversal ABI and specialized Go any materializer** — Fold the old DOM-materialization backlog into the active milestone with a lower-overhead traversal surface, one-copy string extraction, exact container sizing, and a specialized Go `any` builder
+- [x] **Phase 9: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh** — Reframe the benchmark story around measured Tier 1/Tier 2/Tier 3 strengths, then rerun and publish evidence after Phase 8 lands
 - [ ] **Phase 09.1: Bootstrap artifact and ABI alignment for default installs (INSERTED)** — Align the bootstrap-pinned public artifact/version/checksum state with the current ABI and validate the default-install path after Phase 9 locks the benchmark/release story
 - [ ] **Phase 10: Lightweight PR benchmark regression signal** — Add a cheap pull-request benchmark workflow covering Tier 1/2/3 so every PR gets a useful regression signal without waiting for the heavier release-grade benchmark capture path
 
@@ -411,8 +411,8 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 5. Bootstrap + Distribution | 6/6 | Complete | 2026-04-20 |
 | 6. CI Release Matrix | 6/6 | Complete | 2026-04-21 |
 | 7. Benchmarks + Release-Facing Artifacts | 6/6 | Complete | 2026-04-23 |
-| 8. Low-overhead DOM traversal ABI and specialized Go any materializer | 1/5 | In progress | — |
-| 9. Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh | 0/0 | Not started | — |
+| 8. Low-overhead DOM traversal ABI and specialized Go any materializer | 5/5 | Complete | 2026-04-24 |
+| 9. Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh | 3/3 | Complete | 2026-04-24 |
 | 9.1. Bootstrap artifact and ABI alignment for default installs | 0/0 | Not started | — |
 
 Plan counts populated by `/gsd-plan-phase`.
@@ -492,8 +492,8 @@ Plans:
 
 Plans:
 - [x] `09-01-PLAN.md` — Claim gate, release-snapshot capture script, linux/amd64 workflow, and v0.1.2 evidence directory
-- [ ] `09-02-PLAN.md` — Real linux/amd64 benchmark evidence capture/import, benchstat outputs, metadata, and summary.json
-- [ ] `09-03-PLAN.md` — Public benchmark docs, README benchmark snapshot, changelog update, and Phase 09.1 release boundary
+- [x] `09-02-PLAN.md` — Real linux/amd64 benchmark evidence capture/import, benchstat outputs, metadata, and summary.json
+- [x] `09-03-PLAN.md` — Public benchmark docs, README benchmark snapshot, changelog update, and Phase 09.1 release boundary
 
 ### Phase 09.1: Bootstrap artifact and ABI alignment for default installs (INSERTED)
 

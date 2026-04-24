@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: "Phase 09 complete"
-stopped_at: Phase 09 complete; Phase 09.1 ready
-last_updated: "2026-04-24T14:25:00Z"
-last_activity: "2026-04-24 - Published v0.1.2 linux/amd64 benchmark docs, README positioning, and changelog notes from the passing claim gate"
+status: "Phase 09 shipped — PR #21"
+stopped_at: Phase 09 shipped; PR #21 open for review/CI
+last_updated: "2026-04-24T18:02:04Z"
+last_activity: "2026-04-24 - Shipped Phase 09 in PR #21 and queued Phase 09.1"
 progress:
   total_phases: 16
   completed_phases: 9
@@ -21,15 +21,15 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 **Core value:** Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning: typed extraction and selective traversal are the primary story, while full `any` materialization is documented without overstating current wins.
-**Current focus:** Phase 09 — benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh
+**Current focus:** Phase 09.1 — bootstrap artifact and ABI alignment for default installs
 
 ## Current Position
 
-Phase: 09 (benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — COMPLETE
-Plan: 3 of 3 (complete)
-Status: Phase 09 complete; Phase 09.1 ready
-Last activity: 2026-04-24 - Published v0.1.2 linux/amd64 benchmark docs, README positioning, and changelog notes from the passing claim gate
-Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline, Phase 08 now adds committed internal Tier 1 improvement evidence, and Phase 09 owns any public benchmark-positioning or release decision from here.
+Phase: 09.1 (bootstrap artifact and ABI alignment for default installs) — READY TO PLAN
+Plan: 0 of 0
+Status: Phase 09 shipped; PR #21 open for review/CI
+Last activity: 2026-04-24 - Shipped Phase 09 in PR #21 and queued Phase 09.1
+Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
 
 Progress: [██████████] 100%
 
@@ -214,7 +214,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-24T14:25:00Z
-Stopped at: Phase 09 complete; Phase 09.1 ready
+Stopped at: Phase 09 shipped; PR #21 open for review/CI
 Resume file: .planning/phases/09.1-bootstrap-artifact-and-abi-alignment-for-default-installs
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — ready after Phase 09 docs completion — 2026-04-24T14:25:00Z
