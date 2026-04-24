@@ -51,6 +51,8 @@ def normalize_rows(
     for line in lines:
         match = BENCHMARK_RE.match(line)
         if match is None:
+            if line.startswith("Benchmark"):
+                raise SystemExit(f"unparseable benchmark row: {line}")
             continue
         benchmark_name, procs, trailing = match.groups()
         suffix = f"/{comparator}"

@@ -189,13 +189,15 @@ complete_snapshot="true"
 
 current_step="benchmark claim gate"
 if ! python3 scripts/bench/check_benchmark_claims.py --baseline-dir "$baseline_dir" --snapshot-dir "$stage_dir" --snapshot "$snapshot" --require-target linux/amd64 >"$stage_dir/summary.json"; then
-	echo "benchmark claim gate failed; preserving complete snapshot in $out_dir" >&2
+	failed_dir="${out_dir}.failed.$(date -u +%Y%m%dT%H%M%SZ)"
+	echo "benchmark claim gate failed; preserving failed snapshot at $failed_dir" >&2
 	if [[ -f "$stage_dir/summary.json" ]]; then
 		echo "--- summary.json ---" >&2
 		cat "$stage_dir/summary.json" >&2
 	fi
 	if [[ "$complete_snapshot" == "true" ]]; then
-		promote_stage
+		mv "$stage_dir" "$failed_dir"
+		stage_dir=""
 	fi
 	exit 1
 fi

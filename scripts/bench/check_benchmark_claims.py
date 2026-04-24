@@ -153,6 +153,8 @@ def parse_benchmark_file(path: pathlib.Path) -> tuple[dict[str, str], dict[str, 
 
         benchmark_match = BENCHMARK_RE.match(line)
         if benchmark_match is None:
+            if line.startswith("Benchmark"):
+                raise EvidenceError(f"parse {path}: unparseable benchmark row: {line}")
             continue
 
         benchmark_name = benchmark_match.group(1)
@@ -371,14 +373,11 @@ def tier_status(
 def choose_readme_mode(
     *,
     tier1_allowed: bool,
-    tier1_median_win_every_fixture: bool,
     tier2_allowed: bool,
     tier3_allowed: bool,
 ) -> str:
     if tier1_allowed:
         return "tier1_headline"
-    if tier1_median_win_every_fixture:
-        return "conservative_current_strengths"
     if tier2_allowed and tier3_allowed:
         return "tier1_improved_but_tier2_tier3_headline"
     return "conservative_current_strengths"
@@ -487,9 +486,6 @@ def generate_payload(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         "tier3_headline_allowed": tier3_allowed,
         "readme_mode": choose_readme_mode(
             tier1_allowed=tier1_allowed,
-            tier1_median_win_every_fixture=all(
-                status["median_win"] for status in tier1_fixtures.values()
-            ),
             tier2_allowed=tier2_allowed,
             tier3_allowed=tier3_allowed,
         ),
@@ -499,6 +495,14 @@ def generate_payload(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         "tier2": tier2_fixtures,
         "tier3": tier3_fixtures,
     }
+
+    if errors:
+        payload["claims"] = {
+            "tier1_headline_allowed": False,
+            "tier2_headline_allowed": False,
+            "tier3_headline_allowed": False,
+            "readme_mode": "conservative_current_strengths",
+        }
 
     return payload, 1 if errors else 0
 

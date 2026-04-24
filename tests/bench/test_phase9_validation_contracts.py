@@ -16,6 +16,7 @@ README = REPO_ROOT / "README.md"
 CHANGELOG = REPO_ROOT / "CHANGELOG.md"
 METHODOLOGY = REPO_ROOT / "docs" / "benchmarks.md"
 RESULTS = REPO_ROOT / "docs" / "benchmarks" / "results-v0.1.2.md"
+CAPTURE_SCRIPT = REPO_ROOT / "scripts" / "bench" / "capture_release_snapshot.sh"
 
 try:
     import yaml
@@ -245,6 +246,14 @@ class Phase9ValidationContractTests(unittest.TestCase):
         self.assertIn("benchmark-positioning", changelog)
         for forbidden in ("git tag", "git push", "default-install validation"):
             self.assertNotIn(forbidden, changelog)
+
+    def test_capture_script_preserves_failed_snapshot_separately(self) -> None:
+        script = CAPTURE_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertTrue(CAPTURE_SCRIPT.exists())
+        self.assertIn(".failed.", script)
+        self.assertNotIn("promote_stage\n\texit 1", script)
+        self.assertNotIn("promote_stage\n    exit 1", script)
 
 
 if __name__ == "__main__":

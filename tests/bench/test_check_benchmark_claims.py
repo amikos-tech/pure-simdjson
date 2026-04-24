@@ -263,7 +263,7 @@ class CheckBenchmarkClaimsTests(unittest.TestCase):
         self.assertFalse(payload["claims"]["tier1_headline_allowed"])
         self.assertEqual(payload["claims"]["readme_mode"], "tier1_improved_but_tier2_tier3_headline")
 
-    def test_noisy_stdlib_comparison_keeps_errors_empty_and_uses_conservative_mode(self) -> None:
+    def test_tier1_median_win_without_significance_surfaces_tier2_tier3_mode(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             baseline, snapshot = self.write_evidence(
                 pathlib.Path(temp_dir),
@@ -274,7 +274,70 @@ class CheckBenchmarkClaimsTests(unittest.TestCase):
         payload = self.parse_stdout(result)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(payload["errors"], [])
-        self.assertEqual(payload["claims"]["readme_mode"], "conservative_current_strengths")
+        self.assertFalse(payload["claims"]["tier1_headline_allowed"])
+        self.assertTrue(payload["claims"]["tier2_headline_allowed"])
+        self.assertTrue(payload["claims"]["tier3_headline_allowed"])
+        self.assertEqual(
+            payload["claims"]["readme_mode"], "tier1_improved_but_tier2_tier3_headline"
+        )
+
+    def test_nothing_strong_enough_anywhere_uses_conservative_mode(self) -> None:
+        phase9_text = build_phase9_text(
+            tier1_pure=120.0,
+            tier1_any=100.0,
+            tier2_pure=70.0,
+            tier2_struct=60.0,
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            baseline, snapshot = self.write_evidence(
+                pathlib.Path(temp_dir),
+                phase9_text=phase9_text,
+            )
+            result = self.run_gate(baseline, snapshot)
+
+        payload = self.parse_stdout(result)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(payload["errors"], [])
+        self.assertFalse(payload["claims"]["tier1_headline_allowed"])
+        self.assertFalse(payload["claims"]["tier2_headline_allowed"])
+        self.assertEqual(
+            payload["claims"]["readme_mode"], "conservative_current_strengths"
+        )
+
+    def test_errors_force_all_claims_to_false_and_conservative_mode(self) -> None:
+        toolchain = dict(TOOLCHAIN_METADATA)
+        toolchain["snapshot"] = "v0.9.9"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            baseline, snapshot = self.write_evidence(
+                pathlib.Path(temp_dir),
+                toolchain_metadata=toolchain,
+            )
+            result = self.run_gate(baseline, snapshot)
+
+        payload = self.parse_stdout(result)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(payload["errors"])
+        self.assertFalse(payload["claims"]["tier1_headline_allowed"])
+        self.assertFalse(payload["claims"]["tier2_headline_allowed"])
+        self.assertFalse(payload["claims"]["tier3_headline_allowed"])
+        self.assertEqual(
+            payload["claims"]["readme_mode"], "conservative_current_strengths"
+        )
+
+    def test_truncated_benchmark_row_fails_closed(self) -> None:
+        phase9_text = build_phase9_text(
+            malformed_row="BenchmarkTier1FullParse_twitter_json/pure-simdjson   <truncated"
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            baseline, snapshot = self.write_evidence(pathlib.Path(temp_dir), phase9_text=phase9_text)
+            result = self.run_gate(baseline, snapshot)
+
+        payload = self.parse_stdout(result)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(
+            any("unparseable benchmark row" in error for error in payload["errors"]),
+            f"expected unparseable-row error, got: {payload['errors']}",
+        )
 
     def test_real_benchstat_rows_without_benchmark_prefix_are_significant(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
