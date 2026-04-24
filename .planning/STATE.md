@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: "Phase 09 shipped — PR #21"
-stopped_at: Phase 09 shipped; PR #21 open for review/CI
-last_updated: "2026-04-24T18:02:04Z"
-last_activity: "2026-04-24 - Shipped Phase 09 in PR #21 and queued Phase 09.1"
+stopped_at: Phase 09.1 context gathered
+last_updated: "2026-04-24T21:30:00Z"
+last_activity: "2026-04-24 - Gathered Phase 09.1 context: v0.1.2 bundled release, public-bootstrap-validation gate, ABI-drift prevention canary"
 progress:
   total_phases: 16
   completed_phases: 9
@@ -101,6 +101,7 @@ Progress: [██████████] 100%
 | Date | Phase | Output |
 |------|-------|--------|
 | 2026-04-24 | 08 | `.planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-LEARNINGS.md` |
+| 2026-04-24 | 09 | `.planning/phases/09-benchmark-gate-recalibration-tier-1-2-3-positioning-and-post/09-LEARNINGS.md` |
 
 ### Roadmap Evolution
 
@@ -213,8 +214,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T14:25:00Z
-Stopped at: Phase 09 shipped; PR #21 open for review/CI
-Resume file: .planning/phases/09.1-bootstrap-artifact-and-abi-alignment-for-default-installs
+Last session: 2026-04-24T21:30:00Z
+Stopped at: Phase 09.1 context gathered
+Resume file: .planning/phases/09.1-bootstrap-artifact-and-abi-alignment-for-default-installs/09.1-CONTEXT.md
 
-**Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — ready after Phase 09 docs completion — 2026-04-24T14:25:00Z
+**Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
