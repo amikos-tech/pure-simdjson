@@ -95,7 +95,17 @@ No accepted risks.
 
 | Audit Date | Threats Total | Closed | Open | Run By |
 |------------|---------------|--------|------|--------|
+| 2026-04-24 | 15 | 15 | 0 | Codex `/gsd-secure-phase` re-audit (State A — existing security file re-verified on current HEAD) |
 | 2026-04-24 | 15 | 15 | 0 | Codex `/gsd-secure-phase` manual parity audit (State B — created from artifacts) |
+
+### 2026-04-24 — Re-audit on current HEAD
+
+- Input state: **A** (existing `09-SECURITY.md` present alongside the executed `*-PLAN.md` and `*-SUMMARY.md` files).
+- Re-verified the existing 15-threat register against current HEAD `02a1591972db8df618776cc587f91322daa12828`; all threat dispositions remain closed and no accepted-risk or transfer entries were required.
+- Re-ran the benchmark claim gate on the committed `v0.1.2` evidence with `python3 scripts/bench/check_benchmark_claims.py --baseline-dir testdata/benchmark-results/v0.1.1-linux-amd64 --snapshot-dir testdata/benchmark-results/v0.1.2 --snapshot v0.1.2 --require-target linux/amd64`; the command exited `0`, emitted an empty `errors` array, and kept `tier1_headline_allowed`, `tier2_headline_allowed`, and `tier3_headline_allowed` all `true`.
+- Re-ran the verification command set on current HEAD: `go test ./...`, `cargo test -- --test-threads=1`, `make verify-contract`, and `python3 tests/bench/test_check_benchmark_claims.py`; all passed.
+- Re-confirmed the Phase 09 security-sensitive controls remain intact: workflow permissions stay read-only, artifact retention remains 30 days, durable evidence still lives under `testdata/benchmark-results/v0.1.2/`, linux/amd64 caveats remain in README and benchmark docs, and Phase 09 still performs no tag, push, or release-publication action.
+- Result: `## SECURED` — 15/15 threats remain closed, `threats_open: 0`, no accepted risks, no escalation required.
 
 ### 2026-04-24 — Initial audit
 
