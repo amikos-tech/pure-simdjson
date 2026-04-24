@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: "Phase 09 Plan 01 complete; ready for Plan 02"
-stopped_at: Phase 09 Plan 02 ready
-last_updated: "2026-04-24T12:01:36Z"
-last_activity: "2026-04-24 - Completed Phase 09 Plan 01 benchmark claim gate and capture scaffolding"
+status: "Phase 09 Plan 02 blocked by benchmark claim gate regressions"
+stopped_at: Phase 09 Plan 02 claim gate failed
+last_updated: "2026-04-24T12:55:56Z"
+last_activity: "2026-04-24 - Imported linux/amd64 v0.1.2 benchmark evidence; claim gate failed on Tier 2/Tier 3 regressions"
 progress:
   total_phases: 16
   completed_phases: 9
@@ -26,9 +26,9 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 ## Current Position
 
 Phase: 09 (benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — IN PROGRESS
-Plan: 1 of 3
-Status: Phase 09 Plan 01 complete; ready for Plan 02
-Last activity: 2026-04-24 - Completed Phase 09 Plan 01 benchmark claim gate and capture scaffolding
+Plan: 2 of 3 (blocked)
+Status: Phase 09 Plan 02 blocked by benchmark claim gate regressions
+Last activity: 2026-04-24 - Imported linux/amd64 v0.1.2 benchmark evidence; claim gate failed on Tier 2/Tier 3 regressions
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline, Phase 08 now adds committed internal Tier 1 improvement evidence, and Phase 09 owns any public benchmark-positioning or release decision from here.
 
 Progress: [██████████] 100%
@@ -206,13 +206,14 @@ None yet.
 
 ### Blockers/Concerns
 
+- [Phase 09] Plan 09-02 captured real linux/amd64 `v0.1.2` evidence, but `summary.json.errors` is non-empty: Tier 2 regressed for twitter_json, citm_catalog_json, and canada_json; Tier 3 regressed for twitter_json and citm_catalog_json versus `v0.1.1`. Plan 09-03 public docs must not proceed until this positioning gate is resolved.
 - [Phase 02 advisory] Review whether parse-time `simdjson::UNSUPPORTED_ARCHITECTURE` should map to `PURE_SIMDJSON_ERR_CPU_UNSUPPORTED` instead of `PURE_SIMDJSON_ERR_INTERNAL`.
 - [Phase 02 advisory] Clean up stale public comments for now-live exports and decide whether `last_error_offset` should remain sentinel-only or surface real offsets.
 
 ## Session Continuity
 
-Last session: 2026-04-24T12:01:36Z
-Stopped at: Phase 09 Plan 02 ready
+Last session: 2026-04-24T12:55:56Z
+Stopped at: Phase 09 Plan 02 claim gate failed
 Resume file: .planning/phases/09-benchmark-gate-recalibration-tier-1-2-3-positioning-and-post/09-02-PLAN.md
 
-**Planned Phase:** 09 (Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — 1 of 3 plans complete — 2026-04-24T12:01:36Z
+**Planned Phase:** 09 (Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — Plan 09-02 blocked after evidence import — 2026-04-24T12:55:56Z
