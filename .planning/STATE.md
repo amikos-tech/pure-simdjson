@@ -4,8 +4,8 @@ milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: "Phase 08 shipped; PR #19 open for review/CI"
 stopped_at: Phase 09 context gathered
-last_updated: "2026-04-24T09:56:08.152Z"
-last_activity: "2026-04-24 - Completed quick task pr19-review-items-1-2-3-5: PR #19 polish items 1/2/3/5 (docs + native-side size asserts)"
+last_updated: "2026-04-24T10:26:26Z"
+last_activity: "2026-04-24 - Extracted Phase 08 learnings into .planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-LEARNINGS.md"
 progress:
   total_phases: 16
   completed_phases: 9
@@ -94,6 +94,12 @@ Progress: [██████████] 100%
 | 2026-04-24 | phase8-followup-feedback | Added observable depth-limit status/sentinel coverage, tightened materializer comments, filled adversarial string-span coverage, and rechecked benchmark gates. |
 | 2026-04-24 | phase8-pr-review-feedback | Applied Phase 8 PR review fixes for materializer depth guarding, optional-symbol/fallback observability, unsafe frame diagnostics, not-implemented telemetry status, span contract tests/docs, and benchmark regression checks. |
 | 2026-04-24 | pr19-review-items-1-2-3-5 | Addressed PR #19 polish items 1/2/3/5: documented `InternalMaterializeBuild` frame-span lifecycle, expanded the LIFO defer ordering comment in the fast materializer, added native-side (Rust + C++) size asserts for `psdj_internal_frame_t` (field-width expression, 32-bit safe), and documented `psimdjson_test_hold_materialize_guard`'s by-design `PARSER_BUSY` return. Comments-and-asserts only — Tier 1 diagnostics benchstat shows no regression (B/op and allocs/op identical, geomean sec/op within noise). |
+
+### Learning Extractions
+
+| Date | Phase | Output |
+|------|-------|--------|
+| 2026-04-24 | 08 | `.planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-LEARNINGS.md` |
 
 ### Roadmap Evolution
 
