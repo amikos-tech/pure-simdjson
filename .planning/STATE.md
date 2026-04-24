@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: "Phase 09 planned; ready to execute"
-stopped_at: Phase 09 planned
-last_updated: "2026-04-24T11:41:13Z"
-last_activity: "2026-04-24 - Replanned Phase 09 with review feedback as 3 verified plans"
+status: "Phase 09 Plan 01 complete; ready for Plan 02"
+stopped_at: Phase 09 Plan 02 ready
+last_updated: "2026-04-24T12:01:36Z"
+last_activity: "2026-04-24 - Completed Phase 09 Plan 01 benchmark claim gate and capture scaffolding"
 progress:
   total_phases: 16
   completed_phases: 9
@@ -25,10 +25,10 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 ## Current Position
 
-Phase: 09 (benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — READY TO EXECUTE
-Plan: 0 of 3
-Status: Phase 09 planned; ready to execute
-Last activity: 2026-04-24 - Replanned Phase 09 with review feedback as 3 verified plans
+Phase: 09 (benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — IN PROGRESS
+Plan: 1 of 3
+Status: Phase 09 Plan 01 complete; ready for Plan 02
+Last activity: 2026-04-24 - Completed Phase 09 Plan 01 benchmark claim gate and capture scaffolding
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline, Phase 08 now adds committed internal Tier 1 improvement evidence, and Phase 09 owns any public benchmark-positioning or release decision from here.
 
 Progress: [██████████] 100%
@@ -37,7 +37,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 33
+- Total plans completed: 34
 - Average duration: 11.1m
 - Total execution time: 1.4 hours
 
@@ -53,7 +53,7 @@ Progress: [██████████] 100%
 
 **Recent Trend:**
 
-- Last 5 plans: 08-01, 08-02, 08-03, 08-04, 08-05
+- Last 5 plans: 08-02, 08-03, 08-04, 08-05, 09-01
 - Trend: Stable
 
 | Phase 04 P01 | 16m | 2 tasks | 7 files |
@@ -82,6 +82,7 @@ Progress: [██████████] 100%
 | Phase 08 P03 | 9min | 2 tasks | 6 files |
 | Phase 08 P04 | 6min | 2 tasks | 2 files |
 | Phase 08 P05 | 29min | 2 tasks | 7 files |
+| Phase 09 P01 | 7min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -210,8 +211,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T11:41:13Z
-Stopped at: Phase 09 planned
-Resume file: .planning/phases/09-benchmark-gate-recalibration-tier-1-2-3-positioning-and-post/09-01-PLAN.md
+Last session: 2026-04-24T12:01:36Z
+Stopped at: Phase 09 Plan 02 ready
+Resume file: .planning/phases/09-benchmark-gate-recalibration-tier-1-2-3-positioning-and-post/09-02-PLAN.md
 
-**Planned Phase:** 09 (Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — 3 plans — 2026-04-24T11:41:13Z
+**Planned Phase:** 09 (Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — 1 of 3 plans complete — 2026-04-24T12:01:36Z

@@ -501,7 +501,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] `09-01-PLAN.md` — Claim gate, release-snapshot capture script, linux/amd64 workflow, and v0.1.2 evidence directory
+- [x] `09-01-PLAN.md` — Claim gate, release-snapshot capture script, linux/amd64 workflow, and v0.1.2 evidence directory
 - [ ] `09-02-PLAN.md` — Real linux/amd64 benchmark evidence capture/import, benchstat outputs, metadata, and summary.json
 - [ ] `09-03-PLAN.md` — Public benchmark docs, README benchmark snapshot, changelog update, and Phase 09.1 release boundary
 
