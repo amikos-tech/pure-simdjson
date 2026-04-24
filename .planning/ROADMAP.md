@@ -502,10 +502,11 @@ Plans:
 **Requirements:** TBD — promoted from the Phase 8/Phase 9 handoff after the loader compatibility fix proved bind-time optional-symbol handling is no longer the blocker, while the default bootstrap path remains pinned to `v0.1.0` and therefore fails at the ABI gate against the current `0x00010001` expectation.
 
 **Depends on:** Phase 9
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 09.1 to break down)
+- [ ] 09.1-01 — Prepare the `v0.1.2` release-candidate source state and add a pre-tag ABI/bootstrap drift gate
+- [ ] 09.1-02 — Publish `v0.1.2` through the supported CI-only release path, validate public default installs, and remove release hedges after validation
 
 ### Phase 10: Lightweight PR benchmark regression signal
 

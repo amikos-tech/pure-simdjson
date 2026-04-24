@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: "Phase 09 shipped — PR #21"
-stopped_at: Phase 09.1 context gathered
-last_updated: "2026-04-24T21:30:00Z"
-last_activity: "2026-04-24 - Gathered Phase 09.1 context: v0.1.2 bundled release, public-bootstrap-validation gate, ABI-drift prevention canary"
+status: "Phase 09.1 planned — ready to execute"
+stopped_at: Phase 09.1 planned
+last_updated: "2026-04-24T22:15:00Z"
+last_activity: "2026-04-24 - Planned Phase 09.1 as two waves: source/readiness alignment, then CI-only release plus public bootstrap validation"
 progress:
   total_phases: 16
   completed_phases: 9
@@ -25,10 +25,10 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 ## Current Position
 
-Phase: 09.1 (bootstrap artifact and ABI alignment for default installs) — READY TO PLAN
-Plan: 0 of 0
-Status: Phase 09 shipped; PR #21 open for review/CI
-Last activity: 2026-04-24 - Shipped Phase 09 in PR #21 and queued Phase 09.1
+Phase: 09.1 (bootstrap artifact and ABI alignment for default installs) — READY TO EXECUTE
+Plan: 0 of 2
+Status: Phase 09.1 planned; source/readiness alignment and release validation plans verified
+Last activity: 2026-04-24 - Planned Phase 09.1 with verified plans for v0.1.2 source alignment, ABI canary, CI-only release, and public bootstrap validation
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
 
 Progress: [██████████] 100%
@@ -219,3 +219,5 @@ Stopped at: Phase 09.1 context gathered
 Resume file: .planning/phases/09.1-bootstrap-artifact-and-abi-alignment-for-default-installs/09.1-CONTEXT.md
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
+
+**Ready to Execute:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — 2 verified plans in 2 waves — 2026-04-24T22:15:00Z
