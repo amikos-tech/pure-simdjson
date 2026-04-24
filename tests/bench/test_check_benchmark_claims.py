@@ -220,7 +220,9 @@ class CheckBenchmarkClaimsTests(unittest.TestCase):
         self.assertTrue(payload["claims"]["tier2_headline_allowed"])
         self.assertTrue(payload["claims"]["tier3_headline_allowed"])
         self.assertEqual(payload["claims"]["readme_mode"], "tier1_headline")
-        self.assertIn("linux/amd64", payload["target"])
+        self.assertEqual(payload["target"]["goos"], "linux")
+        self.assertEqual(payload["target"]["goarch"], "amd64")
+        self.assertEqual(payload["target"]["pkg"], "github.com/amikos-tech/pure-simdjson")
 
     def test_tier1_improved_but_not_faster_than_stdlib_uses_tier2_tier3_mode(self) -> None:
         phase9_text = build_phase9_text(tier1_pure=120.0, tier1_any=100.0)

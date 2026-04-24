@@ -72,9 +72,21 @@ def parse_args() -> argparse.Namespace:
 
 
 def empty_payload(snapshot: str, target: str) -> dict[str, Any]:
+    goos, goarch = (target.split("/", 1) + [""])[:2] if "/" in target else (target, "")
     return {
         "snapshot": snapshot,
-        "target": target,
+        "target": {
+            "goos": goos,
+            "goarch": goarch,
+            "pkg": "",
+            "cpu": "",
+            "go_version": "",
+            "rustc_version": "",
+            "runner_os": "",
+            "runner_arch": "",
+            "commit": "",
+            "captured_at_utc": "",
+        },
         "thresholds": {
             "tier1_headline": "benchstat_significant_win_vs_encoding_json_any_every_fixture",
             "tier2_tier3": "no_material_regression_vs_v0.1.1_and_win_vs_encoding_json_struct_every_fixture",
@@ -382,13 +394,18 @@ def generate_payload(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
                 snapshot=args.snapshot,
             )
         )
-        payload["target"] = (
-            f"{metadata_json.get('goos')}/{metadata_json.get('goarch')} "
-            f"pkg={metadata_json.get('pkg')} cpu={metadata_json.get('cpu')} "
-            f"go={metadata_json.get('go_version')} rustc={metadata_json.get('rustc_version')} "
-            f"runner={metadata_json.get('runner_os')}/{metadata_json.get('runner_arch')} "
-            f"commit={metadata_json.get('commit')} captured_at_utc={metadata_json.get('captured_at_utc')}"
-        )
+        payload["target"] = {
+            "goos": metadata_json.get("goos", ""),
+            "goarch": metadata_json.get("goarch", ""),
+            "pkg": metadata_json.get("pkg", ""),
+            "cpu": metadata_json.get("cpu", ""),
+            "go_version": metadata_json.get("go_version", ""),
+            "rustc_version": metadata_json.get("rustc_version", ""),
+            "runner_os": metadata_json.get("runner_os", ""),
+            "runner_arch": metadata_json.get("runner_arch", ""),
+            "commit": metadata_json.get("commit", ""),
+            "captured_at_utc": metadata_json.get("captured_at_utc", ""),
+        }
 
     errors.extend(require_rows(phase9_samples, required_phase9_rows(), source_name="phase9.bench.txt"))
     errors.extend(require_rows(coldwarm_samples, required_coldwarm_rows(), source_name="coldwarm.bench.txt"))
