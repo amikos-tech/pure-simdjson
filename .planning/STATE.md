@@ -4,8 +4,8 @@ milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: "Phase 09 planned; ready to execute"
 stopped_at: Phase 09 planned
-last_updated: "2026-04-24T11:09:47Z"
-last_activity: "2026-04-24 - Planned Phase 09 benchmark gate recalibration as 3 verified plans"
+last_updated: "2026-04-24T11:41:13Z"
+last_activity: "2026-04-24 - Replanned Phase 09 with review feedback as 3 verified plans"
 progress:
   total_phases: 16
   completed_phases: 9
@@ -28,7 +28,7 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 Phase: 09 (benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — READY TO EXECUTE
 Plan: 0 of 3
 Status: Phase 09 planned; ready to execute
-Last activity: 2026-04-24 - Planned Phase 09 benchmark gate recalibration as 3 verified plans
+Last activity: 2026-04-24 - Replanned Phase 09 with review feedback as 3 verified plans
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. `v0.1.0` remains the latest published tag. Phase 07 is complete as a truthful benchmark/docs/legal baseline, Phase 08 now adds committed internal Tier 1 improvement evidence, and Phase 09 owns any public benchmark-positioning or release decision from here.
 
 Progress: [██████████] 100%
@@ -210,8 +210,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T11:09:47Z
+Last session: 2026-04-24T11:41:13Z
 Stopped at: Phase 09 planned
 Resume file: .planning/phases/09-benchmark-gate-recalibration-tier-1-2-3-positioning-and-post/09-01-PLAN.md
 
-**Planned Phase:** 09 (Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — 3 plans — 2026-04-24T11:09:47Z
+**Planned Phase:** 09 (Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh) — 3 plans — 2026-04-24T11:41:13Z
