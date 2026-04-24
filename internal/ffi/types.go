@@ -11,6 +11,8 @@ const (
 type ErrorCode int32
 
 const (
+	// Values in this block must stay in lockstep with pure_simdjson.h and
+	// src/lib.rs; they are part of the cross-ABI error contract.
 	OK                 ErrorCode = 0
 	ErrInvalidArg      ErrorCode = 1
 	ErrInvalidHandle   ErrorCode = 2
@@ -19,8 +21,7 @@ const (
 	ErrElementNotFound ErrorCode = 5
 	ErrBufferTooSmall  ErrorCode = 6
 	ErrNotImplemented  ErrorCode = 7
-	// ErrDepthLimit must stay numerically pinned to PURE_SIMDJSON_ERR_DEPTH_LIMIT.
-	ErrDepthLimit ErrorCode = 8
+	ErrDepthLimit      ErrorCode = 8
 
 	ErrInvalidJSON      ErrorCode = 32
 	ErrNumberOutOfRange ErrorCode = 33

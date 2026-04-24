@@ -9,6 +9,10 @@
 
 /**
  * Public error codes for the stable ABI v0.1 surface.
+ *
+ * User-actionable statuses such as NOT_IMPLEMENTED and DEPTH_LIMIT stay
+ * distinct from INTERNAL so callers can route configuration/input recovery
+ * separately from native engine bug handling.
  */
 enum pure_simdjson_error_code_t
 #ifdef __cplusplus

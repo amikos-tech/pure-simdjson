@@ -169,6 +169,17 @@ func TestFastMaterializerDepthLimitBoundary(t *testing.T) {
 	if _, err := fastMaterializeElement(doc.Root()); err != nil {
 		t.Fatalf("fastMaterializeElement() depth-1023 array error = %v, want nil", err)
 	}
+	if err := doc.Close(); err != nil {
+		t.Fatalf("doc.Close() before depth-1024 parse error = %v", err)
+	}
+
+	rejectedDoc, err := parser.Parse([]byte(nestedArrayJSON(1024)))
+	if rejectedDoc != nil {
+		t.Fatal("Parse() depth-1024 array unexpectedly returned a document")
+	}
+	if !errors.Is(err, ErrDepthLimitExceeded) {
+		t.Fatalf("Parse() depth-1024 array error = %v, want ErrDepthLimitExceeded", err)
+	}
 }
 
 func TestFastMaterializerDuplicateKeySemantics(t *testing.T) {

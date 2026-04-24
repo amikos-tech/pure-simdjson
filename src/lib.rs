@@ -17,6 +17,10 @@ use std::{
 pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0001;
 
 /// Public error codes for the stable ABI v0.1 surface.
+///
+/// User-actionable statuses such as NOT_IMPLEMENTED and DEPTH_LIMIT stay
+/// distinct from INTERNAL so callers can route configuration/input recovery
+/// separately from native engine bug handling.
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum pure_simdjson_error_code_t {

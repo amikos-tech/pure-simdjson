@@ -4,7 +4,7 @@ milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: ready_to_plan
 stopped_at: Phase 08 complete; next up Phase 09 discussion/planning
-last_updated: "2026-04-24T06:56:29Z"
+last_updated: "2026-04-24T07:18:35Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 15
@@ -89,6 +89,7 @@ Progress: [██████████] 100%
 
 | Date | Slug | Summary |
 |------|------|---------|
+| 2026-04-24 | phase8-final-polish | Added executable depth-boundary fence, clarified ERR_INTERNAL split rationale at the ABI enum, expanded cross-ABI numeric comments, and rechecked benchmark gates. |
 | 2026-04-24 | phase8-depth-doc-followup | Clarified depth-limit defense-in-depth docs, strengthened user-actionable enum comments, pinned the current accepted nesting boundary, and rechecked benchmark gates. |
 | 2026-04-24 | phase8-followup-feedback | Added observable depth-limit status/sentinel coverage, tightened materializer comments, filled adversarial string-span coverage, and rechecked benchmark gates. |
 | 2026-04-24 | phase8-pr-review-feedback | Applied Phase 8 PR review fixes for materializer depth guarding, optional-symbol/fallback observability, unsafe frame diagnostics, not-implemented telemetry status, span contract tests/docs, and benchmark regression checks. |
