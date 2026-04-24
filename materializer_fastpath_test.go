@@ -148,6 +148,29 @@ func TestFastMaterializerDepthLimitExceeded(t *testing.T) {
 	}
 }
 
+func TestFastMaterializerDepthLimitBoundary(t *testing.T) {
+	parser := mustNewParser(t)
+	t.Cleanup(func() {
+		if err := parser.Close(); err != nil {
+			t.Fatalf("parser.Close() cleanup error = %v", err)
+		}
+	})
+
+	doc, err := parser.Parse([]byte(nestedArrayJSON(1023)))
+	if err != nil {
+		t.Fatalf("Parse() depth-1023 array error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		if err := doc.Close(); err != nil {
+			t.Fatalf("doc.Close() cleanup error = %v", err)
+		}
+	})
+
+	if _, err := fastMaterializeElement(doc.Root()); err != nil {
+		t.Fatalf("fastMaterializeElement() depth-1023 array error = %v, want nil", err)
+	}
+}
+
 func TestFastMaterializerDuplicateKeySemantics(t *testing.T) {
 	_, doc := mustParseDoc(t, `{"dup":1,"dup":2}`)
 

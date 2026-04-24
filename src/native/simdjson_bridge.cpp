@@ -344,8 +344,8 @@ pure_simdjson_error_code_t append_materialize_frame(
     std::string_view key,
     size_t depth
 ) {
-  // Mirrors simdjson's default DOM depth bound so native materialization fails
-  // with an actionable depth-limit status before C++ recursion can exhaust stack.
+  // Defense-in-depth: simdjson's parser cap catches user input first today.
+  // Keep the materializer bound in case future refactors decouple those depths.
   constexpr size_t MAX_MATERIALIZE_FRAME_DEPTH = 1024;
   if (depth > MAX_MATERIALIZE_FRAME_DEPTH) {
     return PURE_SIMDJSON_ERR_DEPTH_LIMIT;
