@@ -929,6 +929,11 @@ pure_simdjson_error_code_t psimdjson_materialize_build(psimdjson_doc *doc,
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
+// Test scaffolding: always returns PURE_SIMDJSON_ERR_PARSER_BUSY when doc
+// is valid. We acquire the materialize_build_guard, then call
+// psimdjson_materialize_build which re-acquires the same guard and fails
+// fast. This simulates the "materialize in progress" state so tests can
+// exercise the reentry guard without racing real workloads.
 pure_simdjson_error_code_t psimdjson_test_hold_materialize_guard(psimdjson_doc *doc,
                                                                  uint64_t json_index) noexcept {
   try {
