@@ -464,6 +464,17 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
+### Phase 999.8: PR-head CI coverage for feature branches (BACKLOG)
+
+**Goal:** [Captured for future planning] Add CI coverage that runs on pull requests and/or every feature-branch head, including docs-only shipping commits, so each PR shows an up-to-date check signal on the exact merge candidate. Phase 8 exposed the gap: `phase2-rust-shim-smoke` passed on the implementation commit, but the final `.planning/STATE.md` shipping commit did not trigger a new run because the workflow has path filters and no general `pull_request` trigger. Future planning should decide the right balance between cheap always-on PR checks, path-filtered expensive matrix jobs, branch protection requirements, and manual dispatch fallbacks.
+
+**Requirements:** TBD
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
 ### Phase 8: Low-overhead DOM traversal ABI and specialized Go any materializer
 
 **Goal:** Replace the current accessor-shaped Tier 1 materialization path with a lower-overhead traversal/materialization substrate that preserves correctness while removing avoidable per-node FFI and string handoff cost. This phase explicitly folds the old `999.6` backlog idea into the active milestone.
