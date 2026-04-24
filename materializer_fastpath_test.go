@@ -63,6 +63,9 @@ func TestAccessorMaterializerParity(t *testing.T) {
 func TestFastMaterializerUnavailableWarningIsOneShotDebugLog(t *testing.T) {
 	t.Setenv("PURE_SIMDJSON_DEBUG", "1")
 	fastMaterializerFallbackWarningOnce = sync.Once{}
+	t.Cleanup(func() {
+		fastMaterializerFallbackWarningOnce = sync.Once{}
+	})
 
 	stderr := captureRootStderr(t, func() {
 		emitFastMaterializerFallbackWarning()
@@ -116,6 +119,32 @@ func TestFastMaterializerOversizedLiteralParseRejected(t *testing.T) {
 	}
 	if !errors.Is(err, ErrInvalidJSON) {
 		t.Fatalf("Parse() oversized literal error = %v, want ErrInvalidJSON", err)
+	}
+}
+
+func TestFastMaterializerDepthLimitExceeded(t *testing.T) {
+	parser := mustNewParser(t)
+	t.Cleanup(func() {
+		if err := parser.Close(); err != nil {
+			t.Fatalf("parser.Close() cleanup error = %v", err)
+		}
+	})
+
+	doc, err := parser.Parse([]byte(nestedArrayJSON(1025)))
+	if err != nil {
+		if !errors.Is(err, ErrDepthLimitExceeded) {
+			t.Fatalf("Parse() deep array error = %v, want ErrDepthLimitExceeded", err)
+		}
+		return
+	}
+	t.Cleanup(func() {
+		if err := doc.Close(); err != nil {
+			t.Fatalf("doc.Close() cleanup error = %v", err)
+		}
+	})
+
+	if _, err := fastMaterializeElement(doc.Root()); !errors.Is(err, ErrDepthLimitExceeded) {
+		t.Fatalf("fastMaterializeElement() deep array error = %v, want ErrDepthLimitExceeded", err)
 	}
 }
 
@@ -309,6 +338,18 @@ func TestFastMaterializerRejectsAdversarialFrameStreams(t *testing.T) {
 		}
 	})
 
+	t.Run("string span has nil pointer", func(t *testing.T) {
+		_, err := buildAnyFromFrames([]ffi.InternalFrame{
+			{Kind: uint32(ffi.ValueKindString), StringLen: 1},
+		})
+		if !errors.Is(err, ErrInternal) {
+			t.Fatalf("buildAnyFromFrames() error = %v, want ErrInternal", err)
+		}
+		if !strings.Contains(err.Error(), "string span has nil pointer") {
+			t.Fatalf("buildAnyFromFrames() error = %v, want string-span detail", err)
+		}
+	})
+
 	t.Run("unknown kind", func(t *testing.T) {
 		_, err := buildAnyFromFrames([]ffi.InternalFrame{{Kind: 99}})
 		if !errors.Is(err, ErrInternal) {
@@ -318,6 +359,10 @@ func TestFastMaterializerRejectsAdversarialFrameStreams(t *testing.T) {
 			t.Fatalf("buildAnyFromFrames() error = %v, want unknown-kind detail", err)
 		}
 	})
+}
+
+func nestedArrayJSON(depth int) string {
+	return strings.Repeat("[", depth) + "0" + strings.Repeat("]", depth)
 }
 
 func materializeViaAccessorsForTest(t *testing.T, element Element) any {

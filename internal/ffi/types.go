@@ -19,6 +19,7 @@ const (
 	ErrElementNotFound ErrorCode = 5
 	ErrBufferTooSmall  ErrorCode = 6
 	ErrNotImplemented  ErrorCode = 7
+	ErrDepthLimit      ErrorCode = 8
 
 	ErrInvalidJSON      ErrorCode = 32
 	ErrNumberOutOfRange ErrorCode = 33

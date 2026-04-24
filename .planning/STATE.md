@@ -4,7 +4,7 @@ milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: ready_to_plan
 stopped_at: Phase 08 complete; next up Phase 09 discussion/planning
-last_updated: "2026-04-24T04:36:47Z"
+last_updated: "2026-04-24T06:20:45Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 15
@@ -89,6 +89,7 @@ Progress: [██████████] 100%
 
 | Date | Slug | Summary |
 |------|------|---------|
+| 2026-04-24 | phase8-followup-feedback | Added observable depth-limit status/sentinel coverage, tightened materializer comments, filled adversarial string-span coverage, and rechecked benchmark gates. |
 | 2026-04-24 | phase8-pr-review-feedback | Applied Phase 8 PR review fixes for materializer depth guarding, optional-symbol/fallback observability, unsafe frame diagnostics, not-implemented telemetry status, span contract tests/docs, and benchmark regression checks. |
 
 ### Roadmap Evolution

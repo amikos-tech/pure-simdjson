@@ -78,7 +78,6 @@ pure_simdjson_error_code_t map_error(simdjson::error_code error) noexcept {
     case simdjson::BIGINT_ERROR:
       return PURE_SIMDJSON_ERR_PRECISION_LOSS;
     case simdjson::TAPE_ERROR:
-    case simdjson::DEPTH_ERROR:
     case simdjson::STRING_ERROR:
     case simdjson::T_ATOM_ERROR:
     case simdjson::F_ATOM_ERROR:
@@ -91,6 +90,8 @@ pure_simdjson_error_code_t map_error(simdjson::error_code error) noexcept {
     case simdjson::INCOMPLETE_ARRAY_OR_OBJECT:
     case simdjson::TRAILING_CONTENT:
       return PURE_SIMDJSON_ERR_INVALID_JSON;
+    case simdjson::DEPTH_ERROR:
+      return PURE_SIMDJSON_ERR_DEPTH_LIMIT;
     case simdjson::CAPACITY:
     case simdjson::MEMALLOC:
     case simdjson::IO_ERROR:
@@ -330,19 +331,29 @@ void reserve_materialize_frames(psimdjson_doc *doc, size_t child_hint) {
   doc->materialize_frames.reserve(new_capacity);
 }
 
+// simdjson saturates tape scope counts at 0xFFFFFF; saturated hints no longer
+// reflect the real child count and should not drive scratch-vector reserves.
+bool has_unsaturated_child_hint(size_t child_hint) noexcept {
+  constexpr size_t SATURATED_SCOPE_COUNT = 0xFFFFFF;
+  return child_hint < SATURATED_SCOPE_COUNT;
+}
+
 pure_simdjson_error_code_t append_materialize_frame(
     psimdjson_doc *doc,
     simdjson::dom::element element,
     std::string_view key,
     size_t depth
 ) {
+  // Mirrors simdjson's default DOM depth bound so native materialization fails
+  // with an actionable depth-limit status before C++ recursion can exhaust stack.
   constexpr size_t MAX_MATERIALIZE_FRAME_DEPTH = 1024;
   if (depth > MAX_MATERIALIZE_FRAME_DEPTH) {
-    return PURE_SIMDJSON_ERR_INTERNAL;
+    return PURE_SIMDJSON_ERR_DEPTH_LIMIT;
   }
 
   psdj_internal_frame_t frame{};
-  // The zero value is load-bearing: flags carries only the bool payload below.
+  // Go reads flags as the bool payload for ValueKindBool; stale high bits would
+  // misdecode if a future kind reused this field.
   frame.flags = 0;
   set_frame_key(frame, key);
 
@@ -362,10 +373,7 @@ pure_simdjson_error_code_t append_materialize_frame(
 
       const auto frame_index = doc->materialize_frames.size();
       const auto child_hint = array.size();
-      // simdjson saturates tape scope counts at 0xFFFFFF; avoid reserving from
-      // saturated hints that no longer reflect the real child count.
-      constexpr size_t SATURATED_SCOPE_COUNT = 0xFFFFFF;
-      if (child_hint < SATURATED_SCOPE_COUNT) {
+      if (has_unsaturated_child_hint(child_hint)) {
         reserve_materialize_frames(doc, child_hint);
       }
       doc->materialize_frames.push_back(frame);
@@ -394,10 +402,7 @@ pure_simdjson_error_code_t append_materialize_frame(
 
       const auto frame_index = doc->materialize_frames.size();
       const auto child_hint = object.size();
-      // simdjson saturates tape scope counts at 0xFFFFFF; avoid reserving from
-      // saturated hints that no longer reflect the real child count.
-      constexpr size_t SATURATED_SCOPE_COUNT = 0xFFFFFF;
-      if (child_hint < SATURATED_SCOPE_COUNT) {
+      if (has_unsaturated_child_hint(child_hint)) {
         reserve_materialize_frames(doc, child_hint);
       }
       doc->materialize_frames.push_back(frame);
