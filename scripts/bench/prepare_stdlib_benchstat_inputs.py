@@ -87,7 +87,17 @@ def rows_per_fixture(rows: list[str]) -> dict[str, int]:
 def main() -> int:
     args = parse_args()
     lines = read_lines(args.source)
-    metadata = [line for line in lines if METADATA_RE.match(line)]
+    metadata: list[str] = []
+    seen_keys: set[str] = set()
+    for line in lines:
+        match = METADATA_RE.match(line)
+        if match is None:
+            continue
+        key = match.group(1)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        metadata.append(line)
 
     left_rows, left_missing = normalize_rows(
         lines=lines,

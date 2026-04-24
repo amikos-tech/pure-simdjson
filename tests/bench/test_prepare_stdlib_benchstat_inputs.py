@@ -110,6 +110,46 @@ class PrepareStdlibBenchstatInputsTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("BenchmarkTier1FullParse_canada_json", result.stderr)
 
+    def test_tier3_canada_json_row_is_filtered_not_just_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            directory = pathlib.Path(temp_dir)
+            source = directory / "phase9.bench.txt"
+            extra = (
+                "BenchmarkTier3SelectivePlaceholder_canada_json/encoding-json-struct-8"
+                "\t10\t80.00 ns/op\t0 B/op\t0 allocs/op\n"
+                "BenchmarkTier3SelectivePlaceholder_canada_json/pure-simdjson-8"
+                "\t10\t40.00 ns/op\t0 B/op\t0 allocs/op\n"
+            )
+            source.write_text(source_text() + extra, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_PATH),
+                    "--source",
+                    str(source),
+                    "--family",
+                    "tier3",
+                    "--base-comparator",
+                    "encoding-json-struct",
+                    "--candidate-comparator",
+                    "pure-simdjson",
+                    "--left-out",
+                    str(directory / "left.bench.txt"),
+                    "--right-out",
+                    str(directory / "right.bench.txt"),
+                ],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            left = (directory / "left.bench.txt").read_text(encoding="utf-8")
+            right = (directory / "right.bench.txt").read_text(encoding="utf-8")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("canada_json", left)
+        self.assertNotIn("canada_json", right)
+
     def test_asymmetric_row_counts_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             directory = pathlib.Path(temp_dir)

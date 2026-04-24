@@ -251,6 +251,14 @@ class CheckBenchmarkClaimsTests(unittest.TestCase):
         self.assertEqual(payload["target"]["goos"], "linux")
         self.assertEqual(payload["target"]["goarch"], "amd64")
         self.assertEqual(payload["target"]["pkg"], "github.com/amikos-tech/pure-simdjson")
+        self.assertAlmostEqual(
+            payload["fixtures"]["tier1"]["twitter_json"]["ratio_vs_encoding_json_any"],
+            100.0 / 80.0,
+        )
+        self.assertAlmostEqual(
+            payload["fixtures"]["tier2"]["twitter_json"]["ratio_vs_encoding_json_struct"],
+            100.0 / 60.0,
+        )
 
     def test_tier1_improved_but_not_faster_than_stdlib_uses_tier2_tier3_mode(self) -> None:
         phase9_text = build_phase9_text(tier1_pure=120.0, tier1_any=100.0)
@@ -421,7 +429,10 @@ class CheckBenchmarkClaimsTests(unittest.TestCase):
         payload = self.parse_stdout(result)
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(payload["claims"]["tier2_headline_allowed"])
-        self.assertTrue(any("tier2" in error and "regression" in error for error in payload["errors"]))
+        tier2_regression_errors = [
+            error for error in payload["errors"] if error.startswith("tier2 regression for ")
+        ]
+        self.assertEqual(len(tier2_regression_errors), len(FIXTURES))
 
     def test_cross_platform_baseline_fails_with_metadata_mismatch_not_regression(self) -> None:
         baseline_metadata = {

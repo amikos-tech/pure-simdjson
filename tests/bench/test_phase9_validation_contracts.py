@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import pathlib
 import subprocess
+import sys
 import unittest
 
 
@@ -130,6 +131,9 @@ class Phase9ValidationContractTests(unittest.TestCase):
         self.assertEqual(upload_step["with"]["name"], "benchmark-evidence-${{ inputs.snapshot }}-linux-amd64")
         self.assertEqual(upload_step["with"]["retention-days"], "30")
 
+        capture_step = job_step(capture_job, "Capture benchmark evidence")
+        self.assertIn('--snapshot "${{ inputs.snapshot }}"', capture_step["run"])
+
         for forbidden in ("pages: write", "id-token: write", "git push", "git tag"):
             self.assertNotIn(forbidden, workflow_text)
 
@@ -254,6 +258,47 @@ class Phase9ValidationContractTests(unittest.TestCase):
         self.assertIn(".failed.", script)
         self.assertNotIn("promote_stage\n\texit 1", script)
         self.assertNotIn("promote_stage\n    exit 1", script)
+
+    def test_capture_script_requires_snapshot(self) -> None:
+        script = CAPTURE_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertIn("--snapshot is required", script)
+        self.assertNotIn('snapshot="v0.1.2"', script)
+        self.assertNotIn('out_dir="testdata/benchmark-results/v0.1.2"', script)
+
+        result = subprocess.run(
+            ["bash", str(CAPTURE_SCRIPT)],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--snapshot is required", result.stderr)
+
+    def test_committed_summary_matches_live_gate_output(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "scripts/bench/check_benchmark_claims.py",
+                "--baseline-dir",
+                str(BASELINE_DIR),
+                "--snapshot-dir",
+                str(PHASE9_DIR),
+                "--snapshot",
+                "v0.1.2",
+                "--require-target",
+                "linux/amd64",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        live = json.loads(result.stdout)
+        committed = load_json(PHASE9_DIR / "summary.json")
+        self.assertEqual(live, committed)
 
 
 if __name__ == "__main__":

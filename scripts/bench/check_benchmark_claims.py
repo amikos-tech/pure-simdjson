@@ -327,7 +327,7 @@ def tier1_status(
         fixtures[fixture] = {
             "pure_ns_op": pure,
             "stdlib_ns_op": stdlib,
-            "ratio_vs_encoding_json_any": ratio(pure, stdlib) if pure and stdlib else None,
+            "ratio_vs_encoding_json_any": ratio(pure, stdlib) if pure is not None and stdlib is not None else None,
             "median_win": bool(faster),
             "benchstat_significant_win": significant,
             "allowed": row_allowed,
@@ -367,7 +367,7 @@ def tier_status(
             "baseline_pure_ns_op": old,
             "pure_ns_op": pure,
             "stdlib_ns_op": stdlib,
-            "ratio_vs_encoding_json_struct": ratio(pure, stdlib) if pure and stdlib else None,
+            "ratio_vs_encoding_json_struct": ratio(pure, stdlib) if pure is not None and stdlib is not None else None,
             "no_material_regression_vs_v0.1.1": bool(no_regression),
             "median_win": bool(median_win),
             "benchstat_significant_win": significant,

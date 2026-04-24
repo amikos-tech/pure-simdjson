@@ -2,11 +2,11 @@
 set -euo pipefail
 
 usage() {
-	echo "Usage: $0 [--snapshot <label>] [--out-dir <path>] [--baseline-dir <path>]" >&2
+	echo "Usage: $0 --snapshot <label> [--out-dir <path>] [--baseline-dir <path>]" >&2
 }
 
-snapshot="v0.1.2"
-out_dir="testdata/benchmark-results/v0.1.2"
+snapshot=""
+out_dir=""
 baseline_dir="testdata/benchmark-results/v0.1.1-linux-amd64"
 
 while [[ $# -gt 0 ]]; do
@@ -51,15 +51,27 @@ while [[ $# -gt 0 ]]; do
 	shift
 done
 
+if [[ -z "$snapshot" ]]; then
+	usage
+	echo "--snapshot is required" >&2
+	exit 1
+fi
+
 if [[ ! "$snapshot" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][A-Za-z0-9.-]+)?$ ]]; then
 	echo "snapshot must match v<major>.<minor>.<patch>[-suffix], got: $snapshot" >&2
 	exit 1
 fi
 
-if ! command -v benchstat >/dev/null 2>&1; then
-	echo "benchstat not found; install it with: go install golang.org/x/perf/cmd/benchstat@latest" >&2
-	exit 1
+if [[ -z "$out_dir" ]]; then
+	out_dir="testdata/benchmark-results/$snapshot"
 fi
+
+for tool in go rustc git python3 benchstat date; do
+	if ! command -v "$tool" >/dev/null 2>&1; then
+		echo "$tool not found in PATH" >&2
+		exit 1
+	fi
+done
 
 out_parent="$(dirname "$out_dir")"
 out_base="$(basename "$out_dir")"
