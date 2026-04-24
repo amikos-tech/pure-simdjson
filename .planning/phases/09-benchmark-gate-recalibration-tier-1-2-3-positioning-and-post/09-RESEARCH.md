@@ -478,22 +478,22 @@ The upload-artifact SHA above matches the existing repo-pinned action in `releas
 | A11 | A strict snapshot input regex and confined output path will be implemented in new scripts. [ASSUMED] | Security Domain | Medium; missing validation could permit path mistakes in workflow inputs. |
 | A12 | Optional GitHub Pages benchmark history adoption depends on project permission decisions. [ASSUMED] | Metadata | Medium; affects whether auxiliary benchmark history is planned. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should the benchmark-capture workflow commit results automatically or only upload artifacts?** [VERIFIED: 09-CONTEXT.md]
+1. **RESOLVED - Should the benchmark-capture workflow commit results automatically or only upload artifacts?** [VERIFIED: 09-CONTEXT.md]
    - What we know: Phase 9 requires committed evidence, but existing workflows do not auto-commit benchmark captures. [VERIFIED: .github/workflows, 09-CONTEXT.md]
-   - What's unclear: Whether maintainers want a bot commit/PR or manual retrieval and commit. [ASSUMED]
-   - Recommendation: Plan upload-only first, then manual commit after reviewing artifacts; this avoids workflow write permissions unless explicitly approved. [VERIFIED: GitHub artifact docs; ASSUMED: maintainer preference]
+   - Resolution: Use upload-only workflow artifacts as transport, then import and commit reviewed evidence under `testdata/benchmark-results/v0.1.2/`. Do not grant workflow write permissions or create bot commits in the core Phase 9 plan. [VERIFIED: 09-01-PLAN.md, 09-02-PLAN.md]
+   - Rationale: This satisfies durable committed evidence while avoiding unnecessary write tokens and preserving a human provenance checkpoint before public docs change. [VERIFIED: 09-VALIDATION.md]
 
-2. **Should `benchmark-action/github-action-benchmark` be implemented in Phase 9 or deferred?** [VERIFIED: 09-CONTEXT.md]
+2. **RESOLVED - Should `benchmark-action/github-action-benchmark` be implemented in Phase 9 or deferred?** [VERIFIED: 09-CONTEXT.md]
    - What we know: It supports Go benchmark output, trend storage, comparisons, and GitHub Pages charts. [CITED: https://github.com/benchmark-action/github-action-benchmark]
-   - What's unclear: Whether the repo should grant Pages/write permissions for an auxiliary benchmark history surface. [ASSUMED]
-   - Recommendation: Do not implement it in the core Phase 9 plan; add a small optional/discretion task only if the planner wants the auxiliary surface. [VERIFIED: 09-CONTEXT.md]
+   - Resolution: Defer auxiliary benchmark history/charts from the core Phase 9 plan. Phase 9 uses committed release-scoped evidence as the durable source of truth and workflow artifacts as transport only. [VERIFIED: 09-01-PLAN.md, 09-03-PLAN.md]
+   - Rationale: GitHub Pages/history would require additional write/deploy permissions and is explicitly auxiliary to the durable evidence requirement. [VERIFIED: 09-CONTEXT.md, 09-VALIDATION.md]
 
-3. **Should the next snapshot stay `v0.1.2`?** [VERIFIED: 09-CONTEXT.md]
+3. **RESOLVED - Should the next snapshot stay `v0.1.2`?** [VERIFIED: 09-CONTEXT.md]
    - What we know: Phase 9 context locks `v0.1.2` as the working label unless release-train planning discovers a different semver. [VERIFIED: 09-CONTEXT.md]
-   - What's unclear: Whether Phase 09.1 will require a different patch label before tagging. [ASSUMED]
-   - Recommendation: Use `v0.1.2` in plans and centralize it in script/workflow inputs so a later label change is one consistent edit. [VERIFIED: 09-CONTEXT.md]
+   - Resolution: Use `v0.1.2` consistently for Phase 9 docs, raw evidence, workflow input examples, and summary paths. If the release train later requires a different semver, rename every docs/raw/workflow path consistently before capture. [VERIFIED: 09-01-PLAN.md, 09-02-PLAN.md, 09-03-PLAN.md]
+   - Rationale: A single release/upcoming-release label keeps benchmark evidence detached from phase numbering while preserving a clear Phase 09.1 release/bootstrap boundary. [VERIFIED: 09-CONTEXT.md]
 
 ## Environment Availability
 
