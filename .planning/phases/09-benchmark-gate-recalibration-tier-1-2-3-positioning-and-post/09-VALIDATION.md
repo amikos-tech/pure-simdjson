@@ -129,3 +129,31 @@ Audit notes:
 
 - The audit added `tests/bench/test_phase9_validation_contracts.py` to lock the benchmark-capture workflow, committed linux/amd64 evidence snapshot, README/docs/changelog boundary language, and release-boundary invariants.
 - The audit corrected the stale `pending` task statuses in this file so they now reflect the passing implementation and verification commands on current `HEAD`.
+
+---
+
+## Validation Audit 2026-04-24T16:35:12Z
+
+| Metric | Count |
+|--------|-------|
+| Task rows audited | 5 |
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+| Automated commands green | 8 |
+
+Fresh audit evidence:
+
+- `python3 tests/bench/test_check_benchmark_claims.py` passed.
+- `python3 tests/bench/test_prepare_stdlib_benchstat_inputs.py` passed.
+- `python3 tests/bench/test_phase9_validation_contracts.py` passed.
+- `python3 scripts/bench/check_benchmark_claims.py --baseline-dir testdata/benchmark-results/v0.1.1-linux-amd64 --snapshot-dir testdata/benchmark-results/v0.1.2 --snapshot v0.1.2 --require-target linux/amd64 > /tmp/phase9-summary-check.json` passed.
+- `go test ./... -run 'TestTierNComparatorsAgree|TestJSONTestSuiteOracle|TestPhase7ReleaseArtifactContract' -count=1` passed.
+- `go test ./...` passed.
+- `cargo test -- --test-threads=1` passed.
+- `make verify-contract` passed.
+
+Audit notes:
+
+- Re-audited the existing Phase 9 validation contract against current `HEAD`; all previously filled gaps remain closed.
+- No new Nyquist gaps were detected in the benchmark gate, evidence snapshot, workflow contract, or release-facing benchmark docs.
