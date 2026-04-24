@@ -76,6 +76,14 @@ def write_output(path: pathlib.Path, metadata: list[str], rows: list[str]) -> No
         raise SystemExit(f"write {path}: {error}") from error
 
 
+def rows_per_fixture(rows: list[str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        name = row.split("\t", 1)[0].rsplit("-", 1)[0]
+        counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
 def main() -> int:
     args = parse_args()
     lines = read_lines(args.source)
@@ -96,6 +104,17 @@ def main() -> int:
         *[f"missing {args.base_comparator} row for {row}" for row in left_missing],
         *[f"missing {args.candidate_comparator} row for {row}" for row in right_missing],
     ]
+
+    left_counts = rows_per_fixture(left_rows)
+    right_counts = rows_per_fixture(right_rows)
+    for name in sorted(set(left_counts) | set(right_counts)):
+        if left_counts.get(name, 0) != right_counts.get(name, 0):
+            errors.append(
+                f"row count mismatch for {name}: "
+                f"{args.base_comparator}={left_counts.get(name, 0)} "
+                f"{args.candidate_comparator}={right_counts.get(name, 0)}"
+            )
+
     if errors:
         for error in errors:
             print(error, file=sys.stderr)

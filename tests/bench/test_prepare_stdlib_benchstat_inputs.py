@@ -110,6 +110,41 @@ class PrepareStdlibBenchstatInputsTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("BenchmarkTier1FullParse_canada_json", result.stderr)
 
+    def test_asymmetric_row_counts_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            directory = pathlib.Path(temp_dir)
+            source = directory / "phase9.bench.txt"
+            source.write_text(
+                source_text()
+                + "BenchmarkTier1FullParse_twitter_json/pure-simdjson-8\t10\t78.00 ns/op\t0 B/op\t0 allocs/op\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_PATH),
+                    "--source",
+                    str(source),
+                    "--family",
+                    "tier1",
+                    "--base-comparator",
+                    "encoding-json-any",
+                    "--candidate-comparator",
+                    "pure-simdjson",
+                    "--left-out",
+                    str(directory / "left.bench.txt"),
+                    "--right-out",
+                    str(directory / "right.bench.txt"),
+                ],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("row count mismatch", result.stderr)
+
     def test_truncated_benchmark_row_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             directory = pathlib.Path(temp_dir)

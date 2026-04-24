@@ -287,15 +287,19 @@ def verify_baseline_target_matches_snapshot(
     return errors
 
 
-def has_significant_win(benchstat_text: str, row: str) -> bool:
+def has_significant_win(benchstat_text: str, row: str, *, source: str) -> bool:
     row_aliases = (row, row.removeprefix("Benchmark"))
+    seen = False
     for line in benchstat_text.splitlines():
         if not any(row_alias in line for row_alias in row_aliases):
             continue
+        seen = True
         if "~" in line:
             return False
         if SIGNIFICANT_WIN_RE.search(line):
             return True
+    if not seen:
+        raise EvidenceError(f"{source}: required row not found: {row}")
     return False
 
 
@@ -308,6 +312,8 @@ def ratio(winner_ns: float, loser_ns: float) -> float:
 def tier1_status(
     phase9_samples: dict[str, list[dict[str, float]]],
     benchstat_text_value: str,
+    *,
+    benchstat_source: str,
 ) -> tuple[bool, dict[str, Any]]:
     fixtures: dict[str, Any] = {}
     allowed = True
@@ -316,7 +322,7 @@ def tier1_status(
         pure = median_ns(phase9_samples, f"{row}/pure-simdjson")
         stdlib = median_ns(phase9_samples, f"{row}/encoding-json-any")
         faster = pure is not None and stdlib is not None and pure < stdlib
-        significant = has_significant_win(benchstat_text_value, row)
+        significant = has_significant_win(benchstat_text_value, row, source=benchstat_source)
         row_allowed = bool(faster and significant)
         fixtures[fixture] = {
             "pure_ns_op": pure,
@@ -338,6 +344,7 @@ def tier_status(
     phase9_samples: dict[str, list[dict[str, float]]],
     baseline_samples: dict[str, list[dict[str, float]]],
     benchstat_text_value: str,
+    benchstat_source: str,
     errors: list[str],
     compare_baseline: bool,
 ) -> tuple[bool, dict[str, Any]]:
@@ -352,7 +359,7 @@ def tier_status(
         stdlib = median_ns(phase9_samples, struct_row)
         no_regression = compare_baseline and old is not None and pure is not None and pure <= old
         median_win = pure is not None and stdlib is not None and pure < stdlib
-        significant = has_significant_win(benchstat_text_value, row)
+        significant = has_significant_win(benchstat_text_value, row, source=benchstat_source)
         row_allowed = bool(no_regression and median_win and significant)
         if compare_baseline and old is not None and pure is not None and pure > old:
             errors.append(f"{tier_name} regression for {fixture}: old={old:.2f}ns/op new={pure:.2f}ns/op")
@@ -454,31 +461,44 @@ def generate_payload(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     errors.extend(baseline_target_errors)
     compare_baseline = not baseline_target_errors
 
-    tier1_benchstat = read_text(args.snapshot_dir / "tier1-vs-stdlib.benchstat.txt")
-    tier2_benchstat = read_text(args.snapshot_dir / "tier2-vs-stdlib.benchstat.txt")
-    tier3_benchstat = read_text(args.snapshot_dir / "tier3-vs-stdlib.benchstat.txt")
+    tier1_benchstat_path = args.snapshot_dir / "tier1-vs-stdlib.benchstat.txt"
+    tier2_benchstat_path = args.snapshot_dir / "tier2-vs-stdlib.benchstat.txt"
+    tier3_benchstat_path = args.snapshot_dir / "tier3-vs-stdlib.benchstat.txt"
+    try:
+        tier1_benchstat = read_text(tier1_benchstat_path)
+        tier2_benchstat = read_text(tier2_benchstat_path)
+        tier3_benchstat = read_text(tier3_benchstat_path)
 
-    tier1_allowed, tier1_fixtures = tier1_status(phase9_samples, tier1_benchstat)
-    tier2_allowed, tier2_fixtures = tier_status(
-        tier_name="tier2",
-        benchmark_prefix="BenchmarkTier2Typed",
-        fixtures=TIER123_FIXTURES,
-        phase9_samples=phase9_samples,
-        baseline_samples=baseline_phase7,
-        benchstat_text_value=tier2_benchstat,
-        errors=errors,
-        compare_baseline=compare_baseline,
-    )
-    tier3_allowed, tier3_fixtures = tier_status(
-        tier_name="tier3",
-        benchmark_prefix="BenchmarkTier3SelectivePlaceholder",
-        fixtures=TIER3_FIXTURES,
-        phase9_samples=phase9_samples,
-        baseline_samples=baseline_phase7,
-        benchstat_text_value=tier3_benchstat,
-        errors=errors,
-        compare_baseline=compare_baseline,
-    )
+        tier1_allowed, tier1_fixtures = tier1_status(
+            phase9_samples,
+            tier1_benchstat,
+            benchstat_source=str(tier1_benchstat_path),
+        )
+        tier2_allowed, tier2_fixtures = tier_status(
+            tier_name="tier2",
+            benchmark_prefix="BenchmarkTier2Typed",
+            fixtures=TIER123_FIXTURES,
+            phase9_samples=phase9_samples,
+            baseline_samples=baseline_phase7,
+            benchstat_text_value=tier2_benchstat,
+            benchstat_source=str(tier2_benchstat_path),
+            errors=errors,
+            compare_baseline=compare_baseline,
+        )
+        tier3_allowed, tier3_fixtures = tier_status(
+            tier_name="tier3",
+            benchmark_prefix="BenchmarkTier3SelectivePlaceholder",
+            fixtures=TIER3_FIXTURES,
+            phase9_samples=phase9_samples,
+            baseline_samples=baseline_phase7,
+            benchstat_text_value=tier3_benchstat,
+            benchstat_source=str(tier3_benchstat_path),
+            errors=errors,
+            compare_baseline=compare_baseline,
+        )
+    except EvidenceError as error:
+        errors.append(str(error))
+        return payload, 1
 
     payload["claims"] = {
         "tier1_headline_allowed": tier1_allowed,

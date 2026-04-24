@@ -339,6 +339,26 @@ class CheckBenchmarkClaimsTests(unittest.TestCase):
             f"expected unparseable-row error, got: {payload['errors']}",
         )
 
+    def test_missing_benchstat_row_fails_closed_with_diagnostic(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            baseline, snapshot = self.write_evidence(pathlib.Path(temp_dir))
+            benchstat_path = snapshot / "tier1-vs-stdlib.benchstat.txt"
+            trimmed = "\n".join(
+                line
+                for line in benchstat_path.read_text(encoding="utf-8").splitlines()
+                if not line.startswith("BenchmarkTier1FullParse_")
+                and not line.startswith("Tier1FullParse_")
+            ) + "\n"
+            benchstat_path.write_text(trimmed, encoding="utf-8")
+            result = self.run_gate(baseline, snapshot)
+
+        payload = self.parse_stdout(result)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(
+            any("required row not found" in error for error in payload["errors"]),
+            f"expected required-row-not-found error, got: {payload['errors']}",
+        )
+
     def test_real_benchstat_rows_without_benchmark_prefix_are_significant(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             baseline, snapshot = self.write_evidence(
