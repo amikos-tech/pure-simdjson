@@ -495,13 +495,15 @@ Plans:
 
 **Goal:** Reframe BENCH-07 around the measured Tier 1/Tier 2/Tier 3 behavior, rerun the benchmark corpus after Phase 8 lands, and update the public benchmark/docs story so release claims match reality instead of the original `>=3x vs encoding/json + any` assumption.
 
-**Requirements:** TBD
+**Requirements:** BENCH-01, BENCH-02, BENCH-03, BENCH-04, BENCH-05, BENCH-07, DOC-01, DOC-06
 
 **Depends on:** Phase 8
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 9 to break down)
+- [ ] `09-01-PLAN.md` — Claim gate, release-snapshot capture script, linux/amd64 workflow, and v0.1.2 evidence directory
+- [ ] `09-02-PLAN.md` — Real linux/amd64 benchmark evidence capture/import, benchstat outputs, metadata, and summary.json
+- [ ] `09-03-PLAN.md` — Public benchmark docs, README benchmark snapshot, changelog update, and Phase 09.1 release boundary
 
 ### Phase 09.1: Bootstrap artifact and ABI alignment for default installs (INSERTED)
 
