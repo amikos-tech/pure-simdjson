@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -16,7 +17,12 @@ struct psimdjson_element {
 struct psimdjson_doc {
   simdjson::dom::document document{};
   psimdjson_element root{};
+  // Borrowed spans returned by psimdjson_materialize_build point into this
+  // scratch vector. The next build on the same doc clears/reuses it and
+  // invalidates any prior span; callers must consume or copy before re-entry.
   std::vector<psdj_internal_frame_t> materialize_frames{};
+  // Guard is per-doc because Go serializes all live document access with
+  // Doc.mu; if that invariant changes, this scratch vector needs a wider guard.
   bool materialize_in_progress{false};
 };
 
@@ -108,6 +114,8 @@ pure_simdjson_error_code_t map_error(simdjson::error_code error) noexcept {
 }
 
 pure_simdjson_error_code_t map_parse_error(simdjson::error_code error) noexcept {
+  // Parse treats BIGINT as invalid JSON for the public v0.1 contract, while
+  // element accessors/materialization map BIGINT to precision loss.
   if (error == simdjson::BIGINT_ERROR) {
     return PURE_SIMDJSON_ERR_INVALID_JSON;
   }
@@ -325,9 +333,17 @@ void reserve_materialize_frames(psimdjson_doc *doc, size_t child_hint) {
 pure_simdjson_error_code_t append_materialize_frame(
     psimdjson_doc *doc,
     simdjson::dom::element element,
-    std::string_view key
+    std::string_view key,
+    size_t depth
 ) {
+  constexpr size_t MAX_MATERIALIZE_FRAME_DEPTH = 1024;
+  if (depth > MAX_MATERIALIZE_FRAME_DEPTH) {
+    return PURE_SIMDJSON_ERR_INTERNAL;
+  }
+
   psdj_internal_frame_t frame{};
+  // The zero value is load-bearing: flags carries only the bool payload below.
+  frame.flags = 0;
   set_frame_key(frame, key);
 
   const auto type = element.type();
@@ -346,6 +362,8 @@ pure_simdjson_error_code_t append_materialize_frame(
 
       const auto frame_index = doc->materialize_frames.size();
       const auto child_hint = array.size();
+      // simdjson saturates tape scope counts at 0xFFFFFF; avoid reserving from
+      // saturated hints that no longer reflect the real child count.
       constexpr size_t SATURATED_SCOPE_COUNT = 0xFFFFFF;
       if (child_hint < SATURATED_SCOPE_COUNT) {
         reserve_materialize_frames(doc, child_hint);
@@ -354,7 +372,8 @@ pure_simdjson_error_code_t append_materialize_frame(
 
       uint64_t child_count = 0;
       for (simdjson::dom::element child : array) {
-        const auto child_rc = append_materialize_frame(doc, child, std::string_view{});
+        const auto child_rc =
+            append_materialize_frame(doc, child, std::string_view{}, depth + 1);
         if (child_rc != PURE_SIMDJSON_OK) {
           return child_rc;
         }
@@ -375,6 +394,8 @@ pure_simdjson_error_code_t append_materialize_frame(
 
       const auto frame_index = doc->materialize_frames.size();
       const auto child_hint = object.size();
+      // simdjson saturates tape scope counts at 0xFFFFFF; avoid reserving from
+      // saturated hints that no longer reflect the real child count.
       constexpr size_t SATURATED_SCOPE_COUNT = 0xFFFFFF;
       if (child_hint < SATURATED_SCOPE_COUNT) {
         reserve_materialize_frames(doc, child_hint);
@@ -383,7 +404,7 @@ pure_simdjson_error_code_t append_materialize_frame(
 
       uint64_t child_count = 0;
       for (simdjson::dom::key_value_pair field : object) {
-        const auto child_rc = append_materialize_frame(doc, field.value, field.key);
+        const auto child_rc = append_materialize_frame(doc, field.value, field.key, depth + 1);
         if (child_rc != PURE_SIMDJSON_OK) {
           return child_rc;
         }
@@ -882,7 +903,8 @@ pure_simdjson_error_code_t psimdjson_materialize_build(psimdjson_doc *doc,
     }
 
     doc->materialize_frames.clear();
-    const auto rc = append_materialize_frame(doc, element_at(doc, json_index), std::string_view{});
+    const auto rc =
+        append_materialize_frame(doc, element_at(doc, json_index), std::string_view{}, 0);
     if (rc != PURE_SIMDJSON_OK) {
       doc->materialize_frames.clear();
       clear_materialize_outputs(out_frames, out_frame_count);
@@ -893,7 +915,9 @@ pure_simdjson_error_code_t psimdjson_materialize_build(psimdjson_doc *doc,
       return PURE_SIMDJSON_ERR_INTERNAL;
     }
 
-    // Frame pointers are returned only after traversal completes; vector reallocations during build cannot invalidate an already-returned span.
+    // Frame pointers are returned only after traversal completes. The returned
+    // span remains valid until the next psimdjson_materialize_build call on the
+    // same doc, which clears/reuses doc->materialize_frames.
     *out_frames = doc->materialize_frames.data();
     *out_frame_count = doc->materialize_frames.size();
     return PURE_SIMDJSON_OK;

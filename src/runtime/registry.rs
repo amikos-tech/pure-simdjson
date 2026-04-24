@@ -1147,7 +1147,13 @@ mod materialize_tests {
     };
     use std::{ptr, slice};
 
-    fn parse_root(json: &[u8]) -> (pure_simdjson_parser_t, pure_simdjson_doc_t, pure_simdjson_value_view_t) {
+    fn parse_root(
+        json: &[u8],
+    ) -> (
+        pure_simdjson_parser_t,
+        pure_simdjson_doc_t,
+        pure_simdjson_value_view_t,
+    ) {
         let parser = parser_new().expect("parser_new should succeed");
         let doc = parser_parse(parser, json).expect("parser_parse should succeed");
         let root = doc_root(doc).expect("doc_root should succeed");
@@ -1249,5 +1255,28 @@ mod materialize_tests {
         let result = materialize_build(ptr::null());
 
         assert_eq!(result, Err(err_invalid_argument()));
+    }
+
+    #[test]
+    fn materialize_build_second_call_replaces_doc_owned_span() {
+        let (parser, doc, root) = parse_root(br#"{"first":[1,2,3],"second":{"ok":true}}"#);
+        let first_view = object_get_field(&root as *const _, b"first")
+            .expect("first field should resolve a descendant view");
+        let second_view = object_get_field(&root as *const _, b"second")
+            .expect("second field should resolve a descendant view");
+
+        let first_frames = build_frames(&first_view);
+        let second_frames = build_frames(&second_view);
+
+        assert_eq!(first_frames[0].kind, PURE_SIMDJSON_VALUE_KIND_ARRAY as u32);
+        assert_eq!(first_frames[0].child_count, 3);
+        assert_eq!(
+            second_frames[0].kind,
+            PURE_SIMDJSON_VALUE_KIND_OBJECT as u32
+        );
+        assert_eq!(second_frames[0].child_count, 1);
+        assert_eq!(frame_key(&second_frames[1]), b"ok");
+
+        cleanup(parser, doc);
     }
 }

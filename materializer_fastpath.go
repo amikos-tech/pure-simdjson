@@ -1,11 +1,16 @@
 package purejson
 
 import (
+	"fmt"
+	"os"
 	"runtime"
+	"sync"
 	"unsafe"
 
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
+
+var fastMaterializerFallbackWarningOnce sync.Once
 
 func fastMaterializeElement(element Element) (any, error) {
 	doc, err := element.usableDoc()
@@ -26,6 +31,7 @@ func fastMaterializeElement(element Element) (any, error) {
 	defer runtime.KeepAlive(doc)
 
 	if !bindings.HasInternalMaterializeBuild() {
+		emitFastMaterializerFallbackWarning()
 		return materializeElementViaAccessors(element)
 	}
 
@@ -110,7 +116,7 @@ func materializeElementViaAccessors(element Element) (any, error) {
 
 func buildAnyFromFrames(frames []ffi.InternalFrame) (any, error) {
 	if len(frames) == 0 {
-		return nil, ErrInternal
+		return nil, frameProtocolError(0, 0, "empty frame span")
 	}
 
 	value, consumed, err := buildAnyFromFrame(frames, 0)
@@ -118,14 +124,14 @@ func buildAnyFromFrames(frames []ffi.InternalFrame) (any, error) {
 		return nil, err
 	}
 	if consumed != len(frames) {
-		return nil, ErrInternal
+		return nil, frameProtocolError(consumed, 0, fmt.Sprintf("trailing frames: consumed=%d len=%d", consumed, len(frames)))
 	}
 	return value, nil
 }
 
 func buildAnyFromFrame(frames []ffi.InternalFrame, index int) (any, int, error) {
 	if index >= len(frames) {
-		return nil, index, ErrInternal
+		return nil, index, frameProtocolError(index, 0, "frame index out of span")
 	}
 
 	frame := frames[index]
@@ -141,7 +147,7 @@ func buildAnyFromFrame(frames []ffi.InternalFrame, index int) (any, int, error) 
 	case ffi.ValueKindFloat64:
 		return frame.Float64Value, index + 1, nil
 	case ffi.ValueKindString:
-		value, err := copyFrameString(frame.StringPtr, frame.StringLen)
+		value, err := copyFrameString(frame.StringPtr, frame.StringLen, index, frame.Kind, "string")
 		if err != nil {
 			return nil, index, err
 		}
@@ -151,7 +157,7 @@ func buildAnyFromFrame(frames []ffi.InternalFrame, index int) (any, int, error) 
 		nextIndex := index + 1
 		for child := uint32(0); child < frame.ChildCount; child++ {
 			if nextIndex >= len(frames) {
-				return nil, nextIndex, ErrInternal
+				return nil, nextIndex, frameProtocolError(index, frame.Kind, fmt.Sprintf("array child_count exceeds frame span: child=%d child_count=%d len=%d", child, frame.ChildCount, len(frames)))
 			}
 			value, consumed, err := buildAnyFromFrame(frames, nextIndex)
 			if err != nil {
@@ -166,9 +172,9 @@ func buildAnyFromFrame(frames []ffi.InternalFrame, index int) (any, int, error) 
 		nextIndex := index + 1
 		for child := uint32(0); child < frame.ChildCount; child++ {
 			if nextIndex >= len(frames) {
-				return nil, nextIndex, ErrInternal
+				return nil, nextIndex, frameProtocolError(index, frame.Kind, fmt.Sprintf("object child_count exceeds frame span: child=%d child_count=%d len=%d", child, frame.ChildCount, len(frames)))
 			}
-			key, err := copyFrameString(frames[nextIndex].KeyPtr, frames[nextIndex].KeyLen)
+			key, err := copyFrameString(frames[nextIndex].KeyPtr, frames[nextIndex].KeyLen, nextIndex, frames[nextIndex].Kind, "key")
 			if err != nil {
 				return nil, nextIndex, err
 			}
@@ -181,16 +187,31 @@ func buildAnyFromFrame(frames []ffi.InternalFrame, index int) (any, int, error) 
 		}
 		return values, nextIndex, nil
 	default:
-		return nil, index, ErrInternal
+		return nil, index, frameProtocolError(index, frame.Kind, "unknown frame kind")
 	}
 }
 
-func copyFrameString(ptr uintptr, length uintptr) (string, error) {
+func copyFrameString(ptr uintptr, length uintptr, index int, kind uint32, label string) (string, error) {
 	if length == 0 {
 		return "", nil
 	}
 	if ptr == 0 {
-		return "", ErrInternal
+		return "", frameProtocolError(index, kind, label+" span has nil pointer")
 	}
 	return string(unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))), nil
+}
+
+func frameProtocolError(index int, kind uint32, detail string) error {
+	return newError(int32(ffi.ErrInternal), nativeDetails{
+		message: fmt.Sprintf("materialize frame protocol violation index=%d kind=%d: %s", index, kind, detail),
+	}, ErrInternal)
+}
+
+func emitFastMaterializerFallbackWarning() {
+	if os.Getenv("PURE_SIMDJSON_DEBUG") != "1" {
+		return
+	}
+	fastMaterializerFallbackWarningOnce.Do(func() {
+		fmt.Fprintln(os.Stderr, "purejson debug: psdj_internal_materialize_build unavailable; using accessor materializer")
+	})
 }

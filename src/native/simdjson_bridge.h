@@ -16,7 +16,9 @@ typedef struct psimdjson_doc psimdjson_doc;
 typedef struct psimdjson_element psimdjson_element;
 
 typedef struct psdj_internal_frame_t {
+  /* Stores pure_simdjson_value_kind_t; kept as uint32_t to pin the v0.1 layout. */
   uint32_t kind;
+  /* Bool payload for PURE_SIMDJSON_VALUE_KIND_BOOL; unused for other kinds. */
   uint32_t flags;
   uint32_t child_count;
   uint32_t reserved;
@@ -137,6 +139,10 @@ pure_simdjson_error_code_t psimdjson_object_get_field_index(
     size_t key_len,
     uint64_t *out_value_json_index
 ) PSIMDJSON_NOEXCEPT;
+/*
+ * Returns a doc-owned frame span for json_index. The span is borrowed and is
+ * invalidated by the next psimdjson_materialize_build call on the same doc.
+ */
 pure_simdjson_error_code_t psimdjson_materialize_build(psimdjson_doc *doc,
                                                        uint64_t json_index,
                                                        const psdj_internal_frame_t **out_frames,

@@ -125,6 +125,9 @@ func registerOptionalFunc(handle uintptr, lookup SymbolLookup, name string, targ
 		// Internal symbols may be absent from released/bootstrap artifacts. Treat
 		// lookup failure as "feature unavailable" instead of failing binding
 		// before the public ABI/version checks run.
+		if debugLoggingEnabled() {
+			fmt.Fprintf(os.Stderr, "purejson debug: optional symbol %s unavailable: %v\n", name, err)
+		}
 		return false, nil
 	}
 
@@ -189,7 +192,7 @@ func (b *Bindings) ImplementationName() (string, int32) {
 
 func (b *Bindings) NativeAllocStatsReset() int32 {
 	if b == nil || b.nativeAllocStatsReset == nil {
-		return int32(ErrInternal)
+		return int32(ErrNotImplemented)
 	}
 
 	rc := b.nativeAllocStatsReset()
@@ -199,7 +202,7 @@ func (b *Bindings) NativeAllocStatsReset() int32 {
 
 func (b *Bindings) NativeAllocStatsSnapshot() (NativeAllocStats, int32) {
 	if b == nil || b.nativeAllocStatsSnapshot == nil {
-		return NativeAllocStats{}, int32(ErrInternal)
+		return NativeAllocStats{}, int32(ErrNotImplemented)
 	}
 
 	var stats NativeAllocStats
@@ -440,9 +443,12 @@ func (b *Bindings) InternalMaterializeBuild(view *ValueView) ([]InternalFrame, i
 	if count == 0 {
 		return nil, int32(OK)
 	}
-	// ptr == nil with a non-empty frame span is ErrInternal.
 	if ptr == nil {
 		return nil, int32(ErrInternal)
 	}
 	return unsafe.Slice(ptr, count), int32(OK)
+}
+
+func debugLoggingEnabled() bool {
+	return os.Getenv("PURE_SIMDJSON_DEBUG") == "1"
 }

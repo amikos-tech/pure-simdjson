@@ -2,8 +2,12 @@ package purejson
 
 import (
 	"errors"
+	"io"
+	"os"
 	"reflect"
 	"runtime"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
@@ -53,6 +57,21 @@ func TestAccessorMaterializerParity(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("materializeElementViaAccessors() = %#v, want %#v", got, want)
+	}
+}
+
+func TestFastMaterializerUnavailableWarningIsOneShotDebugLog(t *testing.T) {
+	t.Setenv("PURE_SIMDJSON_DEBUG", "1")
+	fastMaterializerFallbackWarningOnce = sync.Once{}
+
+	stderr := captureRootStderr(t, func() {
+		emitFastMaterializerFallbackWarning()
+		emitFastMaterializerFallbackWarning()
+	})
+
+	const want = "purejson debug: psdj_internal_materialize_build unavailable; using accessor materializer"
+	if count := strings.Count(stderr, want); count != 1 {
+		t.Fatalf("fallback warning count = %d in %q, want 1", count, stderr)
 	}
 }
 
@@ -258,6 +277,46 @@ func TestFastMaterializerFramesFullyConsumed(t *testing.T) {
 		if !errors.Is(err, ErrInternal) {
 			t.Fatalf("buildAnyFromFrames() error = %v, want ErrInternal", err)
 		}
+		if !strings.Contains(err.Error(), "trailing frames") {
+			t.Fatalf("buildAnyFromFrames() error = %v, want trailing-frame detail", err)
+		}
+	})
+}
+
+func TestFastMaterializerRejectsAdversarialFrameStreams(t *testing.T) {
+	t.Run("array child count exceeds span", func(t *testing.T) {
+		_, err := buildAnyFromFrames([]ffi.InternalFrame{
+			{Kind: uint32(ffi.ValueKindArray), ChildCount: 1},
+		})
+		if !errors.Is(err, ErrInternal) {
+			t.Fatalf("buildAnyFromFrames() error = %v, want ErrInternal", err)
+		}
+		if !strings.Contains(err.Error(), "array child_count exceeds frame span") {
+			t.Fatalf("buildAnyFromFrames() error = %v, want child-count detail", err)
+		}
+	})
+
+	t.Run("object key span has nil pointer", func(t *testing.T) {
+		_, err := buildAnyFromFrames([]ffi.InternalFrame{
+			{Kind: uint32(ffi.ValueKindObject), ChildCount: 1},
+			{Kind: uint32(ffi.ValueKindInt64), KeyLen: 1, Int64Value: 1},
+		})
+		if !errors.Is(err, ErrInternal) {
+			t.Fatalf("buildAnyFromFrames() error = %v, want ErrInternal", err)
+		}
+		if !strings.Contains(err.Error(), "key span has nil pointer") {
+			t.Fatalf("buildAnyFromFrames() error = %v, want key-span detail", err)
+		}
+	})
+
+	t.Run("unknown kind", func(t *testing.T) {
+		_, err := buildAnyFromFrames([]ffi.InternalFrame{{Kind: 99}})
+		if !errors.Is(err, ErrInternal) {
+			t.Fatalf("buildAnyFromFrames() error = %v, want ErrInternal", err)
+		}
+		if !strings.Contains(err.Error(), "unknown frame kind") {
+			t.Fatalf("buildAnyFromFrames() error = %v, want unknown-kind detail", err)
+		}
 	})
 }
 
@@ -345,4 +404,31 @@ func materializeViaAccessorsForTest(t *testing.T, element Element) any {
 		t.Fatalf("unsupported ElementType %v", kind)
 		return nil
 	}
+}
+
+func captureRootStderr(t *testing.T, fn func()) string {
+	t.Helper()
+
+	original := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() error = %v", err)
+	}
+	defer r.Close()
+
+	os.Stderr = w
+	defer func() {
+		os.Stderr = original
+	}()
+
+	fn()
+
+	if err := w.Close(); err != nil {
+		t.Fatalf("stderr writer close error = %v", err)
+	}
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("ReadAll(stderr) error = %v", err)
+	}
+	return string(data)
 }

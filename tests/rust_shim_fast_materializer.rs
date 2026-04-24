@@ -1,12 +1,11 @@
 use pure_simdjson::{
-    pure_simdjson_doc_t,
+    pure_simdjson_doc_free, pure_simdjson_doc_root, pure_simdjson_doc_t,
     pure_simdjson_error_code_t::{
         PURE_SIMDJSON_ERR_INVALID_HANDLE, PURE_SIMDJSON_ERR_INVALID_JSON,
         PURE_SIMDJSON_ERR_PARSER_BUSY, PURE_SIMDJSON_OK,
     },
-    pure_simdjson_object_get_field, pure_simdjson_doc_free, pure_simdjson_doc_root,
-    pure_simdjson_parser_free, pure_simdjson_parser_new, pure_simdjson_parser_parse,
-    pure_simdjson_parser_t,
+    pure_simdjson_object_get_field, pure_simdjson_parser_free, pure_simdjson_parser_new,
+    pure_simdjson_parser_parse, pure_simdjson_parser_t,
     pure_simdjson_value_kind_t::{
         PURE_SIMDJSON_VALUE_KIND_ARRAY, PURE_SIMDJSON_VALUE_KIND_BOOL,
         PURE_SIMDJSON_VALUE_KIND_INT64, PURE_SIMDJSON_VALUE_KIND_NULL,
@@ -52,7 +51,13 @@ fn parser_new() -> pure_simdjson_parser_t {
     parser
 }
 
-fn parse_root(json: &[u8]) -> (pure_simdjson_parser_t, pure_simdjson_doc_t, pure_simdjson_value_view_t) {
+fn parse_root(
+    json: &[u8],
+) -> (
+    pure_simdjson_parser_t,
+    pure_simdjson_doc_t,
+    pure_simdjson_value_view_t,
+) {
     let parser = parser_new();
     let mut doc = 0_u64;
     let rc = unsafe { pure_simdjson_parser_parse(parser, json.as_ptr(), json.len(), &mut doc) };
@@ -77,7 +82,10 @@ fn object_get_field_view(
 
 fn cleanup(parser: pure_simdjson_parser_t, doc: pure_simdjson_doc_t) {
     assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
-    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+    assert_eq!(
+        unsafe { pure_simdjson_parser_free(parser) },
+        PURE_SIMDJSON_OK
+    );
 }
 
 fn build_frames(view: &pure_simdjson_value_view_t) -> Vec<psdj_internal_frame_t> {
@@ -115,8 +123,7 @@ fn frame_string(frame: &psdj_internal_frame_t) -> &[u8] {
 
 #[test]
 fn psdj_internal_materialize_build_root_frames_match_expected_preorder() {
-    let (parser, doc, root) =
-        parse_root(br#"{"a":[1,true,null,"x"],"n":18446744073709551615}"#);
+    let (parser, doc, root) = parse_root(br#"{"a":[1,true,null,"x"],"n":18446744073709551615}"#);
 
     let frames = build_frames(&root);
 
@@ -149,8 +156,7 @@ fn psdj_internal_materialize_build_root_frames_match_expected_preorder() {
 #[test]
 fn psdj_internal_materialize_build_subtree_frames_match_expected_preorder() {
     // Subtree coverage proves descendant ValueView transport reaches the same internal builder.
-    let (parser, doc, root) =
-        parse_root(br#"{"a":[1,true,null,"x"],"n":18446744073709551615}"#);
+    let (parser, doc, root) = parse_root(br#"{"a":[1,true,null,"x"],"n":18446744073709551615}"#);
     let array_view = object_get_field_view(&root, b"a");
 
     let frames = build_frames(&array_view);
@@ -194,7 +200,10 @@ fn psdj_internal_materialize_build_propagates_invalid_handle_after_doc_close() {
     assert!(frames.is_null());
     assert_eq!(frame_count, 0);
 
-    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+    assert_eq!(
+        unsafe { pure_simdjson_parser_free(parser) },
+        PURE_SIMDJSON_OK
+    );
 }
 
 #[test]
@@ -207,7 +216,10 @@ fn oversized_literal_parse_rejected_before_materialize() {
 
     assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_JSON);
     assert_eq!(doc, 0);
-    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+    assert_eq!(
+        unsafe { pure_simdjson_parser_free(parser) },
+        PURE_SIMDJSON_OK
+    );
 }
 
 #[test]
@@ -217,5 +229,29 @@ fn materialize_build_reentrant_guard_is_present() {
     let rc = unsafe { psdj_internal_test_hold_materialize_guard(&root) };
 
     assert_eq!(rc, PURE_SIMDJSON_ERR_PARSER_BUSY);
+    let frames = build_frames(&root);
+    assert_eq!(frames.len(), 2);
+    assert_eq!(frames[0].kind, PURE_SIMDJSON_VALUE_KIND_OBJECT as u32);
+    cleanup(parser, doc);
+}
+
+#[test]
+fn materialize_build_second_call_replaces_doc_owned_span() {
+    let (parser, doc, root) = parse_root(br#"{"first":[1,2,3],"second":{"ok":true}}"#);
+    let first_view = object_get_field_view(&root, b"first");
+    let second_view = object_get_field_view(&root, b"second");
+
+    let first_frames = build_frames(&first_view);
+    let second_frames = build_frames(&second_view);
+
+    assert_eq!(first_frames[0].kind, PURE_SIMDJSON_VALUE_KIND_ARRAY as u32);
+    assert_eq!(first_frames[0].child_count, 3);
+    assert_eq!(
+        second_frames[0].kind,
+        PURE_SIMDJSON_VALUE_KIND_OBJECT as u32
+    );
+    assert_eq!(second_frames[0].child_count, 1);
+    assert_eq!(frame_key(&second_frames[1]), b"ok");
+
     cleanup(parser, doc);
 }

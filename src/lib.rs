@@ -27,6 +27,7 @@ pub enum pure_simdjson_error_code_t {
     PURE_SIMDJSON_ERR_WRONG_TYPE = 4,
     PURE_SIMDJSON_ERR_ELEMENT_NOT_FOUND = 5,
     PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL = 6,
+    PURE_SIMDJSON_ERR_NOT_IMPLEMENTED = 7,
     PURE_SIMDJSON_ERR_INVALID_JSON = 32,
     PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE = 33,
     PURE_SIMDJSON_ERR_PRECISION_LOSS = 34,
@@ -262,6 +263,12 @@ pub fn pure_simdjson_test_set_allow_fallback_for_tests(value: Option<bool>) {
 
 #[allow(private_interfaces)]
 #[no_mangle]
+/// # Safety
+///
+/// `view` must be a valid value view produced by this library. `out_frames`
+/// and `out_frame_count` must be valid writable pointers. On success, the
+/// returned frame span is borrowed from the owning document and is invalidated
+/// by the next materialize-build call on that same document.
 pub unsafe extern "C" fn psdj_internal_materialize_build(
     view: *const pure_simdjson_value_view_t,
     out_frames: *mut *const runtime::psdj_internal_frame_t,

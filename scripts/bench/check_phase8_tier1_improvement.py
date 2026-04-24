@@ -44,7 +44,7 @@ def parse_benchmark_file(
 
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as error:
+    except (OSError, UnicodeDecodeError) as error:
         raise SystemExit(f"read {path}: {error}") from error
 
     for line in lines:

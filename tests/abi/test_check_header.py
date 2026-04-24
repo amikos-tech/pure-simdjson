@@ -168,7 +168,7 @@ def make_surface_header(
 
 
 class ParsePrototypesTests(unittest.TestCase):
-    def test_rejects_unparseable_pure_simdjson_prototype(self) -> None:
+    def test_rejects_unparseable_exported_prototype(self) -> None:
         header_text = (
             "pure_simdjson_error_code_t pure_simdjson_parser_new(void) "
             "PURE_SIMDJSON_NOEXCEPT;"
@@ -177,7 +177,7 @@ class ParsePrototypesTests(unittest.TestCase):
         with self.assertRaises(SystemExit) as excinfo:
             check_header.parse_prototypes(header_text)
 
-        self.assertIn("unparseable pure_simdjson prototype", str(excinfo.exception))
+        self.assertIn("unparseable exported prototype", str(excinfo.exception))
         self.assertIn("pure_simdjson_parser_new", str(excinfo.exception))
 
 

@@ -44,7 +44,9 @@ pub(crate) struct psimdjson_element {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct psdj_internal_frame_t {
+    /// Stores `pure_simdjson_value_kind_t` as u32 to match the pinned C layout.
     pub(crate) kind: u32,
+    /// Bool payload for `PURE_SIMDJSON_VALUE_KIND_BOOL`; unused for other kinds.
     pub(crate) flags: u32,
     pub(crate) child_count: u32,
     pub(crate) reserved: u32,
@@ -615,9 +617,7 @@ pub(crate) fn native_test_hold_materialize_guard(
     doc_ptr: usize,
     json_index: u64,
 ) -> pure_simdjson_error_code_t {
-    unsafe {
-        psimdjson_test_hold_materialize_guard(doc_ptr as *mut psimdjson_doc, json_index)
-    }
+    unsafe { psimdjson_test_hold_materialize_guard(doc_ptr as *mut psimdjson_doc, json_index) }
 }
 
 pub(crate) fn selected_implementation_name_for_parser_new(

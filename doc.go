@@ -58,6 +58,8 @@ func (d *Doc) Close() error {
 }
 
 func (d *Doc) isClosed() bool {
+	// Non-blocking by design: contended callers should report parser busy from
+	// their outer TryLock guard instead of blocking behind Close/materialization.
 	if d.mu.TryLock() {
 		closed := d.closed
 		d.mu.Unlock()

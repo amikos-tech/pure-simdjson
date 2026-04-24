@@ -18,6 +18,7 @@ const (
 	ErrWrongType       ErrorCode = 4
 	ErrElementNotFound ErrorCode = 5
 	ErrBufferTooSmall  ErrorCode = 6
+	ErrNotImplemented  ErrorCode = 7
 
 	ErrInvalidJSON      ErrorCode = 32
 	ErrNumberOutOfRange ErrorCode = 33
@@ -57,7 +58,8 @@ type ValueView struct {
 }
 
 type InternalFrame struct {
-	Kind         uint32
+	Kind uint32
+	// Flags carries the bool payload for ValueKindBool; unused for other kinds.
 	Flags        uint32
 	ChildCount   uint32
 	Reserved     uint32

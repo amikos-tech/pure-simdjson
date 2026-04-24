@@ -120,7 +120,7 @@ def parse_prototypes(header_text: str) -> dict[str, tuple[str, list[str]]]:
                 statement,
             )
             symbol = symbol_match.group(1) if symbol_match else statement
-            fail(f"unparseable pure_simdjson prototype: {symbol}: {statement}")
+            fail(f"unparseable exported prototype: {symbol}: {statement}")
         return_type = normalize_space(match.group(1))
         name = match.group(2)
         params_blob = normalize_space(match.group(3))
