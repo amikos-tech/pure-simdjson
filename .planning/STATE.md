@@ -112,7 +112,8 @@ Progress: [██████████] 100%
 - Phase 08 added: Low-overhead DOM traversal ABI and specialized Go any materializer. This folds the old 999.6 DOM-materialization ABI idea into the active milestone after Tier 1 diagnostics showed materialization, not parse, dominates the current full-`any` path
 - Phase 09 added: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh. This phase exists to replace the invalidated BENCH-07 headline with a measured benchmark story after Phase 08 lands
 - Phase 09.1 inserted after Phase 09: Bootstrap artifact and ABI alignment for default installs (URGENT)
-- Backlog items 999.6 and 999.7 were retired from the parking lot: 999.6 is now active milestone work under Phase 08, and 999.7's diagnostic split was implemented during Phase 07 investigation to justify the new direction
+- Phase 10 added: Lightweight PR benchmark regression signal, promoted from backlog item 999.8 and explicitly scoped to a cheap Tier 1/Tier 2/Tier 3 `pull_request` benchmark check rather than the heavier Phase 9 release-evidence capture
+- Backlog items 999.6, 999.7, and 999.8 were retired from the parking lot: 999.6 is now active milestone work under Phase 08, 999.7's diagnostic split was implemented during Phase 07 investigation to justify the new direction, and 999.8 is now active milestone work under Phase 10
 
 ### Decisions
 

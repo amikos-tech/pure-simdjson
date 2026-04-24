@@ -22,6 +22,7 @@ Ship a precision-preserving, cgo-free simdjson DOM API for Go with honest benchm
 - [ ] **Phase 8: Low-overhead DOM traversal ABI and specialized Go any materializer** — Fold the old DOM-materialization backlog into the active milestone with a lower-overhead traversal surface, one-copy string extraction, exact container sizing, and a specialized Go `any` builder
 - [ ] **Phase 9: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh** — Reframe the benchmark story around measured Tier 1/Tier 2/Tier 3 strengths, then rerun and publish evidence after Phase 8 lands
 - [ ] **Phase 09.1: Bootstrap artifact and ABI alignment for default installs (INSERTED)** — Align the bootstrap-pinned public artifact/version/checksum state with the current ABI and validate the default-install path after Phase 9 locks the benchmark/release story
+- [ ] **Phase 10: Lightweight PR benchmark regression signal** — Add a cheap pull-request benchmark workflow covering Tier 1/2/3 so every PR gets a useful regression signal without waiting for the heavier release-grade benchmark capture path
 
 ## Phase Details
 
@@ -464,17 +465,6 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
-### Phase 999.8: PR-head CI coverage for feature branches (BACKLOG)
-
-**Goal:** [Captured for future planning] Add CI coverage that runs on pull requests and/or every feature-branch head, including docs-only shipping commits, so each PR shows an up-to-date check signal on the exact merge candidate. Phase 8 exposed the gap: `phase2-rust-shim-smoke` passed on the implementation commit, but the final `.planning/STATE.md` shipping commit did not trigger a new run because the workflow has path filters and no general `pull_request` trigger. Future planning should decide the right balance between cheap always-on PR checks, path-filtered expensive matrix jobs, branch protection requirements, and manual dispatch fallbacks.
-
-**Requirements:** TBD
-
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
 ### Phase 8: Low-overhead DOM traversal ABI and specialized Go any materializer
 
 **Goal:** Replace the current accessor-shaped Tier 1 materialization path with a lower-overhead traversal/materialization substrate that preserves correctness while removing avoidable per-node FFI and string handoff cost. This phase explicitly folds the old `999.6` backlog idea into the active milestone.
@@ -516,6 +506,18 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 09.1 to break down)
+
+### Phase 10: Lightweight PR benchmark regression signal
+
+**Goal:** Promote the old PR-head CI coverage backlog into active milestone work by adding a cheap `pull_request` benchmark workflow that exercises representative Tier 1/Tier 2/Tier 3 paths and reports a strong regression signal on the exact merge candidate without requiring the full release-grade benchmark capture flow from Phase 9. The intended outcome is that every non-trivial PR gets a modest but durable performance check, while the heavier linux/amd64 evidence capture remains the release/public-claim gate.
+
+**Requirements:** TBD — promoted from backlog item `999.8` and narrowed to lightweight benchmark coverage rather than general branch-head CI. Planning should decide the exact benchmark subset, acceptable runtime budget, benchstat/regression threshold policy, advisory-vs-blocking semantics, and whether docs-only changes skip the job.
+
+**Depends on:** Phase 09.1
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 10 to break down)
 
 ---
 *Roadmap created: 2026-04-14 from PROJECT.md, REQUIREMENTS.md, and research/SUMMARY.md*
