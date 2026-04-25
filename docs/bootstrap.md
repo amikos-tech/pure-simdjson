@@ -61,7 +61,7 @@ pure-simdjson-bootstrap fetch --all-platforms --dest ./vendor-libs
 # (transport ./vendor-libs to the air-gapped host)
 
 # On the air-gapped host:
-export PURE_SIMDJSON_LIB_PATH=/path/to/vendor-libs/v0.1.0/linux-amd64/libpure_simdjson.so
+export PURE_SIMDJSON_LIB_PATH=/path/to/vendor-libs/v0.1.2/linux-amd64/libpure_simdjson.so
 ```
 
 With `PURE_SIMDJSON_LIB_PATH` set, no network calls are made — ever.
@@ -164,7 +164,7 @@ layer is the SHA-256 check baked into the bootstrap library; cosign adds a
 provenance layer on top.
 
 ```bash
-TAG=v0.1.0
+TAG=v0.1.2
 OS=linux
 ARCH=amd64
 BASE_URL="https://releases.amikos.tech/pure-simdjson/${TAG}"
