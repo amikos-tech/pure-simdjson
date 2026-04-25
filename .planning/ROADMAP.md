@@ -413,7 +413,7 @@ Out-of-scope items from PROJECT.md (JSON encoding, struct-reflection Unmarshal, 
 | 7. Benchmarks + Release-Facing Artifacts | 6/6 | Complete | 2026-04-23 |
 | 8. Low-overhead DOM traversal ABI and specialized Go any materializer | 5/5 | Complete | 2026-04-24 |
 | 9. Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh | 3/3 | Complete | 2026-04-24 |
-| 9.1. Bootstrap artifact and ABI alignment for default installs | 0/0 | Not started | — |
+| 9.1. Bootstrap artifact and ABI alignment for default installs | 1/2 | In progress | — |
 
 Plan counts populated by `/gsd-plan-phase`.
 
@@ -505,7 +505,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 09.1-01 — Prepare the `v0.1.2` release-candidate source state and add a pre-tag ABI/bootstrap drift gate
+- [x] 09.1-01 — Prepare the `v0.1.2` release-candidate source state and add a pre-tag ABI/bootstrap drift gate
 - [ ] 09.1-02 — Publish `v0.1.2` through the supported CI-only release path, validate public default installs, and remove release hedges after validation
 
 ### Phase 10: Lightweight PR benchmark regression signal

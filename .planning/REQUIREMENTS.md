@@ -205,11 +205,11 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | PLAT-04 | Phase 6 | Pending |
 | PLAT-05 | Phase 6 | Pending |
 | PLAT-06 | Phase 6 | Pending |
-| DIST-01 | Phase 5 | Pending |
-| DIST-02 | Phase 5 | Pending |
-| DIST-03 | Phase 5 | Pending |
-| DIST-04 | Phase 5 | Pending |
-| DIST-05 | Phase 5 | Pending |
+| DIST-01 | Phase 5 | Complete |
+| DIST-02 | Phase 5 | Complete |
+| DIST-03 | Phase 5 | Complete |
+| DIST-04 | Phase 5 | Complete |
+| DIST-05 | Phase 5 | Complete |
 | DIST-06 | Phase 5 | Pending |
 | DIST-07 | Phase 5 | Pending |
 | DIST-08 | Phase 5 | Pending |
@@ -233,7 +233,7 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | DOC-02 | Phase 1 | Complete |
 | DOC-03 | Phase 3 (partial) + Phase 4 (complete) | Complete |
 | DOC-04 | Phase 3 | Complete |
-| DOC-05 | Phase 5 | Pending |
+| DOC-05 | Phase 5 | Complete |
 | DOC-06 | Phase 7 | Complete |
 | DOC-07 | Phase 7 | Complete |
 
