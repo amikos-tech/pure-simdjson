@@ -74,6 +74,7 @@ bash scripts/release/check_readiness.sh --strict --version "${VERSION}"
 
 On a pushed `v*` tag, the workflow:
 
+- release.yml expects the tag commit to be anchored on origin/main.
 - verifies the tag is a semver and the commit is anchored on `origin/main`
 - verifies `internal/bootstrap/version.go` matches the tag version
 - builds the five supported platform artifacts
