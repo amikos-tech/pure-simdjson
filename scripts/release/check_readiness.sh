@@ -86,6 +86,7 @@ if [[ "$source_version" != "$version" ]]; then
   echo "bootstrap.Version $source_version does not match requested version $version" >&2
   exit 1
 fi
+python3 scripts/release/check_bootstrap_abi_state.py --version "$version"
 cargo metadata --format-version 1 --locked >/dev/null
 git fetch origin main --depth=1
 git merge-base --is-ancestor HEAD origin/main
