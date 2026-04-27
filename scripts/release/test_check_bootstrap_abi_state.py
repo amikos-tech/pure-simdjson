@@ -90,6 +90,13 @@ class BootstrapABIStateTest(unittest.TestCase):
 
         self.assert_failed_with(result, "stale bootstrap.Version")
 
+    def test_rejects_0_1_1_as_stale_for_current_abi(self) -> None:
+        result = self.run_checker(
+            requested_version="0.1.1", bootstrap_version="0.1.1"
+        )
+
+        self.assert_failed_with(result, "stale bootstrap.Version")
+
     def test_rejects_go_rust_abi_mismatch(self) -> None:
         result = self.run_checker(rust_abi="0x00010000")
 
