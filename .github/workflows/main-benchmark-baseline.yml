@@ -1,0 +1,89 @@
+name: main benchmark baseline
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - 'NOTICE'
+      - '.planning/**'
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - 'testdata/benchmark-results/**'
+  workflow_dispatch:
+
+concurrency:
+  group: main-bench-baseline
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: capture rolling PR benchmark baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+
+      - name: Install pinned Rust toolchain
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain-file: rust-toolchain.toml
+
+      - name: Cache Rust release build
+        # NOTE (Phase 10 WARN-4): hashFiles excludes the simdjson submodule SHA. A submodule pointer change
+        # without a CMakeLists.txt/Cargo.toml/Cargo.lock edit can serve a stale target/release/. Mitigation:
+        # when bumping third_party/simdjson, the same PR MUST touch third_party/simdjson/CMakeLists.txt or Cargo.toml
+        # so this cache key invalidates.
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: target/release/
+          key: pr-bench-rust-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'third_party/simdjson/CMakeLists.txt') }}
+          restore-keys: |
+            pr-bench-rust-${{ runner.os }}-
+
+      - name: Install benchstat
+        run: |
+          set -euo pipefail
+          go install golang.org/x/perf/cmd/benchstat@latest
+          echo "$(go env GOPATH)/bin" >>"$GITHUB_PATH"
+
+      - name: Build native release library
+        run: cargo build --release
+
+      - name: Capture baseline benchmark evidence
+        run: bash scripts/bench/run_pr_benchmark.sh --no-baseline --out-dir pr-bench-summary
+
+      - name: Prepare canonical baseline cache path
+        run: cp pr-bench-summary/head.bench.txt baseline.bench.txt
+
+      - name: Save baseline to actions/cache
+        if: always()
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: baseline.bench.txt
+          key: pr-bench-baseline-${{ github.sha }}
+
+      - name: Upload baseline evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: baseline-evidence-${{ github.sha }}-${{ github.run_id }}
+          path: pr-bench-summary/
+          retention-days: 30
+          if-no-files-found: warn
