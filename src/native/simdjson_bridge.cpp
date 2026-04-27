@@ -1,14 +1,61 @@
 #include "simdjson_bridge.h"
 #include "native_alloc_telemetry.h"
 
+#include <cstddef>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
+
+namespace {
+
+template <typename T>
+class MallocAllocator {
+ public:
+  using value_type = T;
+
+  MallocAllocator() noexcept = default;
+
+  template <typename U>
+  MallocAllocator(const MallocAllocator<U> &) noexcept {}
+
+  [[nodiscard]] T *allocate(std::size_t count) {
+    if (count > (static_cast<std::size_t>(-1) / sizeof(T))) {
+      throw std::bad_alloc();
+    }
+
+    void *ptr = std::malloc(count * sizeof(T));
+    if (ptr == nullptr) {
+      throw std::bad_alloc();
+    }
+
+    return static_cast<T *>(ptr);
+  }
+
+  void deallocate(T *ptr, std::size_t) noexcept {
+    std::free(ptr);
+  }
+};
+
+template <typename T, typename U>
+bool operator==(const MallocAllocator<T> &, const MallocAllocator<U> &) noexcept {
+  return true;
+}
+
+template <typename T, typename U>
+bool operator!=(const MallocAllocator<T> &, const MallocAllocator<U> &) noexcept {
+  return false;
+}
+
+using LastErrorString = std::basic_string<char, std::char_traits<char>, MallocAllocator<char>>;
+
+}  // namespace
 
 struct psimdjson_element {
   simdjson::dom::element value{};
@@ -28,7 +75,7 @@ struct psimdjson_doc {
 
 struct psimdjson_parser {
   simdjson::dom::parser parser{};
-  std::string last_error{};
+  LastErrorString last_error{};
   uint64_t last_error_offset{UINT64_MAX};
 };
 
@@ -39,7 +86,7 @@ pure_simdjson_error_code_t invalid_argument() noexcept {
 }
 
 pure_simdjson_error_code_t copy_bytes(
-    const std::string &src,
+    std::string_view src,
     uint8_t *dst,
     size_t dst_cap,
     size_t *out_written
@@ -153,8 +200,8 @@ void clear_last_error(psimdjson_parser *parser) noexcept {
   parser->last_error_offset = UINT64_MAX;
 }
 
-void set_last_error_message(psimdjson_parser *parser, const std::string &message) noexcept {
-  parser->last_error = message;
+void set_last_error_message(psimdjson_parser *parser, std::string_view message) noexcept {
+  parser->last_error.assign(message.data(), message.size());
   parser->last_error_offset = UINT64_MAX;
 }
 
@@ -595,7 +642,12 @@ pure_simdjson_error_code_t psimdjson_parser_copy_last_error(
       return invalid_argument();
     }
 
-    return copy_bytes(parser->last_error, dst, dst_cap, out_written);
+    return copy_bytes(
+        std::string_view(parser->last_error.data(), parser->last_error.size()),
+        dst,
+        dst_cap,
+        out_written
+    );
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 

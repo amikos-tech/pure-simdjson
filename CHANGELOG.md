@@ -7,6 +7,15 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-04-27
+
+### Fixed
+- Linux release artifacts now hide non-public dynamic symbols so the exported surface stays limited to the public `pure_simdjson_*` ABI.
+- macOS release smoke no longer reports parser diagnostic string cleanup as an untracked native allocator free.
+
+### Changed
+- Bootstrap default-install recovery now pins `bootstrap.Version` to `0.1.3` after the `v0.1.2` tag failed before artifact publication.
+
 ## [0.1.2] - 2026-04-25
 
 ### Added

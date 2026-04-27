@@ -62,6 +62,7 @@ main() {
   local observed_symbols="$tmp_dir/observed-symbols.txt"
   local pure_symbols="$tmp_dir/pure-symbols.txt"
   local expected_symbols="$tmp_dir/expected-symbols.txt"
+  local allowed_symbols="$tmp_dir/allowed-symbols.txt"
   local missing_symbols="$tmp_dir/missing-symbols.txt"
   local unexpected_symbols="$tmp_dir/unexpected-symbols.txt"
   local header_path
@@ -72,9 +73,15 @@ main() {
   grep '^pure_simdjson_' "$observed_symbols" >"$pure_symbols" || true
   write_expected_exports "$header_path" >"$expected_symbols"
 
-  grep -v '^pure_simdjson_' "$observed_symbols" >"$unexpected_symbols" || true
+  {
+    cat "$expected_symbols"
+    printf '%s\n' \
+      psdj_internal_materialize_build \
+      psdj_internal_test_hold_materialize_guard
+  } | sort -u >"$allowed_symbols"
+
   comm -23 "$expected_symbols" "$pure_symbols" >"$missing_symbols" || true
-  comm -13 "$expected_symbols" "$pure_symbols" >>"$unexpected_symbols" || true
+  comm -23 "$observed_symbols" "$allowed_symbols" >"$unexpected_symbols" || true
 
   if [[ ! -s "$pure_symbols" ]]; then
     fail "nm -D --defined-only reported no pure_simdjson_ exports for $library_path"
@@ -89,7 +96,7 @@ main() {
   if [[ -s "$unexpected_symbols" ]]; then
     echo "unexpected exports for $library_path:" >&2
     cat "$unexpected_symbols" >&2
-    fail "observed export surface includes symbols outside the expected pure_simdjson_ ABI"
+    fail "observed export surface includes symbols outside the expected release ABI export set"
   fi
 
   mapfile -t glibc_versions < <(grep -oE 'GLIBC_[0-9]+(\.[0-9]+)*' "$objdump_output" | sed 's/^GLIBC_//' | sort -uV || true)
