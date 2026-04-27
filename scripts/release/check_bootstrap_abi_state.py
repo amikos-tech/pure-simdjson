@@ -62,7 +62,7 @@ def semver_tuple(version: str) -> tuple[int, int, int]:
     match = SEMVER_RE.match(version)
     if match is None:
         raise BootstrapABIStateError(f"invalid semantic version: {version!r}")
-    return tuple(int(part) for part in match.groups())
+    return int(match.group(1)), int(match.group(2)), int(match.group(3))
 
 
 def check_state(repo_root: pathlib.Path, requested_version: str) -> tuple[str, str]:
