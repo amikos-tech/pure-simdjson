@@ -7,6 +7,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-04-27
+
+### Fixed
+- Linux release builds no longer depend on custom `std::basic_string` allocator behavior that is rejected by the manylinux libstdc++ toolchain.
+
+### Changed
+- Bootstrap default-install recovery now pins `bootstrap.Version` to `0.1.4` after the `v0.1.3` tag failed before artifact publication.
+
 ## [0.1.3] - 2026-04-27
 
 ### Fixed

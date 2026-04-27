@@ -18,7 +18,7 @@ only supported publish path. Do not hand-upload artifacts or bypass CI.
 Example:
 
 ```bash
-VERSION=0.1.3
+VERSION=0.1.4
 git fetch origin main --tags
 git checkout origin/main
 bash scripts/release/check_readiness.sh --strict --version "${VERSION}"
@@ -57,7 +57,7 @@ signing, so the workflow must keep `id-token: write` and `contents: write`.
 Before recommending or pushing a tag, run:
 
 ```bash
-VERSION=0.1.3
+VERSION=0.1.4
 bash scripts/release/check_readiness.sh --strict --version "${VERSION}"
 ```
 
@@ -138,7 +138,7 @@ The metadata endpoints follow the org-standard convention:
 Verify one raw artifact:
 
 ```bash
-TAG=v0.1.3
+TAG=v0.1.4
 BASE_URL="https://releases.amikos.tech/pure-simdjson/${TAG}"
 LIB="libpure_simdjson.so"
 
@@ -157,7 +157,7 @@ cosign verify-blob \
 Verify `SHA256SUMS` itself:
 
 ```bash
-TAG=v0.1.3
+TAG=v0.1.4
 BASE_URL="https://releases.amikos.tech/pure-simdjson/${TAG}"
 
 curl -LO "${BASE_URL}/SHA256SUMS"
