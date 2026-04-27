@@ -112,6 +112,17 @@ class BootstrapABIStateTest(unittest.TestCase):
 
         self.assert_failed_with(result, "requested version")
 
+    def test_accepts_prerelease_version_as_base_release(self) -> None:
+        result = self.run_checker(
+            requested_version="0.1.2-dev", bootstrap_version="0.1.2-dev"
+        )
+
+        self.assertEqual(result.returncode, 0, result)
+        self.assertIn(
+            "bootstrap ABI state ok: version 0.1.2-dev, abi 0x00010001",
+            result.stdout,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

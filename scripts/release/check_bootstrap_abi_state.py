@@ -19,6 +19,10 @@ GO_ABI_RE = re.compile(r"ABIVersion\s+(?:uint32\s+)?=\s*(0x[0-9A-Fa-f_]+|[0-9]+)
 RUST_ABI_RE = re.compile(
     r"PURE_SIMDJSON_ABI_VERSION\s*:\s*u32\s*=\s*(0x[0-9A-Fa-f_]+|[0-9]+)"
 )
+# Pre-release suffixes (e.g. "0.1.2-dev", "0.1.2-rc.1") are accepted and
+# parsed as their base release for ABI minimum-version comparison. The
+# upstream check_state requires bootstrap.Version == requested_version
+# exactly, so a dev snapshot is rejected there, not here.
 SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:[-.][0-9A-Za-z.-]+)?$")
 
 
