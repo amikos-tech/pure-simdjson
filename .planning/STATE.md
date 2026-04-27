@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: "Phase 09 shipped — PR #21"
-stopped_at: Phase 09 shipped; PR #21 open for review/CI
-last_updated: "2026-04-24T18:02:04Z"
-last_activity: "2026-04-24 - Shipped Phase 09 in PR #21 and queued Phase 09.1"
+status: executing
+stopped_at: Completed 09.1-01-PLAN.md
+last_updated: "2026-04-27T09:10:44.279Z"
+last_activity: "2026-04-27 - Shipped Phase 09.1 Plan 01 source/readiness alignment as PR #22; Plan 02 release validation remains post-merge"
 progress:
   total_phases: 16
-  completed_phases: 9
-  total_plans: 42
-  completed_plans: 42
-  percent: 100
+  completed_phases: 10
+  total_plans: 47
+  completed_plans: 46
+  percent: 98
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 **Core value:** Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning: typed extraction and selective traversal are the primary story, while full `any` materialization is documented without overstating current wins.
-**Current focus:** Phase 09.1 — bootstrap artifact and ABI alignment for default installs
+**Current focus:** Phase 09.1 — bootstrap-artifact-and-abi-alignment-for-default-installs
 
 ## Current Position
 
-Phase: 09.1 (bootstrap artifact and ABI alignment for default installs) — READY TO PLAN
-Plan: 0 of 0
-Status: Phase 09 shipped; PR #21 open for review/CI
-Last activity: 2026-04-24 - Shipped Phase 09 in PR #21 and queued Phase 09.1
+Phase: 09.1 (bootstrap-artifact-and-abi-alignment-for-default-installs) — EXECUTING
+Plan: 2 of 2
+Status: Executing Phase 09.1
+Last activity: 2026-04-27 - Applied 5 PR #22 review items (quick task 260427-gwy): ABI sync comments, semver_tuple type fix, 0.1.1 boundary test, pre-release semver doc + test, check_readiness.sh layering comment
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
 
-Progress: [██████████] 100%
+Progress: [█████████▊] 98%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 34
+- Total plans completed: 35
 - Average duration: 11.1m
 - Total execution time: 1.4 hours
 
@@ -53,7 +53,7 @@ Progress: [██████████] 100%
 
 **Recent Trend:**
 
-- Last 5 plans: 08-02, 08-03, 08-04, 08-05, 09-01
+- Last 5 plans: 08-03, 08-04, 08-05, 09-01, 09.1-01
 - Trend: Stable
 
 | Phase 04 P01 | 16m | 2 tasks | 7 files |
@@ -83,6 +83,7 @@ Progress: [██████████] 100%
 | Phase 08 P04 | 6min | 2 tasks | 2 files |
 | Phase 08 P05 | 29min | 2 tasks | 7 files |
 | Phase 09 P01 | 7min | 2 tasks | 7 files |
+| Phase 09.1 P01 | 4min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -95,12 +96,14 @@ Progress: [██████████] 100%
 | 2026-04-24 | phase8-followup-feedback | Added observable depth-limit status/sentinel coverage, tightened materializer comments, filled adversarial string-span coverage, and rechecked benchmark gates. |
 | 2026-04-24 | phase8-pr-review-feedback | Applied Phase 8 PR review fixes for materializer depth guarding, optional-symbol/fallback observability, unsafe frame diagnostics, not-implemented telemetry status, span contract tests/docs, and benchmark regression checks. |
 | 2026-04-24 | pr19-review-items-1-2-3-5 | Addressed PR #19 polish items 1/2/3/5: documented `InternalMaterializeBuild` frame-span lifecycle, expanded the LIFO defer ordering comment in the fast materializer, added native-side (Rust + C++) size asserts for `psdj_internal_frame_t` (field-width expression, 32-bit safe), and documented `psimdjson_test_hold_materialize_guard`'s by-design `PARSER_BUSY` return. Comments-and-asserts only — Tier 1 diagnostics benchstat shows no regression (B/op and allocs/op identical, geomean sec/op within noise). |
+| 2026-04-27 | apply-pr-22-feedback-items-2-4-6-8-and-9 | Applied 5 of 9 PR #22 review items: bidirectional ABI sync comments between `internal/bootstrap/abi_assertion.go` and `scripts/release/check_bootstrap_abi_state.py`, fixed `semver_tuple` return-type to honor `tuple[int, int, int]` annotation, added `0.1.1` stale-version boundary test, documented + tested pre-release semver acceptance (`0.1.2-dev`), and added a clarifying comment on the layered `bootstrap.Version` check in `scripts/release/check_readiness.sh`. Items #1/#3/#5/#7 explicitly skipped per prior `/pr-feedback` analysis. |
 
 ### Learning Extractions
 
 | Date | Phase | Output |
 |------|-------|--------|
 | 2026-04-24 | 08 | `.planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-LEARNINGS.md` |
+| 2026-04-24 | 09 | `.planning/phases/09-benchmark-gate-recalibration-tier-1-2-3-positioning-and-post/09-LEARNINGS.md` |
 
 ### Roadmap Evolution
 
@@ -179,6 +182,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - The publish workflow signs and verifies the raw staged blobs first, then copies those bytes into flat GitHub Release asset names so R2 and GitHub Releases carry the same signed payload.
 - docs/releases.md is the single human-readable source of truth for the Phase 6 release-prep -> main -> tag sequence, required repo configuration, artifact layout, and cosign verification commands.
 - scripts/release/check_readiness.sh --strict reuses assert_prepared_state.py --check-source and adds origin/main ancestry checks instead of re-implementing release-state validation in shell.
+- scripts/release/check_readiness.sh --strict now also delegates bootstrap/Go/Rust ABI source-state validation to scripts/release/check_bootstrap_abi_state.py using an explicit ABI_MINIMUM_VERSION policy table.
+- bootstrap.Version is pinned to 0.1.2 for ABI 0x00010001; internal/bootstrap/checksums.go remains empty in source and runtime digest verification still resolves published SHA256SUMS.
+- internal/bootstrap/abi_assertion.go provides a bidirectional compile-time array canary so go test ./internal/bootstrap fails if ffi.ABIVersion drifts from the ABI expected by bootstrap version 0.1.2.
 - docs/bootstrap.md now points operators at the release runbook and mirrors the exact xattr Gatekeeper workaround, while Phase 06.1 owns the fresh-runner public validation boundary.
 - [Phase 07]: Benchmark fixtures must be loaded only by exact filename from testdata/bench so later plans cannot drift back to third_party or network inputs.
 - [Phase 07]: The JSONTestSuite oracle uses expectations.tsv as the only runtime source of truth and fails on both missing and extra vendored case files.
@@ -207,14 +213,16 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Phase 09.1] Bootstrap artifact and ABI alignment remains urgent before any v0.1.2 release tag or default-install claim.
+- [Phase 09.1] Plan 02 remains the release gate: land the prepared source on origin/main, run strict readiness there, publish v0.1.2 through CI, and dispatch public bootstrap validation before any default-install claim.
 - [Phase 02 advisory] Review whether parse-time `simdjson::UNSUPPORTED_ARCHITECTURE` should map to `PURE_SIMDJSON_ERR_CPU_UNSUPPORTED` instead of `PURE_SIMDJSON_ERR_INTERNAL`.
 - [Phase 02 advisory] Clean up stale public comments for now-live exports and decide whether `last_error_offset` should remain sentinel-only or surface real offsets.
 
 ## Session Continuity
 
-Last session: 2026-04-24T14:25:00Z
-Stopped at: Phase 09 shipped; PR #21 open for review/CI
-Resume file: .planning/phases/09.1-bootstrap-artifact-and-abi-alignment-for-default-installs
+Last session: 2026-04-25T05:54:57Z
+Stopped at: Completed 09.1-01-PLAN.md
+Resume file: .planning/phases/09.1-bootstrap-artifact-and-abi-alignment-for-default-installs/09.1-01-SUMMARY.md
 
-**Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — ready after Phase 09 docs completion — 2026-04-24T14:25:00Z
+**Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
+
+**Ready to Execute:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — 2 verified plans in 2 waves — 2026-04-24T22:15:00Z

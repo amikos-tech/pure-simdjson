@@ -18,7 +18,7 @@ only supported publish path. Do not hand-upload artifacts or bypass CI.
 Example:
 
 ```bash
-VERSION=0.1.0
+VERSION=0.1.2
 git fetch origin main --tags
 git checkout origin/main
 bash scripts/release/check_readiness.sh --strict --version "${VERSION}"
@@ -57,7 +57,7 @@ signing, so the workflow must keep `id-token: write` and `contents: write`.
 Before recommending or pushing a tag, run:
 
 ```bash
-VERSION=0.1.0
+VERSION=0.1.2
 bash scripts/release/check_readiness.sh --strict --version "${VERSION}"
 ```
 
@@ -74,6 +74,7 @@ bash scripts/release/check_readiness.sh --strict --version "${VERSION}"
 
 On a pushed `v*` tag, the workflow:
 
+- release.yml expects the tag commit to be anchored on origin/main.
 - verifies the tag is a semver and the commit is anchored on `origin/main`
 - verifies `internal/bootstrap/version.go` matches the tag version
 - builds the five supported platform artifacts
@@ -137,7 +138,7 @@ The metadata endpoints follow the org-standard convention:
 Verify one raw artifact:
 
 ```bash
-TAG=v0.1.0
+TAG=v0.1.2
 BASE_URL="https://releases.amikos.tech/pure-simdjson/${TAG}"
 LIB="libpure_simdjson.so"
 
@@ -156,7 +157,7 @@ cosign verify-blob \
 Verify `SHA256SUMS` itself:
 
 ```bash
-TAG=v0.1.0
+TAG=v0.1.2
 BASE_URL="https://releases.amikos.tech/pure-simdjson/${TAG}"
 
 curl -LO "${BASE_URL}/SHA256SUMS"

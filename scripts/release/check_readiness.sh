@@ -77,6 +77,9 @@ if [[ "$strict" != true ]]; then
   exit 0
 fi
 
+# Fast-fail pre-gate for the trivial bootstrap.Version != $version case;
+# scripts/release/check_bootstrap_abi_state.py below is the canonical check
+# and additionally enforces ABI policy.
 source_version="$(sed -n 's/^const Version = "\(.*\)"$/\1/p' internal/bootstrap/version.go)"
 if [[ -z "$source_version" ]]; then
   echo "failed to resolve bootstrap.Version from internal/bootstrap/version.go" >&2
@@ -86,6 +89,7 @@ if [[ "$source_version" != "$version" ]]; then
   echo "bootstrap.Version $source_version does not match requested version $version" >&2
   exit 1
 fi
+python3 scripts/release/check_bootstrap_abi_state.py --version "$version"
 cargo metadata --format-version 1 --locked >/dev/null
 git fetch origin main --depth=1
 git merge-base --is-ancestor HEAD origin/main
