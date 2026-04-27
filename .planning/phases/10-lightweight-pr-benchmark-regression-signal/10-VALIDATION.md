@@ -17,18 +17,18 @@ created: 2026-04-27
 
 | Property | Value |
 |----------|-------|
-| **Framework** | pytest 7.x (Python contract tests) + go test (Go bench compile-check) + actionlint (workflow YAML) |
-| **Config file** | `tests/bench/conftest.py` (extended for new fixtures) |
-| **Quick run command** | `pytest tests/bench/test_check_pr_regression.py -x` |
-| **Full suite command** | `pytest tests/bench/ && actionlint .github/workflows/pr-benchmark.yml .github/workflows/main-benchmark-baseline.yml && go test -run=^$ -bench=^$ ./...` |
-| **Estimated runtime** | ~30 seconds (pytest only); ~60 seconds full suite |
+| **Framework** | unittest (Python stdlib) — Python contract tests + go test (Go bench compile-check) + actionlint (workflow YAML). Mirrors the analog `tests/bench/test_check_benchmark_claims.py` (per CLAUDE.md "radically simple" — no new framework just for one test module). The repo does NOT carry `tests/__init__.py` or `tests/bench/__init__.py`, so dotted-module invocations like `python3 -m unittest tests.bench.test_X` do NOT work. Use `python3 -m unittest discover -s tests/bench -p "<file>.py"` (matches Phase 9 working convention) or invoke the test module directly via `python3 tests/bench/<file>.py` (each new test module ships a `if __name__ == "__main__": unittest.main()` shim mirroring the analog `tests/bench/test_check_benchmark_claims.py`). |
+| **Config file** | None (unittest discovers tests via `python3 -m unittest discover -s tests/bench -p "<file>.py"`; no conftest.py required). |
+| **Quick run command** | `python3 -m unittest discover -s tests/bench -p "test_check_pr_regression.py" -v` |
+| **Full suite command** | `python3 -m unittest discover -s tests/bench -v && actionlint .github/workflows/pr-benchmark.yml .github/workflows/main-benchmark-baseline.yml && go test -run=^$ -bench=^$ ./...` |
+| **Estimated runtime** | ~5 seconds (unittest only); ~30 seconds full suite |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** Run `pytest tests/bench/test_check_pr_regression.py -x`
-- **After every plan wave:** Run full suite (`pytest tests/bench/ && actionlint <workflows>`)
+- **After every task commit:** Run `python3 -m unittest discover -s tests/bench -p "test_check_pr_regression.py" -v`
+- **After every plan wave:** Run full suite (`python3 -m unittest discover -s tests/bench -v && actionlint <workflows>`)
 - **Before `/gsd-verify-work`:** Full suite must be green + manual workflow_dispatch dry-run from a feature branch
 - **Max feedback latency:** ≤30 seconds (per-task quick run)
 
@@ -48,12 +48,11 @@ created: 2026-04-27
 
 ## Wave 0 Requirements
 
-- [ ] `tests/bench/test_check_pr_regression.py` — fixture-driven contract tests for the bidirectional regression parser, mirroring `tests/bench/test_check_benchmark_claims.py` style
+- [ ] `tests/bench/test_check_pr_regression.py` — fixture-driven `unittest` contract tests for the bidirectional regression parser, mirroring `tests/bench/test_check_benchmark_claims.py` style (including the `if __name__ == "__main__": unittest.main()` shim at the bottom so direct-script invocation works)
 - [ ] `tests/bench/fixtures/pr-regression/` — synthetic + real benchstat fixtures (regression flagged, non-significant `~`, missing baseline, malformed input, exact-5%-boundary, p=0.05 boundary, multi-row all-significant) — at minimum one fixture must be sourced from real `testdata/benchmark-results/v0.1.2/phase9.bench.txt`-derived output (per Phase 9 LEARNINGS: synthetic-only fixtures pass while production breaks)
-- [ ] `tests/bench/conftest.py` — extend with shared fixtures for benchstat output parsing
-- [ ] `actionlint` available in CI (already standard; add to local dev tooling if missing) — validates new workflow YAML
+- [ ] `actionlint` available locally for the Plan 03 executor (`go install github.com/rhysd/actionlint/cmd/actionlint@latest`) — validates new workflow YAML
 
-*Existing pytest infrastructure under `tests/bench/` covers framework setup. New fixtures and one new test file are the only additions.*
+*Existing `tests/bench/` infrastructure already uses `unittest` (see `test_check_benchmark_claims.py`). Phase 10 adds two new test modules in the same style — no `conftest.py` and no pytest dependency are introduced. The repo intentionally has no `tests/__init__.py` or `tests/bench/__init__.py`; tests are run via `unittest discover` or by invoking the test file directly. Phase 10 MUST NOT add those `__init__.py` files (would change Phase 9's existing test discovery semantics — phase boundary).*
 
 ---
 
