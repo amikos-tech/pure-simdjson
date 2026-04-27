@@ -16,6 +16,25 @@ SCRIPT_PATH = REPO_ROOT / "scripts" / "bench" / "run_pr_benchmark.sh"
 
 
 class PRBenchmarkOrchestratorTests(unittest.TestCase):
+    def test_script_locks_benchmark_subset_and_budget(self) -> None:
+        script = SCRIPT_PATH.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "PR_BENCH_REGEX='Benchmark(Tier1FullParse|Tier2Typed|Tier3SelectivePlaceholder)_"
+            "(twitter|canada)_json/(pure-simdjson|encoding-json-any|encoding-json-struct)$'",
+            script,
+        )
+        self.assertIn("PR_BENCH_COUNT=5", script)
+        self.assertIn("PR_BENCH_TIMEOUT=600s", script)
+        self.assertIn("-benchmem", script)
+        self.assertIn('go test ./... -run \'^$\' -bench "$PR_BENCH_REGEX"', script)
+        self.assertNotIn("citm_catalog", script)
+        self.assertNotIn("minio-simdjson-go", script)
+        self.assertNotIn("bytedance-sonic", script)
+        self.assertNotIn("goccy-go-json", script)
+        self.assertNotIn("cargo build --release", script)
+        self.assertNotIn("actions/cache", script)
+
     def write_stub(self, directory: pathlib.Path, name: str, body: str) -> None:
         path = directory / name
         path.write_text(body, encoding="utf-8")
