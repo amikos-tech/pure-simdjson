@@ -5,7 +5,7 @@ milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and 
 status: executing
 stopped_at: Completed 09.1-01-PLAN.md
 last_updated: "2026-04-27T15:02:46.549Z"
-last_activity: 2026-04-27 -- Phase 10 planning complete
+last_activity: 2026-04-27 -- Phase 10 review replan complete
 progress:
   total_phases: 16
   completed_phases: 11
@@ -28,7 +28,7 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 Phase: 09.1 (bootstrap-artifact-and-abi-alignment-for-default-installs) — EXECUTING
 Plan: 2 of 2
 Status: Ready to execute
-Last activity: 2026-04-27 -- Phase 10 planning complete
+Last activity: 2026-04-27 -- Phase 10 review replan complete
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
 
 Progress: [█████████▊] 98%

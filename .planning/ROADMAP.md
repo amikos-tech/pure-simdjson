@@ -518,9 +518,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] `10-01-PLAN.md` — Bidirectional benchstat regression parser, contract tests, and fixture corpus (D-08, D-11, D-12, D-13, D-14, D-15)
-- [ ] `10-02-PLAN.md` — Bash orchestrator `run_pr_benchmark.sh` with locked Tier 1/2/3 regex, count, and PATH-shadowed integration smoke test (D-02, D-03, D-04, D-05, D-08)
-- [ ] `10-03-PLAN.md` — Two GitHub Actions workflows (PR-trigger advisory + push-on-main baseline producer) plus CHANGELOG note for the future-blocking-flip env var (D-01, D-06, D-07, D-09, D-10, D-13..D-21)
+- [ ] `10-01-PLAN.md` — Section-aware bidirectional benchstat regression parser, contract tests, and fixture corpus covering real multi-metric benchstat output (D-08, D-11, D-12, D-13, D-14, D-15)
+- [ ] `10-02-PLAN.md` — Bash orchestrator `run_pr_benchmark.sh` with locked Tier 1/2/3 regex, count, no-cargo ownership boundary, and PATH-shadowed integration smoke test (D-02, D-03, D-04, D-05, D-08)
+- [ ] `10-03-PLAN.md` — Two GitHub Actions workflows with matched baseline cache paths (PR-trigger advisory + push/workflow_dispatch main baseline producer) plus CHANGELOG note for the future-blocking-flip env var (D-01, D-06, D-07, D-09, D-10, D-13..D-21)
 
 ---
 *Roadmap created: 2026-04-14 from PROJECT.md, REQUIREMENTS.md, and research/SUMMARY.md*
