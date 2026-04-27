@@ -11,9 +11,11 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 BUILD_SHARED_LIBRARY_ACTION = (
     REPO_ROOT / ".github" / "actions" / "build-shared-library" / "action.yml"
 )
+BUILD_RS = REPO_ROOT / "build.rs"
 SETUP_RUST_ACTION = REPO_ROOT / ".github" / "actions" / "setup-rust" / "action.yml"
 RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 RUN_NATIVE_SMOKE = REPO_ROOT / "scripts" / "release" / "run_native_smoke.sh"
+VERIFY_GLIBC_FLOOR = REPO_ROOT / "scripts" / "release" / "verify_glibc_floor.sh"
 
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
@@ -34,6 +36,21 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
 
         self.assertNotIn("import tomli", action_text)
         self.assertIn("grep '^channel'", action_text)
+
+    def test_linux_cdylib_hides_static_native_archive_symbols(self) -> None:
+        build_rs = BUILD_RS.read_text(encoding="utf-8")
+
+        self.assertIn("-Wl,--exclude-libs,ALL", build_rs)
+
+    def test_linux_export_audit_allows_only_public_and_optional_internal_symbols(self) -> None:
+        script_text = VERIFY_GLIBC_FLOOR.read_text(encoding="utf-8")
+
+        self.assertIn("write_expected_exports", script_text)
+        self.assertIn("psdj_internal_materialize_build", script_text)
+        self.assertIn("psdj_internal_test_hold_materialize_guard", script_text)
+        self.assertIn("expected release ABI export set", script_text)
+        self.assertNotIn("_Znwm", script_text)
+        self.assertNotIn("_ZdlPv", script_text)
 
     def test_windows_packaging_uses_workspace_absolute_out_dir(self) -> None:
         workflow_text = RELEASE_WORKFLOW.read_text(encoding="utf-8")

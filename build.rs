@@ -35,6 +35,7 @@ fn main() {
     if target.contains("linux-gnu") {
         println!("cargo:rustc-link-arg-cdylib=-static-libstdc++");
         println!("cargo:rustc-link-arg-cdylib=-static-libgcc");
+        println!("cargo:rustc-link-arg-cdylib=-Wl,--exclude-libs,ALL");
     }
 
     cc::Build::new()
