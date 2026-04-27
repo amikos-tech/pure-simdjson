@@ -8,6 +8,7 @@ import re
 import sys
 
 
+# Must stay in sync with internal/bootstrap/abi_assertion.go.
 ABI_MINIMUM_VERSION = {
     "0x00010000": "0.1.0",
     "0x00010001": "0.1.2",
