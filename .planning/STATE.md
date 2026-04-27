@@ -4,7 +4,7 @@ milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
 stopped_at: Completed 09.1-01-PLAN.md
-last_updated: "2026-04-27T08:25:12.465Z"
+last_updated: "2026-04-27T09:10:44.279Z"
 last_activity: "2026-04-27 - Shipped Phase 09.1 Plan 01 source/readiness alignment as PR #22; Plan 02 release validation remains post-merge"
 progress:
   total_phases: 16
@@ -28,7 +28,7 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 Phase: 09.1 (bootstrap-artifact-and-abi-alignment-for-default-installs) — EXECUTING
 Plan: 2 of 2
 Status: Executing Phase 09.1
-Last activity: 2026-04-27 - Shipped Phase 09.1 Plan 01 source/readiness alignment as PR #22; Plan 02 release validation remains post-merge
+Last activity: 2026-04-27 - Applied 5 PR #22 review items (quick task 260427-gwy): ABI sync comments, semver_tuple type fix, 0.1.1 boundary test, pre-release semver doc + test, check_readiness.sh layering comment
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
 
 Progress: [█████████▊] 98%
@@ -96,6 +96,7 @@ Progress: [█████████▊] 98%
 | 2026-04-24 | phase8-followup-feedback | Added observable depth-limit status/sentinel coverage, tightened materializer comments, filled adversarial string-span coverage, and rechecked benchmark gates. |
 | 2026-04-24 | phase8-pr-review-feedback | Applied Phase 8 PR review fixes for materializer depth guarding, optional-symbol/fallback observability, unsafe frame diagnostics, not-implemented telemetry status, span contract tests/docs, and benchmark regression checks. |
 | 2026-04-24 | pr19-review-items-1-2-3-5 | Addressed PR #19 polish items 1/2/3/5: documented `InternalMaterializeBuild` frame-span lifecycle, expanded the LIFO defer ordering comment in the fast materializer, added native-side (Rust + C++) size asserts for `psdj_internal_frame_t` (field-width expression, 32-bit safe), and documented `psimdjson_test_hold_materialize_guard`'s by-design `PARSER_BUSY` return. Comments-and-asserts only — Tier 1 diagnostics benchstat shows no regression (B/op and allocs/op identical, geomean sec/op within noise). |
+| 2026-04-27 | apply-pr-22-feedback-items-2-4-6-8-and-9 | Applied 5 of 9 PR #22 review items: bidirectional ABI sync comments between `internal/bootstrap/abi_assertion.go` and `scripts/release/check_bootstrap_abi_state.py`, fixed `semver_tuple` return-type to honor `tuple[int, int, int]` annotation, added `0.1.1` stale-version boundary test, documented + tested pre-release semver acceptance (`0.1.2-dev`), and added a clarifying comment on the layered `bootstrap.Version` check in `scripts/release/check_readiness.sh`. Items #1/#3/#5/#7 explicitly skipped per prior `/pr-feedback` analysis. |
 
 ### Learning Extractions
 
