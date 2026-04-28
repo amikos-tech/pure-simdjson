@@ -1,0 +1,109 @@
+name: pr benchmark
+
+on:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - 'NOTICE'
+      - '.planning/**'
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - 'testdata/benchmark-results/**'
+
+concurrency:
+  group: pr-bench-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write   # required for sticky-comment; denied on fork PRs
+
+jobs:
+  bench:
+    name: advisory PR benchmark regression check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+
+      - name: Install pinned Rust toolchain
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain-file: rust-toolchain.toml
+
+      - name: Cache Rust release build
+        # NOTE (Phase 10 WARN-4): hashFiles excludes the simdjson submodule SHA. A submodule pointer change
+        # without a CMakeLists.txt/Cargo.toml/Cargo.lock edit can serve a stale target/release/. Mitigation:
+        # when bumping third_party/simdjson, the same PR MUST touch third_party/simdjson/CMakeLists.txt or Cargo.toml
+        # so this cache key invalidates.
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: target/release/
+          key: pr-bench-rust-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'third_party/simdjson/CMakeLists.txt') }}
+          restore-keys: |
+            pr-bench-rust-${{ runner.os }}-
+
+      - name: Install benchstat
+        run: |
+          set -euo pipefail
+          go install golang.org/x/perf/cmd/benchstat@latest
+          echo "$(go env GOPATH)/bin" >>"$GITHUB_PATH"
+
+      - name: Build native release library
+        run: cargo build --release
+
+      - id: restore-baseline
+        name: Restore main-baseline cache
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: baseline.bench.txt
+          # Deliberately misses the exact key so restore-keys selects the newest main baseline.
+          key: pr-bench-baseline-NEVER-MATCHES
+          restore-keys: |
+            pr-bench-baseline-
+
+      - name: Run PR benchmark + regression check
+        env:
+          REQUIRE_NO_REGRESSION: "false"   # Set to "true" to make this check blocking instead of advisory.
+          NO_BASELINE: ${{ steps.restore-baseline.outputs.cache-matched-key == '' }}
+        run: |
+          set -euo pipefail
+          if [[ "$NO_BASELINE" == "true" ]]; then
+            bash scripts/bench/run_pr_benchmark.sh --no-baseline --out-dir pr-bench-summary
+          else
+            bash scripts/bench/run_pr_benchmark.sh --baseline baseline.bench.txt --out-dir pr-bench-summary
+          fi
+
+      - name: Append step summary
+        if: always()
+        run: cat pr-bench-summary/markdown.md >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Post sticky PR comment
+        if: always()
+        continue-on-error: true
+        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0
+        with:
+          header: pr-benchmark-regression
+          path: pr-bench-summary/markdown.md
+
+      - name: Upload diagnostic artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pr-bench-evidence-${{ github.event.pull_request.number }}-${{ github.run_id }}
+          path: pr-bench-summary/
+          retention-days: 14
+          if-no-files-found: warn

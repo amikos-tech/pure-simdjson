@@ -1,0 +1,56 @@
+goos: linux
+goarch: amd64
+pkg: github.com/amikos-tech/pure-simdjson
+cpu: AMD EPYC 7763 64-Core Processor
+                                   │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-candidate.bench.txt │
+                                   │                                    sec/op                                     │                           sec/op                            vs base                │
+Tier1FullParse_twitter_json-4                                                                          6.443m ± 1%                                                  2.044m ± 2%  -68.27% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json-4                                                                    17.338m ± 1%                                                  5.113m ± 1%  -70.51% (p=0.000 n=10)
+Tier1FullParse_canada_json-4                                                                           34.93m ± 1%                                                  14.16m ± 3%  -59.47% (p=0.000 n=10)
+geomean                                                                                                15.74m                                                       5.289m       -66.40%
+
+                                   │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-candidate.bench.txt │
+                                   │                                      B/s                                      │                            B/s                             vs base                 │
+Tier1FullParse_twitter_json-4                                                                         93.47Mi ± 1%                                               294.62Mi ± 2%  +215.19% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json-4                                                                    95.01Mi ± 1%                                               322.15Mi ± 1%  +239.09% (p=0.000 n=10)
+Tier1FullParse_canada_json-4                                                                          61.45Mi ± 1%                                               151.62Mi ± 3%  +146.73% (p=0.000 n=10)
+geomean                                                                                               81.72Mi                                                     243.2Mi       +197.65%
+
+                                   │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-candidate.bench.txt │
+                                   │                               native-allocs/op                                │                         native-allocs/op                          vs base          │
+Tier1FullParse_twitter_json-4                                                                          0.00 ± 0%                                                           12.00 ± 0%  ? (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json-4                                                                     0.00 ± 0%                                                           13.00 ± 0%  ? (p=0.000 n=10)
+Tier1FullParse_canada_json-4                                                                           0.00 ± 0%                                                           15.00 ± 0%  ? (p=0.000 n=10)
+geomean                                                                                                          ¹                                                         13.28       ?
+¹ summaries must be >0 to compute geomean
+
+                                   │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-candidate.bench.txt │
+                                   │                                native-bytes/op                                │                         native-bytes/op                           vs base          │
+Tier1FullParse_twitter_json-4                                                                       0.000Mi ± 0%                                                         9.184Mi ± 0%  ? (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json-4                                                                   0.00Mi ± 0%                                                         22.65Mi ± 0%  ? (p=0.000 n=10)
+Tier1FullParse_canada_json-4                                                                         0.00Mi ± 0%                                                         47.70Mi ± 0%  ? (p=0.000 n=10)
+geomean                                                                                                          ¹                                                       21.49Mi       ?
+¹ summaries must be >0 to compute geomean
+
+                                   │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-candidate.bench.txt │
+                                   │                               native-live-bytes                               │                     native-live-bytes                      vs base                 │
+Tier1FullParse_twitter_json-4                                                                         0.000 ± 0%                                                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_citm_catalog_json-4                                                                    0.000 ± 0%                                                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+Tier1FullParse_canada_json-4                                                                          0.000 ± 0%                                                    0.000 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                                                                                          ²                                                              +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                   │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-candidate.bench.txt │
+                                   │                                     B/op                                      │                            B/op                             vs base                │
+Tier1FullParse_twitter_json-4                                                                         1.980Mi ± 0%                                                 1.412Mi ± 0%  -28.69% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json-4                                                                    4.893Mi ± 0%                                                 4.388Mi ± 0%  -10.33% (p=0.000 n=10)
+Tier1FullParse_canada_json-4                                                                         10.093Mi ± 0%                                                 4.723Mi ± 0%  -53.20% (p=0.000 n=10)
+geomean                                                                                               4.607Mi                                                      3.082Mi       -33.11%
+
+                                   │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-base.bench.txt │ testdata/benchmark-results/.v0.1.2.normalized.tmp.CgjCju/tier1-candidate.bench.txt │
+                                   │                                   allocs/op                                   │                         allocs/op                           vs base                │
+Tier1FullParse_twitter_json-4                                                                          32.12k ± 0%                                                  28.06k ± 0%  -12.64% (p=0.000 n=10)
+Tier1FullParse_citm_catalog_json-4                                                                     95.86k ± 0%                                                  76.33k ± 0%  -20.38% (p=0.000 n=10)
+Tier1FullParse_canada_json-4                                                                           392.5k ± 0%                                                  223.3k ± 0%  -43.12% (p=0.000 n=10)
+geomean                                                                                                106.5k                                                       78.20k       -26.59%

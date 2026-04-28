@@ -7,6 +7,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+- Advisory pull-request benchmark regression check (Tier 1/2/3 on twitter and canada fixtures, advisory-only). The future blocking-flip is gated by the `REQUIRE_NO_REGRESSION` env var in `.github/workflows/pr-benchmark.yml`.
+
 ## [0.1.4] - 2026-04-27
 
 ### Fixed

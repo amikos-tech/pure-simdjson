@@ -1,0 +1,16 @@
+goos: linux
+goarch: amd64
+pkg: github.com/amikos-tech/pure-simdjson
+cpu: AMD EPYC 7763 64-Core Processor
+                                   | baseline.bench.txt | head.bench.txt |
+                                   | sec/op             | sec/op vs base |
+Tier1FullParse_twitter_json-4        2.000m +/- 1%       2.200m +/- 1%   +10.00% (p=0.001 n=5)
+
+                                   | baseline.bench.txt | head.bench.txt |
+                                   | B/s                | B/s vs base    |
+Tier1FullParse_twitter_json-4        90.00Mi +/- 1%      200.00Mi +/- 1% +122.22% (p=0.001 n=5)
+
+                                   | baseline.bench.txt | head.bench.txt |
+                                   | B/op               | B/op vs base   |
+Tier2Typed_canada_json-4             1.000Mi +/- 1%      1.500Mi +/- 1%   +50.00% (p=0.001 n=5)
+
