@@ -104,6 +104,8 @@ class PRBenchmarkWorkflowContractTests(unittest.TestCase):
                 "if: success()",
                 "path: baseline.bench.txt",
                 "key: pr-bench-baseline-${{ github.sha }}",
+                "name: baseline-evidence-${{ github.sha }}-${{ github.run_id }}",
+                "path: pr-bench-summary/",
                 "retention-days: 30",
             ],
         )

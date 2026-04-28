@@ -17,6 +17,10 @@ from check_benchmark_claims import EvidenceError  # noqa: E402
 
 # Benchstat delta - see https://pkg.go.dev/golang.org/x/perf/cmd/benchstat for output format.
 DELTA_RE = re.compile(r"(?<![\w.])([+-])(\d+(?:\.\d+)?)%\s+\(p=(\d+\.\d+)\s+n=\d+\)")
+# Benchstat can emit a row without a p-value when variance is too high or
+# sample data is otherwise statistically inconclusive. That is not actionable
+# as a regression signal, so advisory PR checks skip it instead of failing.
+INCONCLUSIVE_RE = re.compile(r"(?:±|\+/-)\s*∞|~\s+\(p=")
 # Must stay in sync with PR_BENCH_REGEX in scripts/bench/run_pr_benchmark.sh.
 ROW_PREFIX_RE = re.compile(r"^\s*(Tier1FullParse|Tier2Typed|Tier3SelectivePlaceholder)_\S+")
 METRIC_HEADER_RE = re.compile(
@@ -77,7 +81,7 @@ def parse_benchstat_for_regressions(
             continue
 
         seen_any_sec_op_row = True
-        if "~" in line:
+        if INCONCLUSIVE_RE.search(line):
             continue
 
         match = DELTA_RE.search(line)

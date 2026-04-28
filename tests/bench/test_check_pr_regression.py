@@ -94,6 +94,13 @@ class CheckPRRegressionTests(unittest.TestCase):
         self.assertFalse(payload["regression"])
         self.assertEqual(payload["flagged_rows"], [])
 
+    def test_inconclusive_infinite_variance_row_is_not_flagged(self) -> None:
+        result, payload, _ = self.run_fixture("inconclusive-infinite-variance.benchstat.txt")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(payload["regression"])
+        self.assertEqual(payload["flagged_rows"], [])
+
     def test_row_not_flagged_when_delta_below_threshold(self) -> None:
         result, payload, _ = self.run_fixture("slower-tiny.benchstat.txt")
 
