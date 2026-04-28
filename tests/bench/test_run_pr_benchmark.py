@@ -54,10 +54,11 @@ class PRBenchmarkOrchestratorTests(unittest.TestCase):
                 echo "goarch: amd64"
                 echo "pkg: github.com/amikos-tech/pure-simdjson"
                 echo "cpu: Synthetic CPU"
+                bench_ns="${BENCH_NS:-2000000}"
                 for run in 1 2 3 4 5; do
                   for fixture in twitter_json canada_json; do
                     for cmp in pure-simdjson encoding-json-any encoding-json-struct; do
-                      echo "BenchmarkTier1FullParse_${fixture}/${cmp}-4 ${run} 2000000 ns/op 64 B/op 1 allocs/op"
+                      echo "BenchmarkTier1FullParse_${fixture}/${cmp}-4 ${run} ${bench_ns} ns/op 64 B/op 1 allocs/op"
                       echo "BenchmarkTier2Typed_${fixture}/${cmp}-4 ${run} 1500000 ns/op 64 B/op 1 allocs/op"
                     done
                   done
@@ -251,16 +252,28 @@ class PRBenchmarkOrchestratorTests(unittest.TestCase):
             root = pathlib.Path(temp_dir)
             stub_dir = self.make_stub_path(root)
             out_dir = root / "out"
-            stale_file = out_dir / "stale.txt"
-            out_dir.mkdir()
-            stale_file.write_text("old output", encoding="utf-8")
 
-            result = self.run_script(
+            first = self.run_script(
                 ["--no-baseline", "--out-dir", str(out_dir)],
                 stub_dir=stub_dir,
+                extra_env={"BENCH_NS": "1111111"},
             )
+            stale_file = out_dir / "stale.txt"
+            stale_file.write_text("old output", encoding="utf-8")
+            first_head = (out_dir / "head.bench.txt").read_text(encoding="utf-8")
 
-            self.assertEqual(result.returncode, 0, result.stderr)
+            second = self.run_script(
+                ["--no-baseline", "--out-dir", str(out_dir)],
+                stub_dir=stub_dir,
+                extra_env={"BENCH_NS": "2222222"},
+            )
+            second_head = (out_dir / "head.bench.txt").read_text(encoding="utf-8")
+
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertIn("1111111 ns/op", first_head)
+            self.assertNotIn("1111111 ns/op", second_head)
+            self.assertIn("2222222 ns/op", second_head)
             self.assertFalse(stale_file.exists())
             self.assertTrue((out_dir / "head.bench.txt").exists())
             self.assertTrue((out_dir / "summary.json").exists())

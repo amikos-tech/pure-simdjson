@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pathlib
 import re
+import shutil
 import subprocess
 import unittest
 
@@ -138,6 +139,7 @@ class PRBenchmarkWorkflowContractTests(unittest.TestCase):
         self.assertIn("REQUIRE_NO_REGRESSION", self.changelog_text)
         self.assertIn("advisory", self.changelog_text)
 
+    @unittest.skipUnless(shutil.which("yq"), "yq is required for workflow YAML smoke tests")
     def test_workflows_parse_as_yaml(self) -> None:
         for workflow in (PR_WORKFLOW, MAIN_WORKFLOW):
             with self.subTest(workflow=workflow.name):
@@ -149,6 +151,7 @@ class PRBenchmarkWorkflowContractTests(unittest.TestCase):
                     check=False,
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stderr, "")
 
 
 if __name__ == "__main__":

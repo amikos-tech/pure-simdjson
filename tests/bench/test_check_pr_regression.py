@@ -219,6 +219,13 @@ class CheckPRRegressionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("unrecognized metric", result.stderr)
 
+    def test_non_vs_base_metric_header_currently_retains_previous_section(self) -> None:
+        result, payload, _ = self.run_fixture("non-vs-base-header-retains-section.benchstat.txt")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(payload["regression"])
+        self.assertEqual(payload["flagged_rows"][0]["row"], "Tier2Typed_canada_json-4")
+
     def test_real_phase9_benchstat_format(self) -> None:
         result, payload, _ = self.run_fixture("real-tier1-vs-stdlib.benchstat.txt")
 
