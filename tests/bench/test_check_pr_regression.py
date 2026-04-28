@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -13,6 +14,7 @@ import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "bench" / "check_pr_regression.py"
+ORCHESTRATOR_PATH = REPO_ROOT / "scripts" / "bench" / "run_pr_benchmark.sh"
 FIXTURES_DIR = REPO_ROOT / "tests" / "bench" / "fixtures" / "pr-regression"
 
 
@@ -110,6 +112,13 @@ class CheckPRRegressionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(payload["regression"])
 
+    def test_p_value_exactly_boundary_not_flagged(self) -> None:
+        result, payload, _ = self.run_fixture("boundary-p-005.benchstat.txt")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(payload["regression"])
+        self.assertEqual(payload["flagged_rows"], [])
+
     def test_boundary_just_below_5pct_not_flagged(self) -> None:
         result, payload, _ = self.run_fixture("boundary-499pct.benchstat.txt")
 
@@ -134,6 +143,13 @@ class CheckPRRegressionTests(unittest.TestCase):
 
     def test_geomean_row_ignored(self) -> None:
         result, payload, _ = self.run_fixture("with-geomean.benchstat.txt")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(payload["regression"])
+        self.assertEqual(payload["flagged_rows"], [])
+
+    def test_non_tier_benchmark_ignored(self) -> None:
+        result, payload, _ = self.run_fixture("non-tier-slower-significant.benchstat.txt")
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(payload["regression"])
@@ -197,12 +213,28 @@ class CheckPRRegressionTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 1)
 
+    def test_tier_row_under_unrecognized_metric_header_fails_closed(self) -> None:
+        result, _, _ = self.run_fixture("unrecognized-metric-header.benchstat.txt")
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("unrecognized metric", result.stderr)
+
     def test_real_phase9_benchstat_format(self) -> None:
         result, payload, _ = self.run_fixture("real-tier1-vs-stdlib.benchstat.txt")
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(payload["regression"])
         self.assertEqual(payload["flagged_rows"], [])
+
+    def test_parser_and_orchestrator_tier_lists_match(self) -> None:
+        parser_text = SCRIPT_PATH.read_text(encoding="utf-8")
+        orchestrator_text = ORCHESTRATOR_PATH.read_text(encoding="utf-8")
+        parser_match = re.search(r'ROW_PREFIX_RE = re\.compile\(r"\^\\s\*\(([^)]+)\)_', parser_text)
+        orchestrator_match = re.search(r"PR_BENCH_REGEX='Benchmark\(([^)]+)\)", orchestrator_text)
+
+        self.assertIsNotNone(parser_match)
+        self.assertIsNotNone(orchestrator_match)
+        self.assertEqual(parser_match.group(1).split("|"), orchestrator_match.group(1).split("|"))
 
 
 if __name__ == "__main__":

@@ -57,7 +57,7 @@ fi
 
 if [[ -z "$baseline_path" && "$no_baseline" != "true" ]]; then
 	no_baseline="${NO_BASELINE:-false}"
-	if [[ "$no_baseline" != "true" && "$no_baseline" != "1" ]]; then
+	if [[ "$no_baseline" != "true" ]]; then
 		usage
 		echo "provide --baseline <path> or --no-baseline" >&2
 		exit 1
@@ -114,6 +114,10 @@ markdown_md="$stage_dir/markdown.md"
 
 current_step="PR benchmark capture"
 go test ./... -run '^$' -bench "$PR_BENCH_REGEX" -benchmem -count="$PR_BENCH_COUNT" -timeout "$PR_BENCH_TIMEOUT" >"$head_bench"
+if ! grep -q '^Benchmark' "$head_bench"; then
+	echo "no benchmark rows matched PR_BENCH_REGEX: $PR_BENCH_REGEX" >&2
+	exit 1
+fi
 
 if [[ "$no_baseline" == "true" ]]; then
 	current_step="no-baseline regression summary"

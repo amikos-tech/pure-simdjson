@@ -12,15 +12,20 @@ from typing import Any
 
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from check_benchmark_claims import EvidenceError, parse_benchmark_file  # noqa: E402
+from check_benchmark_claims import EvidenceError  # noqa: E402
 
 
-# Bidirectional benchstat delta - see https://pkg.go.dev/golang.org/x/perf/cmd/benchstat for output format.
+# Benchstat delta - see https://pkg.go.dev/golang.org/x/perf/cmd/benchstat for output format.
 DELTA_RE = re.compile(r"(?<![\w.])([+-])(\d+(?:\.\d+)?)%\s+\(p=(\d+\.\d+)\s+n=\d+\)")
+# Must stay in sync with PR_BENCH_REGEX in scripts/bench/run_pr_benchmark.sh.
 ROW_PREFIX_RE = re.compile(r"^\s*(Tier1FullParse|Tier2Typed|Tier3SelectivePlaceholder)_\S+")
 METRIC_HEADER_RE = re.compile(
     r"(?:│|\|)\s*(sec/op|B/s|B/op|allocs/op|native-allocs/op|native-bytes/op|native-live-bytes)\s*(?:│|\|)"
 )
+# Identifies metric header rows even when the specific metric is unsupported.
+ANY_METRIC_HEADER_RE = re.compile(r"(?:│|\|).*\bvs base\b.*(?:│|\|)?")
+# The advisory signal is intentionally small: flag only material slowdown >=5%
+# with p<0.05, matching the PR comment's human-readable default thresholds.
 DEFAULT_THRESHOLD_PCT = 5.0
 DEFAULT_P_MAX = 0.05
 BLOCKING_FLIP_ENV = "REQUIRE_NO_REGRESSION"
@@ -60,9 +65,14 @@ def parse_benchstat_for_regressions(
         if header is not None:
             current_metric = header.group(1)
             continue
+        if ANY_METRIC_HEADER_RE.search(line):
+            current_metric = None
+            continue
 
         if not ROW_PREFIX_RE.match(line):
             continue
+        if current_metric is None:
+            raise EvidenceError(f"unrecognized metric section for benchmark row: {line}")
         if current_metric != "sec/op":
             continue
 
@@ -157,7 +167,6 @@ def write_outputs(summary: dict[str, Any], summary_out: pathlib.Path, markdown_o
 
 def main() -> int:
     args = parse_args()
-    _ = parse_benchmark_file
 
     if args.no_baseline:
         summary = build_summary(

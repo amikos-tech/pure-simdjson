@@ -73,7 +73,7 @@ jobs:
         run: cp pr-bench-summary/head.bench.txt baseline.bench.txt
 
       - name: Save baseline to actions/cache
-        if: always()
+        if: success()
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809
         with:
           path: baseline.bench.txt

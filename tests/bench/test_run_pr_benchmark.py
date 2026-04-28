@@ -90,13 +90,63 @@ class PRBenchmarkOrchestratorTests(unittest.TestCase):
         )
         return stub_dir
 
+    def make_empty_go_stub_path(self, directory: pathlib.Path) -> pathlib.Path:
+        stub_dir = directory / "bin"
+        stub_dir.mkdir()
+        self.write_stub(
+            stub_dir,
+            "go",
+            textwrap.dedent(
+                """\
+                #!/usr/bin/env bash
+                set -euo pipefail
+                echo "goos: linux"
+                echo "goarch: amd64"
+                echo "pkg: github.com/amikos-tech/pure-simdjson"
+                echo "cpu: Synthetic CPU"
+                echo "PASS"
+                """
+            ),
+        )
+        self.write_stub(
+            stub_dir,
+            "benchstat",
+            "#!/usr/bin/env bash\nset -euo pipefail\ncat \"$@\"\n",
+        )
+        return stub_dir
+
+    def make_failing_go_stub_path(self, directory: pathlib.Path) -> pathlib.Path:
+        stub_dir = directory / "bin"
+        stub_dir.mkdir()
+        self.write_stub(
+            stub_dir,
+            "go",
+            textwrap.dedent(
+                """\
+                #!/usr/bin/env bash
+                set -euo pipefail
+                echo "partial benchmark output"
+                exit 42
+                """
+            ),
+        )
+        self.write_stub(
+            stub_dir,
+            "benchstat",
+            "#!/usr/bin/env bash\nset -euo pipefail\n",
+        )
+        return stub_dir
+
     def run_script(
         self,
         args: list[str],
         *,
         stub_dir: pathlib.Path,
+        extra_env: dict[str, str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
         env = {**os.environ, "PATH": f"{stub_dir}:{os.environ['PATH']}"}
+        if extra_env is not None:
+            env.update(extra_env)
         return subprocess.run(
             [str(SCRIPT_PATH), *args],
             cwd=REPO_ROOT,
@@ -148,6 +198,72 @@ class PRBenchmarkOrchestratorTests(unittest.TestCase):
             self.assertFalse((out_dir / "regression.benchstat.txt").exists())
             payload = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
             self.assertTrue(payload["bypassed"])
+
+    def test_no_baseline_env_only_accepts_true(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            stub_dir = self.make_stub_path(root)
+            out_dir = root / "out"
+
+            result = self.run_script(
+                ["--out-dir", str(out_dir)],
+                stub_dir=stub_dir,
+                extra_env={"NO_BASELINE": "1"},
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("provide --baseline <path> or --no-baseline", result.stderr)
+            self.assertFalse(out_dir.exists())
+
+    def test_empty_benchmark_capture_fails_before_publishing_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            stub_dir = self.make_empty_go_stub_path(root)
+            out_dir = root / "out"
+
+            result = self.run_script(
+                ["--no-baseline", "--out-dir", str(out_dir)],
+                stub_dir=stub_dir,
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("no benchmark rows matched PR_BENCH_REGEX", result.stderr)
+            self.assertFalse(out_dir.exists())
+
+    def test_go_test_failure_reports_current_step_and_cleans_stage_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            stub_dir = self.make_failing_go_stub_path(root)
+            out_dir = root / "out"
+
+            result = self.run_script(
+                ["--no-baseline", "--out-dir", str(out_dir)],
+                stub_dir=stub_dir,
+            )
+
+            self.assertEqual(result.returncode, 42)
+            self.assertIn("PR benchmark failed during: PR benchmark capture", result.stderr)
+            self.assertFalse(out_dir.exists())
+            self.assertEqual(list(root.glob(".out.tmp.*")), [])
+
+    def test_output_directory_replaced_on_rerun(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            stub_dir = self.make_stub_path(root)
+            out_dir = root / "out"
+            stale_file = out_dir / "stale.txt"
+            out_dir.mkdir()
+            stale_file.write_text("old output", encoding="utf-8")
+
+            result = self.run_script(
+                ["--no-baseline", "--out-dir", str(out_dir)],
+                stub_dir=stub_dir,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(stale_file.exists())
+            self.assertTrue((out_dir / "head.bench.txt").exists())
+            self.assertTrue((out_dir / "summary.json").exists())
 
     def test_missing_baseline_path_errors_clearly(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
