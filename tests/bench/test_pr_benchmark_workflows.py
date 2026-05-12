@@ -38,10 +38,15 @@ class PRBenchmarkWorkflowContractTests(unittest.TestCase):
             with self.subTest(snippet=snippet):
                 self.assertIn(snippet, text)
 
+    def assertContainsNone(self, text: str, snippets: list[str]) -> None:
+        for snippet in snippets:
+            with self.subTest(snippet=snippet):
+                self.assertNotIn(snippet, text)
+
     def test_pr_workflow_trigger_permissions_concurrency_and_budget(self) -> None:
         self.assertIn("name: pr benchmark", self.pr_text)
         self.assertIn("pull_request:", self.pr_text)
-        self.assertNotIn("pull_request_target", self.pr_text)
+        self.assertContainsNone(self.pr_text, ["pull_request_target"])
         self.assertContainsAll(self.pr_text, PATHS_IGNORE)
         self.assertContainsAll(
             self.pr_text,
@@ -128,10 +133,15 @@ class PRBenchmarkWorkflowContractTests(unittest.TestCase):
     def test_workflows_keep_benchmark_selection_inside_orchestrator(self) -> None:
         combined = f"{self.pr_text}\n{self.main_text}"
         self.assertIn("bash scripts/bench/run_pr_benchmark.sh", combined)
-        self.assertNotIn("go test -bench", combined)
-        self.assertNotIn("BenchmarkTier", combined)
-        self.assertNotIn("testdata/benchmark-results/v", combined)
-        self.assertNotIn("citm_catalog", combined)
+        self.assertContainsNone(
+            combined,
+            [
+                "go test -bench",
+                "BenchmarkTier",
+                "testdata/benchmark-results/v",
+                "citm_catalog",
+            ],
+        )
         self.assertNotRegex(combined, re.compile(r"minio-simdjson-go|bytedance-sonic|goccy-go-json"))
 
     def test_blocking_flip_is_discoverable_from_workflow_and_changelog(self) -> None:
