@@ -26,6 +26,7 @@ PATHS_IGNORE = [
 ]
 DISALLOWED_COMPARATOR_ACTION_RE = re.compile(r"minio-simdjson-go|bytedance-sonic|goccy-go-json")
 STICKY_COMMENT_HEADER = "pr-benchmark-regression"
+PR_BENCH_SUMMARY_MARKDOWN = "pr-bench-summary/markdown.md"
 
 
 class PRBenchmarkWorkflowContractTests(unittest.TestCase):
@@ -82,11 +83,11 @@ class PRBenchmarkWorkflowContractTests(unittest.TestCase):
         self.assertContainsAll(
             self.pr_text,
             [
-                'cat pr-bench-summary/markdown.md >>"$GITHUB_STEP_SUMMARY"',
+                f'cat {PR_BENCH_SUMMARY_MARKDOWN} >>"$GITHUB_STEP_SUMMARY"',
                 "continue-on-error: true",
                 "marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0",
                 f"header: {STICKY_COMMENT_HEADER}",
-                "path: pr-bench-summary/markdown.md",
+                f"path: {PR_BENCH_SUMMARY_MARKDOWN}",
                 "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
                 "path: pr-bench-summary/",
                 "retention-days: 14",
