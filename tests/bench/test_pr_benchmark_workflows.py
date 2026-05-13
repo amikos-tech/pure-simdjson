@@ -24,6 +24,7 @@ PATHS_IGNORE = [
     "- '.github/actions/**'",
     "- 'testdata/benchmark-results/**'",
 ]
+DISALLOWED_COMPARATOR_ACTION_RE = re.compile(r"minio-simdjson-go|bytedance-sonic|goccy-go-json")
 
 
 class PRBenchmarkWorkflowContractTests(unittest.TestCase):
@@ -142,7 +143,7 @@ class PRBenchmarkWorkflowContractTests(unittest.TestCase):
                 "citm_catalog",
             ],
         )
-        self.assertNotRegex(combined, re.compile(r"minio-simdjson-go|bytedance-sonic|goccy-go-json"))
+        self.assertNotRegex(combined, DISALLOWED_COMPARATOR_ACTION_RE)
 
     def test_blocking_flip_is_discoverable_from_workflow_and_changelog(self) -> None:
         self.assertIn("REQUIRE_NO_REGRESSION", self.pr_text)
