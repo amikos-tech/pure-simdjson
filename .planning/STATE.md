@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: "Phase 10 shipped -- PR #27"
-stopped_at: Completed 09.1-01-PLAN.md
-last_updated: "2026-04-27T15:02:46.549Z"
+status: executing
+stopped_at: Phase 11 context gathered
+last_updated: "2026-07-22T17:13:04.051Z"
 last_activity: 2026-04-28 -- Phase 10 shipped as PR #27
 progress:
-  total_phases: 16
+  total_phases: 22
   completed_phases: 11
   total_plans: 50
-  completed_plans: 47
-  percent: 94
+  completed_plans: 49
+  percent: 50
 ---
 
 # Project State
@@ -227,9 +227,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-25T05:54:57Z
-Stopped at: Completed 09.1-01-PLAN.md
-Resume file: .planning/phases/09.1-bootstrap-artifact-and-abi-alignment-for-default-installs/09.1-01-SUMMARY.md
+Last session: 2026-07-22T17:13:04.043Z
+Stopped at: Phase 11 context gathered
+Resume file: .planning/phases/11-upstream-simdjson-refresh-bigint-and-diagnostics/11-CONTEXT.md
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
 
