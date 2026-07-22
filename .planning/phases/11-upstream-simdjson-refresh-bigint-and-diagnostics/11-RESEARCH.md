@@ -412,17 +412,18 @@ simdjson::get_active_implementation() = implementation;
 |---|-------|---------|---------------|
 | — | No `[ASSUMED]` factual claims are used. Recommendations are derived from locked decisions, repository inspection, and official v4.6.4 sources. | All | — |
 
-## Open Questions
+## Binding Resolutions
 
-1. **Which semantic version will publish the intermediate ABI 1.2 bootstrap artifact?**
-   - What we know: source currently pins bootstrap version `0.1.4`, and the readiness policy has entries only for ABI 1.0/1.1. [VERIFIED: internal/bootstrap/version.go and check_bootstrap_abi_state.py]
-   - What's unclear: the user did not lock the next artifact version, and this research does not authorize a tag.
-   - Recommendation: make version selection a human checkpoint, then add that exact version to the ABI 1.2 policy/canary; do not consume the Phase 16 `v0.2` release label.
+1. **Intermediate ABI 1.2 artifact version — resolved by a mandatory operator checkpoint.**
+   - Plan 11-01 asks the operator for one unused `MAJOR.MINOR.PATCH` value, fetches tags before checking `v<version>` availability, and records the result as `approved_abi12_version` in `11-01-SUMMARY.md`.
+   - Plans 11-07, 11-13, and 11-14 must extract that exact value from the summary; they may not infer a successor to `0.1.4`, consume Phase 16's final `v0.2` label, or authorize publication from the checkpoint alone.
+   - This is a binding procedure, not an unresolved implementation choice: no version-specific source edit may run until Plan 11-01 completes.
 
-2. **Which malformed inputs produce a stable upstream location through diagnostic replay?**
-   - What we know: upstream documents locations after errors on a valid On-Demand document and explicitly documents no location for several `iterate()` failures. [CITED: https://github.com/simdjson/simdjson/blob/v4.6.4/doc/basics.md]
-   - What's unclear: the exact covered subset for this repository's DOM-error corpus is runtime-path dependent.
-   - Recommendation: start DIAG-02 with a small native characterization test and lock only observed, upstream-proven known/unknown cases; never make all syntax/UTF-8 errors known.
+2. **v4.6.4 malformed-input location corpus — resolved by executable characterization before production expectations.**
+   - After Plan 11-02 pins commit `1bcf71bd85059ab6574ea1159de9298dcc1212c5`, Plan 11-05 Task 1 first creates `tests/rust_shim_diagnostics.rs::characterize_v464_error_locations`. Its fixed candidate corpus includes empty input, invalid UTF-8, an unclosed string, a structural error such as `[1,]`, and trailing content such as `{"a":1} trailing`.
+   - Before finalizing any fixture-specific known/unknown table or production eligibility rule, run `cargo test --locked --test rust_shim_diagnostics characterize_v464_error_locations -- --exact --nocapture --test-threads=1`. Capture each input's primary status, `current_location()` status, pointer-range result, and derived offset (if any) as task evidence, then preserve that evidence in `11-05-SUMMARY.md`.
+   - Only observations for which upstream returns success and a pointer inside `[input,input+len)` may become known golden cases. End/out-of-range pointers and every failed `iterate()`/`current_location()` result remain unknown. Per D-08, the characterization and production path may not use `encoding/json`, another scanner/parser, message parsing, or an estimated byte index.
+   - The final serial command `cargo test --locked --test rust_shim_diagnostics -- --test-threads=1` locks the observed corpus after the characterization evidence is recorded.
 
 ## Environment Availability
 
@@ -455,7 +456,7 @@ simdjson::get_active_implementation() = implementation;
 
 | Layer | Purpose | Command / gate |
 |-------|---------|----------------|
-| C++ characterization | Lock v4.6.4 BigInt boundaries, configured depth/capacity behavior, exact implementation selection, and the malformed-input subset with proven `current_location()`. | Add focused cases to a Rust integration binary or native test target, then run `cargo test --locked --test rust_shim_bigint --test rust_shim_diagnostics --test rust_shim_kernel -- --test-threads=1`. Wave 0 creates these targets. |
+| C++ characterization | Lock v4.6.4 BigInt boundaries, configured depth/capacity behavior, exact implementation selection, and the malformed-input subset with proven `current_location()`. | Before production location expectations, run `cargo test --locked --test rust_shim_diagnostics characterize_v464_error_locations -- --exact --nocapture --test-threads=1`; record the observations, then run `cargo test --locked --test rust_shim_bigint --test rust_shim_diagnostics --test rust_shim_kernel -- --test-threads=1`. Wave 0 creates these targets. |
 | Rust registry/FFI | Prove pre-copy capacity rejection, copied BigInt ownership, panic-safe exports, kind/status numbers, and no stale diagnostic carry-over. | `cargo test --locked -- --test-threads=1` (already owned by `make verify-contract`). |
 | Generated C ABI | Prove ABI `0x00010002`, old symbol retention, new mandatory symbols, enum append-only behavior, out-param rules, and unchanged struct layouts. | `make verify-contract`; extend `tests/abi/check_header.py`, `test_check_header.py`, `handle_layout.c`, and `tests/smoke/ffi_export_surface.c`. |
 | Go public contract | Prove strict getters, known/unknown offsets, immutable options, homogeneous pools, kernel lifecycle, and deliberate pool-constructor source update. | `cargo build --release --locked && go test ./... -race`. Use subprocess helpers for kernel cases. |
