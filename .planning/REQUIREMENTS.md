@@ -119,32 +119,62 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **DOC-06**: `CHANGELOG.md` following Keep-a-Changelog format
 - [x] **DOC-07**: `LICENSE` (MIT) + `NOTICE` for simdjson's Apache-2.0 upstream
 
-## v2 Requirements (v0.2 — On-Demand)
+## v2 Requirements (v0.2 — High-value simdjson APIs)
 
-Deferred to the next release cycle. Tracked but not in current roadmap.
+Mapped to Phases 11-16. The safe, copied, re-readable DOM API remains the default; On-Demand, borrowing, and parallel streaming are explicit opt-ins with narrower lifetime rules.
+
+### Upstream, numbers, diagnostics, and limits
+
+- **UP-01**: Upgrade vendored simdjson from v4.6.1 to the current audited 4.6 patch release (v4.6.4 when this roadmap extension was created), preserving reproducible pinning and all existing contract/build gates
+- **NUM-01**: Configure DOM parsing to preserve valid integers larger than `uint64` as exact decimal text instead of returning `ErrInvalidJSON`
+- **NUM-02**: Expose `TypeBigInt` and `Element.GetBigInt() (string, error)` without introducing an automatic arbitrary-precision arithmetic dependency
+- **DIAG-01**: Expose `Kernel() string` plus a clearly diagnostic-only `SetKernel(name string) error` for test and benchmark reproducibility
+- **DIAG-02**: Report real parse-error byte offsets for covered syntax/UTF-8 failures and explicitly report unknown when upstream cannot provide a reliable location
+- **LIMIT-01**: Add safe parser options for maximum input capacity and maximum nesting depth while preserving current defaults
+
+### High-value DOM navigation and SIMD utilities
+
+- **DOM-01**: `Element.AtPointer(ptr string) (Element, error)` implements RFC 6901 JSON Pointer using upstream DOM navigation
+- **DOM-02**: `Element.AtPath(path string) (Element, error)` exposes the documented simdjson dot/index path subset without claiming full RFC 9535 support
+- **DOM-03**: `Element.AtPathAll(path string) ([]Element, error)` exposes upstream wildcard matching with ordered, document-tied results and explicit lifetime semantics
+- **DOM-04**: Add indexed array access plus constant-time array/object size helpers where upstream provides them
+- **UTIL-01**: Add a thin, allocation-conscious `Minify` API over simdjson's SIMD minifier with explicit input/output aliasing behavior
+- **UTIL-02**: Add a standalone `ValidateUTF8` API over simdjson's SIMD validator; parsing continues to validate JSON strings normally
 
 ### On-Demand API
 
-- **OD-01**: `Parser.ParseOnDemand([]byte, paths []string) (*Doc, error)` — parse with a pre-declared path set, skipping unused keys
-- **OD-02**: `at_pointer(ptr string)` — RFC 6901 JSON Pointer lookup
-- **OD-03**: `at_path(path string)` — RFC 9535 JSONPath subset (dot + index + `$.` only)
-- **OD-04**: Documented "single-consumption" semantics; branching reads must clone or reorder
-
-### Streaming
-
-- **STREAM-01**: `Parser.ParseMany(data []byte, cb func(Doc) bool)` or cursor equivalent — NDJSON / JSON-Lines
-- **STREAM-02**: Parallel `iterate_many` workers backed by simdjson threadpool; target ≥3 GB/s on x86_64
-- **STREAM-03**: `io.Reader` adapter (v0.3 if consumer demand arrives)
+- **OD-01**: Add a narrow batched extraction API that accepts a predeclared query set and skips unused keys instead of materializing a full DOM
+- **OD-02**: Support RFC 6901 JSON Pointer queries through the On-Demand backend with semantics aligned to DOM-01
+- **OD-03**: Support the documented dot/index path subset through the On-Demand backend with semantics aligned to DOM-02
+- **OD-04**: Track single-consumption and ordering state so repeated or unsafe reads return typed errors before reaching upstream abort/undefined-behavior paths
+- **OD-05**: Preserve int64/uint64/float64/BigInt/null distinctions, missing-field identity, and query identity in batched results while avoiding per-segment FFI calls
 
 ### Zero-copy
 
-- **ZC-01**: `Element.Bytes() []byte` returns a byte view into the Rust-owned arena with lifetime documented to end at `Doc.Close()`
-- **ZC-02**: `Parser.ParsePinned(pinner *runtime.Pinner, data []byte) (*Doc, error)` — zero-copy-in opt-in using Go 1.21+ `runtime.Pinner` to pin the input slice
+- **ZC-01**: Add an opt-in borrowed string/byte view whose lifetime ends at document close, parser reuse, or On-Demand invalidation as documented
+- **ZC-02**: Add opt-in pinned input parsing using `runtime.Pinner`, with explicit SIMD padding/capacity validation and no retained unpinned Go pointer
+- **ZC-03**: Expose a lifetime-bound raw JSON token/subtree view plus a copied escape method for values that must outlive the document
+- **ZC-04**: Keep copied input and copied value access as the default; ship each public zero-copy path only when committed benchmarks show a meaningful benefit
 
-### Diagnostics
+### Streaming
 
-- **DIAG-01**: `Kernel() string` / `SetKernel(name string) error` for explicit CPU dispatch override (testing + reproducibility)
-- **DIAG-02**: Proper macOS notarization via Apple Developer ID (if user friction with ad-hoc sign warrants)
+- **STREAM-01**: `Parser.ParseMany(data []byte)` returns a scanner-style NDJSON/JSONL cursor; no native-to-Go callbacks are permitted
+- **STREAM-02**: Use upstream parallel multi-document parsing with bounded buffering and documented worker-count/performance behavior
+- **STREAM-03**: Define deterministic cancellation, early-stop, malformed-document, byte/line location, and cleanup semantics with no leaked parser/document state
+
+### v0.2 release validation
+
+- **REL2-01**: Freeze and verify the expanded ABI/purego binding surface across all five supported targets
+- **REL2-02**: Commit reproducible benchmark evidence for DOM compatibility, On-Demand extraction, zero-copy gates, and NDJSON streaming before changing public claims
+- **REL2-03**: Publish signed native artifacts and checksum metadata through CI, then pass fresh-machine R2 and GitHub-fallback bootstrap validation
+- **REL2-04**: Publish package docs, examples, migration notes, and changelog entries covering lifetimes, consumption rules, streaming ownership, and deliberate exclusions
+
+### Future candidates (not mapped to v0.2)
+
+- `io.Reader` NDJSON adapter — add only when a consumer needs buffering/resynchronization beyond complete byte buffers
+- macOS Developer ID notarization — add only if real user friction makes ad-hoc signing insufficient
+- public generic `any` materialization — the optimized implementation remains internal until a consumer explicitly needs a non-reflective generic tree API
+- memory-mapped input — reconsider only if pinned input fails to cover measured zero-copy workloads
 
 ## Out of Scope
 
@@ -236,12 +266,41 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | DOC-05 | Phase 5 | Complete |
 | DOC-06 | Phase 7 | Complete |
 | DOC-07 | Phase 7 | Complete |
+| UP-01 | Phase 11 | Pending |
+| NUM-01 | Phase 11 | Pending |
+| NUM-02 | Phase 11 | Pending |
+| DIAG-01 | Phase 11 | Pending |
+| DIAG-02 | Phase 11 | Pending |
+| LIMIT-01 | Phase 11 | Pending |
+| DOM-01 | Phase 12 | Pending |
+| DOM-02 | Phase 12 | Pending |
+| DOM-03 | Phase 12 | Pending |
+| DOM-04 | Phase 12 | Pending |
+| UTIL-01 | Phase 12 | Pending |
+| UTIL-02 | Phase 12 | Pending |
+| OD-01 | Phase 13 | Pending |
+| OD-02 | Phase 13 | Pending |
+| OD-03 | Phase 13 | Pending |
+| OD-04 | Phase 13 | Pending |
+| OD-05 | Phase 13 | Pending |
+| ZC-01 | Phase 14 | Pending |
+| ZC-02 | Phase 14 | Pending |
+| ZC-03 | Phase 14 | Pending |
+| ZC-04 | Phase 14 | Pending |
+| STREAM-01 | Phase 15 | Pending |
+| STREAM-02 | Phase 15 | Pending |
+| STREAM-03 | Phase 15 | Pending |
+| REL2-01 | Phase 16 | Pending |
+| REL2-02 | Phase 16 | Pending |
+| REL2-03 | Phase 16 | Pending |
+| REL2-04 | Phase 16 | Pending |
 
 **Coverage:**
 - v1 requirements: 64 total (8 FFI + 7 SHIM + 12 API + 6 PLAT + 10 DIST + 7 CI + 7 BENCH + 7 DOC)
-- Mapped to phases: 64
+- v2 requirements: 28 total (1 upstream + 2 numeric + 2 diagnostics + 1 limit + 4 DOM + 2 utility + 5 On-Demand + 4 zero-copy + 3 streaming + 4 release)
+- Mapped to phases: 92 (64 v1 + 28 v2)
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-14*
-*Last updated: 2026-04-16 — phases 2 and 3 verified and traceability refreshed*
+*Last updated: 2026-07-22 — v0.2 requirements mapped to Phases 11-16*

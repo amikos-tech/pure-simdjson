@@ -31,12 +31,16 @@ Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest ben
 - [ ] CI release matrix with cosign keyless signing + ad-hoc macOS codesign
 - [ ] Benchmarks vs `encoding/json`, `minio/simdjson-go`, `bytedance/sonic` on twitter.json, canada.json, citm_catalog.json
 
-**v0.2 (next) — On-Demand:**
+**v0.2 (next) — high-value simdjson API extension (Phases 11-16):**
 
-- [ ] On-Demand API: parse with pre-declared path set (skips unused keys) via `at_pointer()` / `at_path()`
-- [ ] NDJSON streaming parse (parallel `iterate_many`, targeting ~3 GB/s)
-- [ ] Zero-copy string views tied to `Doc` lifetime
-- [ ] `ParsePinned` zero-copy-in via `runtime.Pinner`
+- [ ] Upgrade to the current audited simdjson 4.6 patch release and re-run the full contract/platform matrix
+- [ ] Preserve oversized integer literals exactly through `TypeBigInt` / `GetBigInt` instead of treating valid JSON as invalid
+- [ ] Expose production diagnostics and parser limits: kernel identity/override, truthful error offsets, maximum capacity, and maximum depth
+- [ ] Add safe DOM navigation and utilities: RFC 6901 pointer, documented path subset/wildcards, indexed/container helpers, minify, and standalone UTF-8 validation
+- [ ] Add batched On-Demand extraction for a pre-declared path set while guarding single-consumption semantics
+- [ ] Add borrowed string/raw JSON views and `ParsePinned` as explicit, benchmark-gated zero-copy options
+- [ ] Add callback-free NDJSON/JSONL streaming over upstream parallel multi-document parsing
+- [ ] Stabilize and release the expanded ABI across all five targets with fresh-machine bootstrap validation and committed benchmark evidence
 
 ### Out of Scope
 
@@ -81,7 +85,7 @@ Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest ben
 
 ## Current State
 
-Phase 8 is complete. The repo now has an internal frame-stream traversal/materialization path, an unexported Go fast `any` materializer wired into Tier 1 diagnostics, and committed same-host benchmark evidence under `testdata/benchmark-results/phase8/`. Phase 9 now owns the public benchmark repositioning, README/result updates, and any release decision informed by that evidence.
+The v0.1 implementation is functionally delivered through Phase 10: the DOM API, optimized internal materializer, public benchmark positioning, validated default-install artifacts, and PR benchmark signal are shipped. Planning closeout still needs to reconcile stale Phase 09.1/10 checkboxes and the missing Phase 10 Plan 03 summary. The next implementation cycle is the v0.2 extension in Phases 11-16, beginning with upstream compatibility, BigInt correctness, and diagnostics before any new lifetime-sensitive API lands.
 
 ## Key Decisions
 

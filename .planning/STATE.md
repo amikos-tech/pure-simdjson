@@ -118,6 +118,12 @@ Progress: [█████████▊] 98%
 - Phase 09 added: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh. This phase exists to replace the invalidated BENCH-07 headline with a measured benchmark story after Phase 08 lands
 - Phase 09.1 inserted after Phase 09: Bootstrap artifact and ABI alignment for default installs (URGENT)
 - Phase 10 added: Lightweight PR benchmark regression signal, promoted from backlog item 999.8 and explicitly scoped to a cheap Tier 1/Tier 2/Tier 3 `pull_request` benchmark check rather than the heavier Phase 9 release-evidence capture
+- Phase 11 added: Upstream simdjson refresh, exact big integers, and production diagnostics
+- Phase 12 added: High-value DOM navigation and SIMD utility APIs
+- Phase 13 added: Batched On-Demand path extraction
+- Phase 14 added: Zero-copy pinned input and borrowed value views
+- Phase 15 added: NDJSON and JSONL streaming cursor with parallel parse-many
+- Phase 16 added: v0.2 cross-platform evidence, API stabilization, and release
 - Backlog items 999.6, 999.7, and 999.8 were retired from the parking lot: 999.6 is now active milestone work under Phase 08, 999.7's diagnostic split was implemented during Phase 07 investigation to justify the new direction, and 999.8 is now active milestone work under Phase 10
 
 ### Decisions

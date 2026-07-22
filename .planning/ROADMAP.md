@@ -1,14 +1,17 @@
-# Roadmap: pure-simdjson v0.1 (MVP)
+# Roadmap: pure-simdjson v0.1 foundation + v0.2 extension
 
 **Created:** 2026-04-14
 **Milestone:** v0.1 — DOM API on five platforms with bootstrap, benchmarks, and ad-hoc-signed release
-**Granularity:** expanded (benchmark follow-up extends the milestone beyond the original 5-8 phase target)
+**Next milestone extension:** v0.2 — audited upstream refresh, high-value DOM parity, On-Demand extraction, zero-copy views, NDJSON streaming, and a cross-platform release
+**Granularity:** expanded (the shipped v0.1 foundation is followed by six focused v0.2 phases)
 **Parallelization:** enabled
-**Coverage:** 64/64 v1 requirements mapped
+**Coverage:** 64/64 v1 requirements mapped; 28/28 v2 requirements mapped
 
 ## Core Value Anchor
 
 Ship a precision-preserving, cgo-free simdjson DOM API for Go with honest benchmark positioning: typed extraction and selective traversal should be the primary performance story, while full `any` materialization is measured and optimized without overstating what the architecture can win. The non-negotiable happy path remains `[]byte -> Doc -> typed accessors` on linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64.
+
+The v0.2 extension keeps the safe, re-readable DOM API as the default while adding upstream simdjson's highest-value capabilities behind explicit APIs: exact BigInt preservation, JSON Pointer/path navigation, On-Demand batched extraction, opt-in borrowed views, and callback-free NDJSON streaming. Encoding, reflection-based struct binding, mutation, and full JSONPath remain out of scope.
 
 ## Phases
 
@@ -23,6 +26,12 @@ Ship a precision-preserving, cgo-free simdjson DOM API for Go with honest benchm
 - [x] **Phase 9: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh** — Reframe the benchmark story around measured Tier 1/Tier 2/Tier 3 strengths, then rerun and publish evidence after Phase 8 lands
 - [ ] **Phase 09.1: Bootstrap artifact and ABI alignment for default installs (INSERTED)** — Align the bootstrap-pinned public artifact/version/checksum state with the current ABI and validate the default-install path after Phase 9 locks the benchmark/release story
 - [ ] **Phase 10: Lightweight PR benchmark regression signal** — Add a cheap pull-request benchmark workflow covering Tier 1/2/3 so every PR gets a useful regression signal without waiting for the heavier release-grade benchmark capture path
+- [ ] **Phase 11: Upstream simdjson refresh, exact big integers, and production diagnostics** — Upgrade the audited upstream base, preserve oversized integers exactly, expose kernel/limit controls, and make parser diagnostics truthful
+- [ ] **Phase 12: High-value DOM navigation and SIMD utility APIs** — Add JSON Pointer/path navigation, indexed/container helpers, wildcard path lookup, minification, and standalone UTF-8 validation without growing into a query or encoding engine
+- [ ] **Phase 13: Batched On-Demand path extraction** — Extract a typed, predeclared path set in one native traversal while guarding simdjson's single-consumption semantics
+- [ ] **Phase 14: Zero-copy pinned input and borrowed value views** — Add opt-in pinned input plus lifetime-bound string/raw JSON views while retaining copied values as the safe default
+- [ ] **Phase 15: NDJSON and JSONL streaming cursor with parallel parse-many** — Expose upstream multi-document parsing through a callback-free Go cursor with cancellation, backpressure, and per-document errors
+- [ ] **Phase 16: v0.2 cross-platform evidence, API stabilization, and release** — Validate the expanded ABI and APIs on all five targets, publish benchmark evidence, and ship a fresh-machine-tested v0.2 release through CI
 
 ## Phase Details
 
@@ -521,6 +530,132 @@ Plans:
 - [ ] `10-01-PLAN.md` — Section-aware bidirectional benchstat regression parser, contract tests, and fixture corpus covering real multi-metric benchstat output (D-08, D-11, D-12, D-13, D-14, D-15)
 - [ ] `10-02-PLAN.md` — Bash orchestrator `run_pr_benchmark.sh` with locked Tier 1/2/3 regex, count, no-cargo ownership boundary, and PATH-shadowed integration smoke test (D-02, D-03, D-04, D-05, D-08)
 - [ ] `10-03-PLAN.md` — Two GitHub Actions workflows with matched baseline cache paths (PR-trigger advisory + push/workflow_dispatch main baseline producer) plus CHANGELOG note for the future-blocking-flip env var (D-01, D-06, D-07, D-09, D-10, D-13..D-21)
+
+### Phase 11: Upstream simdjson refresh, exact big integers, and production diagnostics
+
+**Goal:** Establish the compatibility foundation for v0.2 by moving to the current audited simdjson 4.6 patch release, preserving oversized integer literals as exact decimal text, and exposing the small set of parser controls and diagnostics required for production operation.
+
+**Requirements:** UP-01, NUM-01, NUM-02, DIAG-01, DIAG-02, LIMIT-01
+
+**Depends on:** Phase 10
+
+**Success Criteria** (what must be TRUE):
+1. The vendored simdjson revision is updated from v4.6.1 to the audited current 4.6 patch release (v4.6.4 at roadmap creation), and the existing Go/Rust/C++ contract, correctness, benchmark, and five-target build gates remain green.
+2. Valid integer literals above `uint64` no longer surface as `ErrInvalidJSON`; callers can distinguish `TypeBigInt` and retrieve the exact decimal spelling through `GetBigInt()` without an automatic `math/big` dependency.
+3. Callers can report the active SIMD kernel, apply a clearly diagnostic-only kernel override, and set bounded parser capacity/depth through safe options.
+4. Syntax and UTF-8 failures expose a real byte offset where upstream makes one available and explicitly report "unknown" otherwise; the API never fabricates precision.
+
+**Scope boundary:** No ABI break is accepted accidentally. Any ABI version change, bootstrap artifact impact, and compatibility fallback must be explicit before implementation merges.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 11 to break down)
+
+### Phase 12: High-value DOM navigation and SIMD utility APIs
+
+**Goal:** Expose the mature, high-value parts of simdjson's DOM and implementation APIs as thin Go wrappers: standards-based navigation, indexed/container helpers, wildcard path selection, fast minification, and standalone UTF-8 validation.
+
+**Requirements:** DOM-01, DOM-02, DOM-03, DOM-04, UTIL-01, UTIL-02
+
+**Depends on:** Phase 11
+
+**Success Criteria** (what must be TRUE):
+1. `Element.AtPointer` follows RFC 6901 and `Element.AtPath` follows the documented simdjson dot/index subset with typed missing, invalid-path, and out-of-bounds errors.
+2. Wildcard path queries return ordered, document-tied element views without claiming full RFC 9535 JSONPath support.
+3. Arrays support indexed access and length; arrays and objects expose size without requiring a full Go-side iteration.
+4. `Minify` and `ValidateUTF8` are allocation-conscious thin wrappers over upstream SIMD implementations with overlap, empty-input, malformed-input, and cross-platform tests.
+
+**Scope boundary:** No JSON encoder/builder, reflection-based `Unmarshal`, full JSONPath engine, file-loading wrapper, or mutable DOM API is added.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 12 to break down)
+
+### Phase 13: Batched On-Demand path extraction
+
+**Goal:** Deliver the flagship v0.2 capability: extract a predeclared set of typed values from a document in one native On-Demand traversal, skipping unrelated fields and avoiding one FFI round trip per path segment.
+
+**Requirements:** OD-01, OD-02, OD-03, OD-04, OD-05
+
+**Depends on:** Phase 12
+
+**Success Criteria** (what must be TRUE):
+1. A narrow batched extraction API accepts compiled JSON Pointer/path queries and returns type-preserving results with deterministic missing/null/duplicate-field semantics.
+2. Native consumption tracking turns repeated or out-of-order unsafe reads into typed errors; no valid caller sequence can reach simdjson's abort or undefined-behavior paths.
+3. Accessed malformed content and late UTF-8 errors propagate with query identity and location while skipped content follows documented On-Demand validation semantics.
+4. Representative selective workloads show a material improvement over the current DOM selective path, with raw evidence committed before any public claim changes.
+
+**Scope boundary:** Start with batched extraction, not a general public On-Demand cursor hierarchy. Do not expose wildcard queries until the audited upstream semantics and result-lifetime model are proven.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 13 to break down)
+
+### Phase 14: Zero-copy pinned input and borrowed value views
+
+**Goal:** Add explicit opt-in paths that remove avoidable input and value copies while preserving a safe copied default and making every borrowed lifetime mechanically enforceable.
+
+**Requirements:** ZC-01, ZC-02, ZC-03, ZC-04
+
+**Depends on:** Phase 13
+
+**Success Criteria** (what must be TRUE):
+1. `ParsePinned` validates pinning, padding, capacity, and ownership before native parsing and cannot retain an unpinned Go pointer.
+2. Borrowed string and raw JSON views are valid only while their owning document is live; use after close, parser reuse, or consumption invalidation returns a typed error rather than stale memory.
+3. Copied string/raw-value methods remain the default escape hatch and produce values valid after `Doc.Close()`.
+4. Each zero-copy API ships only with benchmark evidence showing a meaningful allocation or latency benefit on a named workload; otherwise it remains internal or experimental.
+
+**Scope boundary:** No `mmap` API and no implicit borrowing. The zero-copy contract must be obvious at the call site.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 14 to break down)
+
+### Phase 15: NDJSON and JSONL streaming cursor with parallel parse-many
+
+**Goal:** Expose simdjson's multi-document parsing through an idiomatic pull cursor that processes NDJSON/JSONL buffers with bounded memory and parallel native parsing, without native-to-Go callbacks.
+
+**Requirements:** STREAM-01, STREAM-02, STREAM-03
+
+**Depends on:** Phase 14
+
+**Success Criteria** (what must be TRUE):
+1. `ParseMany` returns a scanner-style cursor over a complete NDJSON/JSONL byte buffer; callers drive `Next`, inspect the current document, and check `Err`.
+2. The native parse-many worker model is used without invoking Go callbacks from native threads, and the cursor applies bounded buffering/backpressure.
+3. Cancellation, early stop, malformed-document recovery policy, line/byte location, and parser reuse are deterministic and leak-free.
+4. Committed benchmarks compare serial Go loops, DOM parsing, and the parallel cursor on representative line sizes; throughput claims include hardware and worker-count context.
+
+**Scope boundary:** A general `io.Reader` adapter remains future work. This phase accepts complete byte buffers so native boundary detection and padding remain explicit.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 15 to break down)
+
+### Phase 16: v0.2 cross-platform evidence, API stabilization, and release
+
+**Goal:** Stabilize the expanded v0.2 surface, validate its performance and safety on every supported target, publish matching native artifacts, and prove fresh-machine default installs before describing the new APIs as released.
+
+**Requirements:** REL2-01, REL2-02, REL2-03, REL2-04
+
+**Depends on:** Phase 15
+
+**Success Criteria** (what must be TRUE):
+1. The final v0.2 ABI and purego bindings pass contract, correctness, race/lifetime, and smoke tests on linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, and windows/amd64.
+2. Release-grade evidence covers DOM compatibility, BigInt, path navigation, On-Demand extraction, zero-copy gates, and NDJSON throughput without replacing measured caveats with blanket claims.
+3. CI publishes signed artifacts and checksum metadata through the supported release path; fresh-machine R2 and GitHub-fallback bootstrap validation passes against the released version.
+4. README, package docs, examples, migration notes, and changelog describe copied-versus-borrowed lifetimes, single-consumption rules, streaming ownership, and the intentionally excluded APIs.
+
+**Scope boundary:** Release remains CI-only and uses squash-merged source changes. No hand-built or hand-uploaded artifact may satisfy the phase.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 16 to break down)
 
 ---
 *Roadmap created: 2026-04-14 from PROJECT.md, REQUIREMENTS.md, and research/SUMMARY.md*
