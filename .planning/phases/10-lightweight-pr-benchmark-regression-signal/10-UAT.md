@@ -1,18 +1,18 @@
 ---
-status: partial
+status: complete
 phase: 10-lightweight-pr-benchmark-regression-signal
 source:
   - 10-01-SUMMARY.md
   - 10-02-SUMMARY.md
   - 10-03-LIVE-VERIFICATION.md
 started: 2026-04-28T04:04:29Z
-updated: 2026-04-28T04:11:12Z
+updated: 2026-05-13T03:37:27Z
 ---
 
 ## Current Test
 <!-- OVERWRITE each test - shows where we are -->
 
-[testing paused - 3 live Actions checks outstanding]
+[testing complete]
 
 ## Tests
 
@@ -65,30 +65,73 @@ evidence: |
 
 ### 6. Live Main Baseline Actions Evidence
 expected: After the workflow files are merged to `main`, the Actions sidebar should show `main benchmark baseline`. A `workflow_dispatch` run on `main` should finish green, create a `pr-bench-baseline-<sha>` cache entry, and upload an artifact containing `head.bench.txt`.
-result: blocked
-blocked_by: third-party
-reason: "Requires live GitHub Actions after the workflow files are merged to main and a workflow_dispatch baseline run is available."
+result: pass
+evidence: |
+  Dispatched `main benchmark baseline` on `main` after phase 10 was merged.
+  Run 25731579136 completed successfully from `workflow_dispatch` at commit
+  `1856e4ea0f23ee9490928ba59bbf9be95ce8aa8c`.
+  Verified cache key `pr-bench-baseline-1856e4ea0f23ee9490928ba59bbf9be95ce8aa8c`
+  exists on `refs/heads/main`.
+  Downloaded artifact `baseline-evidence-1856e4ea0f23ee9490928ba59bbf9be95ce8aa8c-25731579136`
+  and confirmed it contains `head.bench.txt`, `summary.json`, and `markdown.md`;
+  `head.bench.txt` has 72 lines.
 
 ### 7. Live PR Benchmark Actions Evidence
 expected: Open or update a small non-doc PR after a baseline exists. The `pr benchmark` workflow should run, the `Restore main-baseline cache` step should have a non-empty `cache-matched-key`, the step summary should show the PR benchmark result, the sticky PR comment should post or update unless fork-token denial is harmless because the step is `continue-on-error`, the job should finish green in advisory mode, and diagnostic artifacts should be available.
-result: blocked
-blocked_by: third-party
-reason: "Requires a live PR run after the main baseline cache exists."
+result: pass
+evidence: |
+  Created PR #29 from `uat/pr-benchmark-live-evidence` with commit
+  `11742b429256867effa1abaddcbe251bd66cf83a`, a test-only helper reuse change.
+  Run 25737200679 (`pr benchmark`) completed successfully for the PR.
+  Job 75577284687 restored the main baseline cache from
+  `pr-bench-baseline-1856e4ea0f23ee9490928ba59bbf9be95ce8aa8c`, so
+  `NO_BASELINE=false`.
+  The step summary command appended `pr-bench-summary/markdown.md`; the sticky
+  PR comment posted `PR Benchmark - no regressions`; and diagnostic artifact
+  `pr-bench-evidence-29-25737200679` uploaded successfully.
+  Downloaded artifact contents include `head.bench.txt`, `baseline.bench.txt`,
+  `regression.benchstat.txt`, `summary.json`, and `markdown.md`.
+  `summary.json` reports `bypassed: false`, `regression: false`, and
+  `flagged_rows: []`.
 
 ### 8. Live Cache-Miss and Concurrency Evidence
 expected: Delete `pr-bench-baseline-*` cache entries and rerun a PR benchmark. The cache-miss run should report `advisory bypass`, exit green, and upload `head.bench.txt`, `summary.json`, and `markdown.md`. Then push two commits quickly to the same PR; the earlier run should be cancelled and the latest run should update the sticky comment.
-result: blocked
-blocked_by: third-party
-reason: "Requires live Actions cache mutation and concurrent PR workflow runs."
+result: pass
+evidence: |
+  Deleted the existing `pr-bench-baseline-*` cache entry
+  `pr-bench-baseline-1856e4ea0f23ee9490928ba59bbf9be95ce8aa8c`, then verified
+  `gh cache list --key pr-bench-baseline` returned no entries.
+  Pushed commit `9fc31ce3b7c964f95203069383a0f5ddb5e5a6ee` to PR #29.
+  Run 25776358177 completed successfully with `Cache not found for input keys:
+  pr-bench-baseline-NEVER-MATCHES, pr-bench-baseline-` and `NO_BASELINE: true`.
+  Downloaded artifact `pr-bench-evidence-29-25776358177`; it contains
+  `head.bench.txt`, `summary.json`, and `markdown.md`. `summary.json` reports
+  `bypassed: true`, `regression: false`, and `flagged_rows: []`; `markdown.md`
+  renders `PR Benchmark - advisory bypass`; `head.bench.txt` has 72 lines.
+  Pushed two quick follow-up commits to the same PR:
+  `9386314f488f356b10416b8ec47d5bbb8ed52941` and
+  `2fe490eabe549239c1e8983f15c550ab7d5500c9`.
+  GitHub run 25776477043 for the first quick commit was cancelled by the
+  concurrency group, and run 25776506843 for the second quick commit completed
+  successfully. The latest run again reported `NO_BASELINE: true`, appended
+  `pr-bench-summary/markdown.md`, updated the sticky PR comment to
+  `PR Benchmark - advisory bypass`, and uploaded
+  `pr-bench-evidence-29-25776506843` with `head.bench.txt`, `summary.json`, and
+  `markdown.md`.
+  After verification, dispatched `main benchmark baseline` run 25776627108 to
+  restore the deleted baseline. The run completed successfully and recreated
+  cache key `pr-bench-baseline-1856e4ea0f23ee9490928ba59bbf9be95ce8aa8c` on
+  `refs/heads/main`, with artifact
+  `baseline-evidence-1856e4ea0f23ee9490928ba59bbf9be95ce8aa8c-25776627108`.
 
 ## Summary
 
 total: 8
-passed: 5
+passed: 8
 issues: 0
 pending: 0
 skipped: 0
-blocked: 3
+blocked: 0
 
 ## Gaps
 
