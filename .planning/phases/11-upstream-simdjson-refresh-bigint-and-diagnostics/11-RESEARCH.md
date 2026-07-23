@@ -2,7 +2,7 @@
 
 **Researched:** 2026-07-22
 **Domain:** Go/Rust/C++ DOM ABI evolution, parser controls, diagnostics, and bootstrap distribution
-**Confidence:** HIGH overall; MEDIUM for the exact set of malformed inputs that yield an upstream-proven byte location
+**Confidence:** HIGH overall and for the selected v4.6.4 malformed-input corpus after Spike 001; MEDIUM for broader malformed inputs not characterized there
 
 <user_constraints>
 ## User Constraints (from CONTEXT.md)
@@ -69,6 +69,18 @@ The largest implementation risks are in this repository's glue, not in the upstr
 The ABI/bootstrap constraint creates a real sequencing dependency: `release.yml` only publishes a tag whose commit is already anchored on `origin/main`, while the Phase 11 wrapper may not be declared ready until its default bootstrap path can fetch ABI 1.2. Plan an artifact-enabling source state that is squash-merged to `main`, followed by an operator-only checkpoint with the exact order **`main` -> strict readiness -> annotated tag -> `release.yml` -> Phase 06.1 public bootstrap validation**. Only after that proof may Phase 11 close or any remaining public integration be treated as merge-ready. No tag or publication happens during research or ordinary plan execution. This compatibility artifact is an intermediate foundation, not the final v0.2 release; Phase 16 still owns final API stabilization, release evidence, and the v0.2 publication. [VERIFIED: codebase release workflow, docs/releases.md, and ROADMAP.md]
 
 **Primary recommendation:** Implement one normalized parser configuration end to end, add a two-stage ABI loader, copy BigInt text at the existing Rust ownership boundary, and make artifact availability a hard human checkpoint rather than hiding publication inside an implementation task.
+
+## Spike Evidence
+
+Three isolated probes validated the highest-risk glue decisions without changing production source, the simdjson gitlink, ABI/version state, tags, or release state.
+
+| Spike | Validated finding | Phase 11 consequence |
+|-------|-------------------|----------------------|
+| `001-v464-error-location-replay` | Against exact v4.6.4 commit `1bcf71bd85059ab6574ea1159de9298dcc1212c5`, neither `raw_json()` nor recursive traversal is sufficient alone. A two-fresh-parser hybrid preserves trailing-content offset 8 and catches structural failures skipped by `raw_json()`. It also proves a natural known-zero case for input `x`; empty, invalid UTF-8, and unclosed string remain unknown. | Plan 11-05 must implement the hybrid replay, call `current_location()` only after successful `iterate()`, and retain only pointers in `[input,input+len)`. The production characterization must reproduce the spike corpus before locking assertions. |
+| `002-abi-first-staged-binding` | Real purego v0.10.0 `Dlsym`/`RegisterFunc` calls classify ABI 1.1 as `abi_mismatch` with zero ABI 1.2 lookups, complete ABI 1.2 as valid, and incomplete ABI 1.2 as corrupt with the omitted symbol named. | Plan 11-08 keeps a one-symbol `ProbeABI` stage, performs compatibility comparison before full binding, and caches only the complete required surface. |
+| `003-pre-copy-capacity-proof` | An instrumented Rust model accepts the exact limit, rejects limit+1 with zero padding checks/resizes/copies, clears stale diagnostics, leaves the reusable arena unchanged, and avoids an 8,388,609-byte rejected copy. | Plan 11-04 must clear diagnostics and compare capacity while the arena is still attached to the parser entry; only accepted input may proceed to `mem::take`, padding arithmetic, resize, and copy. |
+
+Each spike has a self-contained verifier under `.planning/spikes/`; these probes are decision evidence, not production code or a substitute for the Wave 0 integration tests.
 
 ## Architectural Responsibility Map
 
@@ -535,11 +547,14 @@ simdjson::get_active_implementation() = implementation;
 - [DOM parser API](https://github.com/simdjson/simdjson/blob/v4.6.4/include/simdjson/dom/parser.h), [implementation](https://github.com/simdjson/simdjson/blob/v4.6.4/include/simdjson/dom/parser-inl.h), and [base constants](https://github.com/simdjson/simdjson/blob/v4.6.4/include/simdjson/base.h) — capacity/depth defaults, allocation, and clamp behavior.
 - [Implementation selection](https://github.com/simdjson/simdjson/blob/v4.6.4/doc/implementation-selection.md) — active implementation, name lookup, and runtime support check.
 - [Error-location documentation](https://github.com/simdjson/simdjson/blob/v4.6.4/doc/basics.md) — `current_location` guarantees and documented unavailable cases.
+- `.planning/spikes/001-v464-error-location-replay/` — exact v4.6.4 hybrid replay comparison, pointer-range verification, and repeatability evidence.
+- `.planning/spikes/002-abi-first-staged-binding/` — real purego staged-binding classification across three synthetic ABI surfaces.
+- `.planning/spikes/003-pre-copy-capacity-proof/` — instrumented Rust boundary, stale-state, arena-mutation, and avoided-copy evidence.
 - Repository `CONTEXT.md`, source, tests, `docs/ffi-contract.md`, `docs/releases.md`, and workflow YAML — current cross-language ABI, ownership, loader, bootstrap, and release behavior.
 
 ### Secondary (MEDIUM confidence)
 
-- The recommended failure-only On-Demand diagnostic replay is an implementation inference from official `raw_json()` consumption and `current_location()` behavior. Its exact known-input corpus must be characterized in Wave 0 before being promised.
+- The hybrid replay technique and selected corpus are validated by Spike 001 against exact v4.6.4. Broader malformed-input coverage remains deliberately unpromised and must stay unknown unless separately characterized.
 
 ### Tertiary (LOW confidence)
 
