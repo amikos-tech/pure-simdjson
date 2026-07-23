@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 11-02-PLAN.md
-last_updated: "2026-07-23T11:41:34.179Z"
+stopped_at: Completed 11-03-PLAN.md
+last_updated: "2026-07-23T12:08:32.046Z"
 last_activity: 2026-07-23
 progress:
   total_phases: 22
   completed_phases: 11
   total_plans: 64
-  completed_plans: 51
+  completed_plans: 52
   percent: 50
 ---
 
@@ -26,12 +26,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 ## Current Position
 
 Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — EXECUTING
-Plan: 3 of 14
+Plan: 4 of 14
 Status: Ready to execute
 Last activity: 2026-07-23
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
 
-Progress: [████████░░] 80%
+Progress: [████████░░] 81%
 
 ## Performance Metrics
 
@@ -86,6 +86,7 @@ Progress: [████████░░] 80%
 | Phase 09.1 P01 | 4min | 2 tasks | 9 files |
 | Phase 11 P01 | 1 min | 1 tasks | 1 files |
 | Phase 11 P02 | 27min | 3 tasks | 16 files |
+| Phase 11 P03 | 20min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -225,6 +226,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 11]: Keep official simdjson v4.6.4 as the audited base and apply exactly one provenance-recorded positive-overflow patch only to a verified build-output copy. — Preserves reproducible upstream identity while closing the confirmed BigInt gap without a fork, dirty submodule, second source tree, or dependency.
 - [Phase 11]: Transport additive native kind 9 through the interim Rust boundary as raw u32. — Avoids constructing an undeclared Rust enum discriminant until Plan 11-07 synchronizes all public ABI mirrors.
 - [Phase 11]: Expose TypeBigInt and exact frame text in Wave 1 while leaving GetBigInt and Go materialization to Plan 11-10. — Keeps this compatibility wave green without crossing dependency-ordered public accessor ownership.
+- [Phase 11]: Reuse one tracked byte-copy path for strings and BigInts; do not expose borrowed BigInt memory or add a second allocator.
+- [Phase 11]: Propagate successful native kind hints directly for roots and descendants, including raw kind 9.
+- [Phase 11]: Keep precision-loss for in-range integer-to-float conversion only; BigInt numeric getters return wrong type.
 
 ### Pending Todos
 
@@ -238,8 +242,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-23T11:41:34.170Z
-Stopped at: Completed 11-02-PLAN.md
+Last session: 2026-07-23T12:08:32.038Z
+Stopped at: Completed 11-03-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
