@@ -612,6 +612,14 @@ pub(crate) fn parser_last_error_offset(
     super::native_parser_get_last_error_offset(entry.native_ptr)
 }
 
+pub(crate) fn parser_last_error_has_offset(
+    handle: pure_simdjson_parser_t,
+) -> Result<u8, pure_simdjson_error_code_t> {
+    let registry = registry_guard();
+    let entry = registry.parser_entry(handle)?;
+    super::native_parser_get_last_error_has_offset(entry.native_ptr)
+}
+
 pub(crate) fn doc_free(handle: pure_simdjson_doc_t) -> pure_simdjson_error_code_t {
     let mut registry = registry_guard();
     let (doc_index, _, doc_generation) = match unpack_handle(handle) {

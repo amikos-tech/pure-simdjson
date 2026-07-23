@@ -558,6 +558,30 @@ pub unsafe extern "C" fn pure_simdjson_parser_get_last_error_offset(
     })
 }
 
+/// Report whether the parser's last failure has a proven byte offset.
+///
+/// A zero result is distinct from a known offset at byte zero. Call this alongside
+/// [`pure_simdjson_parser_get_last_error_offset`] instead of interpreting the offset sentinel.
+///
+/// # Safety
+/// `parser` must be a live parser handle from this library. `out_has_offset` must be a valid
+/// writable pointer to a `u8`.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_parser_get_last_error_has_offset(
+    parser: pure_simdjson_parser_t,
+    out_has_offset: *mut u8,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap(
+        "pure_simdjson_parser_get_last_error_has_offset",
+        || unsafe {
+            match runtime::registry::parser_last_error_has_offset(parser) {
+                Ok(has_offset) => write_out(out_has_offset, has_offset),
+                Err(rc) => rc,
+            }
+        },
+    )
+}
+
 /// Release a live document handle.
 ///
 /// Contract:

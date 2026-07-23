@@ -111,7 +111,6 @@ unsafe extern "C" {
         parser: *const psimdjson_parser,
         out_offset: *mut u64,
     ) -> pure_simdjson_error_code_t;
-    #[allow(dead_code)]
     fn psimdjson_parser_get_last_error_has_offset(
         parser: *const psimdjson_parser,
         out_has_offset: *mut u8,
@@ -420,7 +419,6 @@ pub(crate) fn native_parser_get_last_error_offset(
     }
 }
 
-#[allow(dead_code)]
 pub(crate) fn native_parser_get_last_error_has_offset(
     parser_ptr: usize,
 ) -> Result<u8, pure_simdjson_error_code_t> {
