@@ -12,6 +12,10 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "public-bootstrap-validation.yml"
 RELEASES_DOC = REPO_ROOT / "docs" / "releases.md"
 BOOTSTRAP_DOC = REPO_ROOT / "docs" / "bootstrap.md"
+GO_BOOTSTRAP_SMOKE = REPO_ROOT / "tests" / "smoke" / "go_bootstrap_smoke.go"
+RUN_PUBLIC_BOOTSTRAP_SMOKE = (
+    REPO_ROOT / "scripts" / "release" / "run_public_bootstrap_smoke.sh"
+)
 
 try:
     import yaml
@@ -85,6 +89,53 @@ def is_false(value: object) -> bool:
 
 
 class PublicBootstrapValidationContractTests(unittest.TestCase):
+    def test_public_bands_execute_published_tag_abi_1_2_smoke(self) -> None:
+        workflow = load_workflow_definition()
+        wrapper_text = RUN_PUBLIC_BOOTSTRAP_SMOKE.read_text(encoding="utf-8")
+        smoke_text = GO_BOOTSTRAP_SMOKE.read_text(encoding="utf-8")
+
+        for job_name, smoke_step_name in (
+            ("validate-r2", "Run public bootstrap smoke (r2)"),
+            (
+                "validate-gh-fallback",
+                "Run public bootstrap smoke (github-fallback)",
+            ),
+        ):
+            job = workflow["jobs"][job_name]
+            validate_step = job_step(job, "Validate target tag source")
+            smoke_step = job_step(job, smoke_step_name)
+            self.assertIn(
+                "target-src/tests/smoke/go_bootstrap_smoke.go",
+                validate_step["run"],
+            )
+            self.assertIn(
+                "scripts/release/run_public_bootstrap_smoke.sh",
+                smoke_step["run"],
+            )
+
+        self.assertIn(
+            '(cd "$repo_root" && go run ./tests/smoke/go_bootstrap_smoke.go)',
+            wrapper_text,
+        )
+        for snippet in (
+            "WithMaxCapacity",
+            "WithMaxDepth",
+            "TypeBigInt",
+            "GetBigInt",
+        ):
+            self.assertIn(snippet, smoke_text)
+
+    def test_bootstrap_docs_mark_0_1_5_as_source_prepared(self) -> None:
+        bootstrap_text = BOOTSTRAP_DOC.read_text(encoding="utf-8")
+
+        for snippet in (
+            "v0.1.5",
+            "source-prepared",
+            "ErrABIVersionMismatch",
+            "Phase `06.1`",
+        ):
+            self.assertIn(snippet, bootstrap_text)
+
     def test_workflow_exists_and_has_manual_plus_scheduled_triggers(self) -> None:
         workflow = load_workflow_definition()
 
