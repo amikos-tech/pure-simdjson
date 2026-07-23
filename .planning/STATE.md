@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Phase 11 context gathered
-last_updated: "2026-07-23T10:20:25.052Z"
-last_activity: 2026-07-23 -- Phase 11 planning complete
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-07-23T10:52:40.451Z"
+last_activity: 2026-07-23
 progress:
   total_phases: 22
   completed_phases: 11
   total_plans: 64
-  completed_plans: 49
+  completed_plans: 50
   percent: 50
 ---
 
@@ -21,17 +21,17 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 **Core value:** Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning: typed extraction and selective traversal are the primary story, while full `any` materialization is documented without overstating current wins.
-**Current focus:** Phase 09.1 — bootstrap-artifact-and-abi-alignment-for-default-installs
+**Current focus:** Phase 11 — upstream-simdjson-refresh-bigint-and-diagnostics
 
 ## Current Position
 
-Phase: 09.1 (bootstrap-artifact-and-abi-alignment-for-default-installs) — EXECUTING
-Plan: 2 of 2
+Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — EXECUTING
+Plan: 2 of 14
 Status: Ready to execute
-Last activity: 2026-07-23 -- Phase 11 planning complete
+Last activity: 2026-07-23
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
 
-Progress: [█████████▊] 98%
+Progress: [████████░░] 78%
 
 ## Performance Metrics
 
@@ -84,6 +84,7 @@ Progress: [█████████▊] 98%
 | Phase 08 P05 | 29min | 2 tasks | 7 files |
 | Phase 09 P01 | 7min | 2 tasks | 7 files |
 | Phase 09.1 P01 | 4min | 2 tasks | 9 files |
+| Phase 11 P01 | 1 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,7 @@ Progress: [█████████▊] 98%
 |------|-------|--------|
 | 2026-04-24 | 08 | `.planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-LEARNINGS.md` |
 | 2026-04-24 | 09 | `.planning/phases/09-benchmark-gate-recalibration-tier-1-2-3-positioning-and-post/09-LEARNINGS.md` |
+| 2026-07-22 | 10 | `.planning/phases/10-lightweight-pr-benchmark-regression-signal/10-LEARNINGS.md` |
 
 ### Roadmap Evolution
 
@@ -214,6 +216,11 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 08]: `Doc.isClosed()` now uses a non-blocking mutex check so fast-materializer contention surfaces `ErrParserBusy` instead of deadlocking before the `TryLock` guard.
 - [Phase 08]: Tier 1 full and materialize-only benchmark helpers now delegate to `fastMaterializeElement`, with literal diagnostic row labels and an explicit no-cache comment preserving Phase 7 benchstat continuity.
 - [Phase 08]: Native frame scratch growth must stay geometric; per-container reserve churn caused the first same-host Canada gate attempt to regress by orders of magnitude before the Phase 8 evidence rerun fixed it.
+- [Phase 11]: approved_abi12_version: 0.1.5 — Operator-approved next patch for the intermediate ABI 1.2 compatibility artifact.
+- [Phase 11]: artifact_role: intermediate Phase 11 ABI 1.2 compatibility artifact — Keeps the bootstrap compatibility artifact distinct from the final v0.2 release.
+- [Phase 11]: tag_preflight: refs/tags/v0.1.5 absent after fetching tags — Prevents reusing an existing immutable release identity.
+- [Phase 11]: phase16_boundary: not the final v0.2 release unless the user explicitly changes Phase 16 scope — Preserves Phase 16 ownership of the final release.
+- [Phase 11]: publication_authorized: false — This checkpoint authorizes source preparation only, with CI remaining the sole publication path.
 
 ### Pending Todos
 
@@ -227,9 +234,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-22T17:13:04.043Z
-Stopped at: Phase 11 context gathered
-Resume file: .planning/phases/11-upstream-simdjson-refresh-bigint-and-diagnostics/11-CONTEXT.md
+Last session: 2026-07-23T10:52:40.442Z
+Stopped at: Completed 11-01-PLAN.md
+Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
 

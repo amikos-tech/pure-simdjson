@@ -266,7 +266,7 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | DOC-05 | Phase 5 | Complete |
 | DOC-06 | Phase 7 | Complete |
 | DOC-07 | Phase 7 | Complete |
-| UP-01 | Phase 11 | Pending |
+| UP-01 | Phase 11 | Complete |
 | NUM-01 | Phase 11 | Pending |
 | NUM-02 | Phase 11 | Pending |
 | DIAG-01 | Phase 11 | Pending |
