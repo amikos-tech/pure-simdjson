@@ -260,6 +260,7 @@ pub(crate) fn copy_implementation_name(
     unsafe { psimdjson_copy_implementation_name(dst, dst_cap, out_written) }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn implementation_name() -> Result<Vec<u8>, pure_simdjson_error_code_t> {
     let len = implementation_name_len()?;
     let mut bytes = vec![0_u8; len];
@@ -717,11 +718,10 @@ pub(crate) fn native_test_hold_materialize_guard(
     unsafe { psimdjson_test_hold_materialize_guard(doc_ptr as *mut psimdjson_doc, json_index) }
 }
 
-pub(crate) fn selected_implementation_name_for_parser_new(
-) -> Result<Vec<u8>, pure_simdjson_error_code_t> {
+pub(crate) fn forced_implementation_name_for_parser_new() -> Option<Vec<u8>> {
     let override_lock = TEST_FORCED_IMPLEMENTATION_OVERRIDE.get_or_init(|| Mutex::new(None));
     if let Some(value) = lock_poison_tolerant(override_lock).clone() {
-        return Ok(value);
+        return Some(value);
     }
 
     if let Some(value) = FORCED_IMPLEMENTATION_NAME
@@ -733,7 +733,7 @@ pub(crate) fn selected_implementation_name_for_parser_new(
         .clone()
     {
         if value == b"fallback" {
-            return Ok(value);
+            return Some(value);
         }
         // Test-only env var; fail loud so a typo (e.g. "fallbck") does not silently no-op.
         panic!(
@@ -741,7 +741,7 @@ pub(crate) fn selected_implementation_name_for_parser_new(
             String::from_utf8_lossy(&value)
         );
     }
-    implementation_name()
+    None
 }
 
 pub(crate) fn fallback_allowed_for_tests() -> bool {

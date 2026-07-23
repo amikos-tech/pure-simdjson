@@ -40,6 +40,9 @@ pub enum pure_simdjson_error_code_t {
     /// Input exceeds the parser's immutable maximum capacity. Rust rejects
     /// this before padding arithmetic, arena growth, or input copying.
     PURE_SIMDJSON_ERR_CAPACITY_LIMIT = 9,
+    /// Process-global implementation selection is permanently locked after
+    /// explicit locking or the first valid parser construction attempt.
+    PURE_SIMDJSON_ERR_KERNEL_LOCKED = 10,
     PURE_SIMDJSON_ERR_INVALID_JSON = 32,
     PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE = 33,
     PURE_SIMDJSON_ERR_PRECISION_LOSS = 34,
@@ -250,8 +253,10 @@ unsafe fn copy_out_bytes(
 
 #[inline]
 fn reject_fallback_implementation() -> Result<(), pure_simdjson_error_code_t> {
-    let implementation_name = runtime::selected_implementation_name_for_parser_new()?;
-    if implementation_name.as_slice() == b"fallback" && !runtime::fallback_allowed_for_tests() {
+    let forced_implementation = runtime::forced_implementation_name_for_parser_new();
+    if matches!(forced_implementation.as_deref(), Some(b"fallback"))
+        && !runtime::fallback_allowed_for_tests()
+    {
         return Err(err_cpu_unsupported());
     }
 
@@ -321,6 +326,45 @@ pub unsafe extern "C" fn pure_simdjson_get_abi_version(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_get_abi_version", || unsafe {
         write_out(out_version, PURE_SIMDJSON_ABI_VERSION)
+    })
+}
+
+/// Select the process-global simdjson implementation by exact, case-sensitive name.
+///
+/// An empty name restores upstream automatic detection. A nonempty name must identify a
+/// compiled implementation supported by the current CPU. Selection becomes permanently locked
+/// after the first valid parser construction attempt or an explicit lock call.
+///
+/// # Safety
+/// When `name_len` is nonzero, `name` must point to readable storage for at least `name_len`
+/// bytes. A null pointer is accepted only when `name_len` is zero.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_set_implementation(
+    name: *const u8,
+    name_len: usize,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_set_implementation", || {
+        if name_len != 0 && name.is_null() {
+            return err_invalid_argument();
+        }
+
+        let name = if name_len == 0 {
+            &[][..]
+        } else {
+            unsafe { slice::from_raw_parts(name, name_len) }
+        };
+        runtime::set_implementation(name)
+    })
+}
+
+/// Permanently lock process-global implementation selection.
+///
+/// Repeated lock calls succeed, while every later selection attempt returns
+/// `PURE_SIMDJSON_ERR_KERNEL_LOCKED`.
+#[no_mangle]
+pub extern "C" fn pure_simdjson_lock_implementation_selection() -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_lock_implementation_selection", || {
+        runtime::lock_implementation_selection()
     })
 }
 

@@ -128,6 +128,7 @@ fn main() {
     cc::Build::new()
         .cpp(true)
         .std("c++17")
+        .define("SIMDJSON_IMPLEMENTATION_FALLBACK", "1")
         .include("third_party/simdjson/singleheader")
         .include("src/native")
         .file(patched_simdjson_source)
