@@ -36,6 +36,8 @@ const (
 	TypeArray ElementType = ElementType(ffi.ValueKindArray)
 	// TypeObject reports a JSON object value.
 	TypeObject ElementType = ElementType(ffi.ValueKindObject)
+	// TypeBigInt reports an integer outside the int64 and uint64 ranges.
+	TypeBigInt ElementType = 9
 )
 
 // Array wraps an Element verified to represent a JSON array. Construct via
@@ -79,9 +81,9 @@ func (e Element) usableDoc() (*Doc, error) {
 
 // GetInt64 reads the current element as an int64 and returns ErrClosed when the
 // owning document has already been released. Uint64 values larger than max
-// int64 report ErrNumberOutOfRange, float-kind values report ErrWrongType, and
-// native BIGINT classifications report ErrPrecisionLoss. Element accessors are
-// not safe for concurrent use with Doc.Close.
+// int64 report ErrNumberOutOfRange, while float and TypeBigInt values report
+// ErrWrongType. Element accessors are not safe for concurrent use with
+// Doc.Close.
 func (e Element) GetInt64() (int64, error) {
 	doc, err := e.usableDoc()
 	if err != nil {
@@ -108,8 +110,7 @@ func (e Element) Type() ElementType {
 }
 
 // TypeErr reports the concrete JSON value kind for the current element while
-// preserving native failures such as ErrClosed, ErrInvalidHandle,
-// ErrPrecisionLoss, or ErrPanic.
+// preserving native failures such as ErrClosed, ErrInvalidHandle, or ErrPanic.
 func (e Element) TypeErr() (ElementType, error) {
 	doc, err := e.usableDoc()
 	if err != nil {
@@ -139,6 +140,8 @@ func (e Element) TypeErr() (ElementType, error) {
 		return TypeArray, nil
 	case ffi.ValueKindObject:
 		return TypeObject, nil
+	case ffi.ValueKind(TypeBigInt):
+		return TypeBigInt, nil
 	default:
 		return TypeInvalid, nil
 	}
@@ -146,8 +149,8 @@ func (e Element) TypeErr() (ElementType, error) {
 
 // GetUint64 reads the current element as a uint64 and returns ErrClosed when
 // the owning document has already been released. Negative integers report
-// ErrNumberOutOfRange, non-uint64 kinds report ErrWrongType, and native BIGINT
-// classifications report ErrPrecisionLoss.
+// ErrNumberOutOfRange, while non-uint64 kinds, including TypeBigInt, report
+// ErrWrongType.
 func (e Element) GetUint64() (uint64, error) {
 	doc, err := e.usableDoc()
 	if err != nil {
@@ -164,7 +167,8 @@ func (e Element) GetUint64() (uint64, error) {
 
 // GetFloat64 reads the current element as a float64 and returns ErrClosed when
 // the owning document has already been released. Large int64 and uint64 values
-// that would lose precision report ErrPrecisionLoss instead of rounding.
+// that would lose precision report ErrPrecisionLoss instead of rounding;
+// TypeBigInt reports ErrWrongType.
 func (e Element) GetFloat64() (float64, error) {
 	doc, err := e.usableDoc()
 	if err != nil {

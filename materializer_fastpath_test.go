@@ -105,7 +105,7 @@ func TestFastMaterializerNumericSemantics(t *testing.T) {
 	}
 }
 
-func TestFastMaterializerOversizedLiteralParseRejected(t *testing.T) {
+func TestFastMaterializerOversizedLiteralParseAccepted(t *testing.T) {
 	parser := mustNewParser(t)
 	t.Cleanup(func() {
 		if err := parser.Close(); err != nil {
@@ -114,11 +114,28 @@ func TestFastMaterializerOversizedLiteralParseRejected(t *testing.T) {
 	})
 
 	doc, err := parser.Parse([]byte(`{"ok":1,"big":99999999999999999999999}`))
-	if doc != nil {
-		t.Fatal("Parse() oversized literal unexpectedly returned a document")
+	if err != nil {
+		t.Fatalf("Parse() oversized literal error = %v", err)
 	}
-	if !errors.Is(err, ErrInvalidJSON) {
-		t.Fatalf("Parse() oversized literal error = %v, want ErrInvalidJSON", err)
+	if doc == nil {
+		t.Fatal("Parse() oversized literal returned a nil document")
+	}
+	t.Cleanup(func() {
+		if err := doc.Close(); err != nil {
+			t.Fatalf("doc.Close() cleanup error = %v", err)
+		}
+	})
+
+	object, err := doc.Root().AsObject()
+	if err != nil {
+		t.Fatalf("AsObject() error = %v", err)
+	}
+	big, err := object.GetField("big")
+	if err != nil {
+		t.Fatalf("GetField(\"big\") error = %v", err)
+	}
+	if got := big.Type(); got != TypeBigInt {
+		t.Fatalf("big.Type() = %v, want TypeBigInt", got)
 	}
 }
 

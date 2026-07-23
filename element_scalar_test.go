@@ -221,7 +221,7 @@ func TestGetUint64(t *testing.T) {
 		}
 	})
 
-	t.Run("oversized literal rejected at parse", func(t *testing.T) {
+	t.Run("oversized literal preserved as bigint", func(t *testing.T) {
 		parser := mustNewParser(t)
 		t.Cleanup(func() {
 			if err := parser.Close(); err != nil {
@@ -229,8 +229,18 @@ func TestGetUint64(t *testing.T) {
 			}
 		})
 
-		if _, err := parser.Parse([]byte("18446744073709551616")); !errors.Is(err, ErrInvalidJSON) {
-			t.Fatalf("Parse() oversized uint64 error = %v, want ErrInvalidJSON", err)
+		doc, err := parser.Parse([]byte("18446744073709551616"))
+		if err != nil {
+			t.Fatalf("Parse() oversized uint64 error = %v", err)
+		}
+		if doc == nil {
+			t.Fatal("Parse() oversized uint64 returned a nil document")
+		}
+		if got := doc.Root().Type(); got != TypeBigInt {
+			t.Fatalf("Type() = %v, want TypeBigInt", got)
+		}
+		if err := doc.Close(); err != nil {
+			t.Fatalf("doc.Close() error = %v", err)
 		}
 	})
 }

@@ -18,6 +18,8 @@ func FuzzParseThenGetString(f *testing.F) {
 	f.Add([]byte(`-9007199254740992`))
 	f.Add([]byte(`-9007199254740993`))
 	f.Add([]byte(`18446744073709551615`))
+	f.Add([]byte(`18446744073709551616`))
+	f.Add([]byte(`-9223372036854775809`))
 	f.Add([]byte{0x22, 0xff, 0x22})
 	f.Add([]byte{0x7b, 0x22, 0x6b, 0x22, 0x3a, 0x22, 0xff, 0x22, 0x7d})
 
@@ -31,8 +33,8 @@ func FuzzParseThenGetString(f *testing.F) {
 
 		doc, err := parser.Parse(data)
 		if err != nil {
-			if !errors.Is(err, ErrInvalidJSON) && !errors.Is(err, ErrPrecisionLoss) {
-				t.Fatalf("Parse(%q) error = %v, want ErrInvalidJSON or ErrPrecisionLoss", data, err)
+			if !errors.Is(err, ErrInvalidJSON) {
+				t.Fatalf("Parse(%q) error = %v, want ErrInvalidJSON", data, err)
 			}
 			return
 		}
@@ -44,6 +46,32 @@ func FuzzParseThenGetString(f *testing.F) {
 
 		fuzzWalkElement(t, doc.Root())
 	})
+}
+
+func TestFuzzWalkElementBigIntSeeds(t *testing.T) {
+	testCases := []struct {
+		name string
+		json string
+	}{
+		{name: "positive", json: "18446744073709551616"},
+		{name: "negative", json: "-9223372036854775809"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, doc := mustParseDoc(t, tc.json)
+			root := doc.Root()
+
+			kind, err := root.TypeErr()
+			if err != nil {
+				t.Fatalf("TypeErr() error = %v", err)
+			}
+			if kind != TypeBigInt {
+				t.Fatalf("TypeErr() = %v, want TypeBigInt", kind)
+			}
+			fuzzWalkElement(t, root)
+		})
+	}
 }
 
 func fuzzWalkElement(t *testing.T, element Element) {
@@ -73,6 +101,14 @@ func fuzzWalkElement(t *testing.T, element Element) {
 		}
 		if _, err := element.GetFloat64(); err != nil && !errors.Is(err, ErrPrecisionLoss) {
 			t.Fatalf("GetFloat64() on TypeUint64 error = %v, want nil or ErrPrecisionLoss", err)
+		}
+	case TypeBigInt:
+		kind, err := element.TypeErr()
+		if err != nil {
+			t.Fatalf("TypeErr() on TypeBigInt error = %v", err)
+		}
+		if kind != TypeBigInt {
+			t.Fatalf("TypeErr() on TypeBigInt = %v, want TypeBigInt", kind)
 		}
 	case TypeFloat64:
 		if _, err := element.GetFloat64(); err != nil {
