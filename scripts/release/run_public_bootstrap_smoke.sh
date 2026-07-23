@@ -395,8 +395,9 @@ main() {
       github_fallback_enabled="false"
       ;;
     github-fallback)
-      # Use a guaranteed 404 mirror path so the wrapper proves GitHub fallback actually ran.
-      export PURE_SIMDJSON_BINARY_MIRROR="https://releases.amikos.tech/pure-simdjson-does-not-exist"
+      # Use a missing release tag on the public fallback host so the wrapper
+      # proves GitHub fallback actually ran without depending on R2 routing.
+      export PURE_SIMDJSON_BINARY_MIRROR="${DEFAULT_GITHUB_BASE_URL}/__pure_simdjson_missing_mirror__"
       unset PURE_SIMDJSON_DISABLE_GH_FALLBACK
       github_fallback_enabled="true"
       broken_checksums_url="${PURE_SIMDJSON_BINARY_MIRROR}/v${version}/SHA256SUMS"
