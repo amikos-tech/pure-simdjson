@@ -1,8 +1,7 @@
 use pure_simdjson::{
     pure_simdjson_doc_free, pure_simdjson_doc_root, pure_simdjson_doc_t,
     pure_simdjson_error_code_t::{
-        PURE_SIMDJSON_ERR_INVALID_HANDLE, PURE_SIMDJSON_ERR_INVALID_JSON,
-        PURE_SIMDJSON_ERR_PARSER_BUSY, PURE_SIMDJSON_OK,
+        PURE_SIMDJSON_ERR_INVALID_HANDLE, PURE_SIMDJSON_ERR_PARSER_BUSY, PURE_SIMDJSON_OK,
     },
     pure_simdjson_object_get_field, pure_simdjson_parser_free, pure_simdjson_parser_new,
     pure_simdjson_parser_parse, pure_simdjson_parser_t,
@@ -15,6 +14,8 @@ use pure_simdjson::{
     pure_simdjson_value_view_t,
 };
 use std::{ptr, slice};
+
+const EXPECTED_BIGINT_KIND: u32 = 9;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
@@ -207,19 +208,30 @@ fn psdj_internal_materialize_build_propagates_invalid_handle_after_doc_close() {
 }
 
 #[test]
-fn oversized_literal_parse_rejected_before_materialize() {
-    let parser = parser_new();
-    let mut doc: pure_simdjson_doc_t = 0;
-    let json = br#"{"ok":1,"big":99999999999999999999999}"#;
+fn bigint_root_frame_preserves_exact_unsigned_text() {
+    let (parser, doc, root) = parse_root(b"18446744073709551616");
 
-    let rc = unsafe { pure_simdjson_parser_parse(parser, json.as_ptr(), json.len(), &mut doc) };
+    let frames = build_frames(&root);
 
-    assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_JSON);
-    assert_eq!(doc, 0);
-    assert_eq!(
-        unsafe { pure_simdjson_parser_free(parser) },
-        PURE_SIMDJSON_OK
-    );
+    assert_eq!(frames.len(), 1);
+    assert_eq!(frames[0].kind, EXPECTED_BIGINT_KIND);
+    assert_eq!(frame_string(&frames[0]), b"18446744073709551616");
+
+    cleanup(parser, doc);
+}
+
+#[test]
+fn bigint_nested_frame_preserves_exact_signed_text() {
+    let (parser, doc, root) = parse_root(br#"{"big":-9223372036854775809}"#);
+    let bigint_view = object_get_field_view(&root, b"big");
+
+    let frames = build_frames(&bigint_view);
+
+    assert_eq!(frames.len(), 1);
+    assert_eq!(frames[0].kind, EXPECTED_BIGINT_KIND);
+    assert_eq!(frame_string(&frames[0]), b"-9223372036854775809");
+
+    cleanup(parser, doc);
 }
 
 #[test]
