@@ -4,7 +4,8 @@ use pure_simdjson::{
         PURE_SIMDJSON_ERR_CAPACITY_LIMIT, PURE_SIMDJSON_ERR_DEPTH_LIMIT,
         PURE_SIMDJSON_ERR_INVALID_JSON, PURE_SIMDJSON_OK,
     },
-    pure_simdjson_parser_free, pure_simdjson_parser_get_last_error_offset,
+    pure_simdjson_parser_free, pure_simdjson_parser_get_last_error_has_offset,
+    pure_simdjson_parser_get_last_error_len, pure_simdjson_parser_get_last_error_offset,
     pure_simdjson_parser_new_configured, pure_simdjson_parser_parse, pure_simdjson_parser_t,
 };
 
@@ -142,6 +143,25 @@ fn last_error_offset(parser: pure_simdjson_parser_t) -> u64 {
     offset
 }
 
+fn last_error_has_offset(parser: pure_simdjson_parser_t) -> bool {
+    let mut has_offset = u8::MAX;
+    assert_eq!(
+        unsafe { pure_simdjson_parser_get_last_error_has_offset(parser, &mut has_offset) },
+        PURE_SIMDJSON_OK
+    );
+    assert!(has_offset <= 1);
+    has_offset != 0
+}
+
+fn last_error_len(parser: pure_simdjson_parser_t) -> usize {
+    let mut len = usize::MAX;
+    assert_eq!(
+        unsafe { pure_simdjson_parser_get_last_error_len(parser, &mut len) },
+        PURE_SIMDJSON_OK
+    );
+    len
+}
+
 fn nested_array(depth: usize, malformed: bool) -> Vec<u8> {
     let mut json = Vec::with_capacity(depth * 2 + 2);
     json.extend(std::iter::repeat_n(b'[', depth));
@@ -153,31 +173,45 @@ fn nested_array(depth: usize, malformed: bool) -> Vec<u8> {
     json
 }
 
-#[test]
-fn characterize_v464_error_locations() {
+fn diagnostic_cases() -> [(&'static str, Vec<u8>, u64, bool); 9] {
     let mut invalid_utf8 = br#"{"x":""#.to_vec();
     invalid_utf8.push(0xff);
     invalid_utf8.extend_from_slice(br#""}"#);
 
-    let cases: [(&str, Vec<u8>); 9] = [
-        ("empty", Vec::new()),
-        ("invalid_utf8", invalid_utf8),
-        ("unclosed_string", br#"{"x":"abc}"#.to_vec()),
-        ("array_trailing_comma", b"[1,]".to_vec()),
-        ("trailing_content", br#"{"a":1} trailing"#.to_vec()),
+    [
+        ("empty", Vec::new(), u64::MAX, false),
+        ("invalid_utf8", invalid_utf8, u64::MAX, false),
+        (
+            "unclosed_string",
+            br#"{"x":"abc}"#.to_vec(),
+            u64::MAX,
+            false,
+        ),
+        ("array_trailing_comma", b"[1,]".to_vec(), 3, true),
+        ("trailing_content", br#"{"a":1} trailing"#.to_vec(), 8, true),
         (
             "missing_object_key",
             br#"{"double":13.06,false,"integer":-343}"#.to_vec(),
+            16,
+            true,
         ),
-        ("unexpected_root_token", b"x".to_vec()),
-        ("extra_closing_bracket", br#"["extra close"]]"#.to_vec()),
-        ("mismatched_container", br#"{"a":[1,2}"#.to_vec()),
-    ];
+        ("unexpected_root_token", b"x".to_vec(), 0, true),
+        (
+            "extra_closing_bracket",
+            br#"["extra close"]]"#.to_vec(),
+            15,
+            true,
+        ),
+        ("mismatched_container", br#"{"a":[1,2}"#.to_vec(), 9, true),
+    ]
+}
 
+#[test]
+fn characterize_v464_error_locations() {
     eprintln!(
         "case\tprimary_status\treplay_pass\treplay_status\tlocation_status\tpointer_relation\toffset\tknown"
     );
-    for (name, input) in cases {
+    for (name, input, expected_offset, expected_known) in diagnostic_cases() {
         let result = characterize(&input, DEFAULT_MAX_CAPACITY, DEFAULT_MAX_DEPTH);
         let observation = result.observation;
         eprintln!(
@@ -192,6 +226,8 @@ fn characterize_v464_error_locations() {
         );
 
         assert_eq!(result.parse_status, PURE_SIMDJSON_ERR_INVALID_JSON as i32);
+        assert_eq!(result.offset, expected_offset, "{name}");
+        assert_eq!(result.has_offset, expected_known, "{name}");
         assert!(matches!(
             observation.replay_pass,
             REPLAY_NONE | REPLAY_RAW_JSON | REPLAY_RECURSIVE
@@ -213,6 +249,66 @@ fn characterize_v464_error_locations() {
     assert_eq!(success.observation.pass_count, 0);
     assert_eq!(success.offset, u64::MAX);
     assert!(!success.has_offset);
+}
+
+#[test]
+fn public_diagnostic_offsets_preserve_known_zero_and_unknown() {
+    let parser = parser_new_configured(DEFAULT_MAX_CAPACITY, DEFAULT_MAX_DEPTH);
+
+    for (name, input, expected_offset, expected_known) in diagnostic_cases() {
+        assert_eq!(
+            parse_status(parser, &input),
+            PURE_SIMDJSON_ERR_INVALID_JSON as i32,
+            "{name}"
+        );
+        assert_eq!(last_error_offset(parser), expected_offset, "{name}");
+        assert_eq!(last_error_has_offset(parser), expected_known, "{name}");
+    }
+
+    assert_eq!(
+        unsafe { pure_simdjson_parser_free(parser) },
+        PURE_SIMDJSON_OK
+    );
+}
+
+#[test]
+fn success_and_capacity_rejection_clear_all_diagnostic_details() {
+    const MAX_CAPACITY: u64 = 32;
+    let parser = parser_new_configured(MAX_CAPACITY, DEFAULT_MAX_DEPTH);
+
+    assert_eq!(
+        parse_status(parser, b"x"),
+        PURE_SIMDJSON_ERR_INVALID_JSON as i32
+    );
+    assert_eq!(last_error_offset(parser), 0);
+    assert!(last_error_has_offset(parser));
+    assert!(last_error_len(parser) > 0);
+
+    assert_eq!(parse_status(parser, b"{}"), PURE_SIMDJSON_OK as i32);
+    assert_eq!(last_error_offset(parser), u64::MAX);
+    assert!(!last_error_has_offset(parser));
+    assert_eq!(last_error_len(parser), 0);
+
+    assert_eq!(
+        parse_status(parser, b"x"),
+        PURE_SIMDJSON_ERR_INVALID_JSON as i32
+    );
+    assert!(last_error_has_offset(parser));
+    assert!(last_error_len(parser) > 0);
+
+    let over_capacity = vec![b' '; MAX_CAPACITY as usize + 1];
+    assert_eq!(
+        parse_status(parser, &over_capacity),
+        PURE_SIMDJSON_ERR_CAPACITY_LIMIT as i32
+    );
+    assert_eq!(last_error_offset(parser), u64::MAX);
+    assert!(!last_error_has_offset(parser));
+    assert_eq!(last_error_len(parser), 0);
+
+    assert_eq!(
+        unsafe { pure_simdjson_parser_free(parser) },
+        PURE_SIMDJSON_OK
+    );
 }
 
 #[test]
