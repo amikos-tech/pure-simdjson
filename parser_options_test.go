@@ -95,6 +95,11 @@ func TestParserOptionRejectsInvalidValues(t *testing.T) {
 			}
 		})
 	}
+	for capacity := 1; capacity < 32; capacity++ {
+		if _, err := normalizeParserOptions(WithMaxCapacity(capacity)); !errors.Is(err, ErrInvalidOption) {
+			t.Fatalf("normalizeParserOptions(WithMaxCapacity(%d)) error = %v, want ErrInvalidOption", capacity, err)
+		}
+	}
 }
 
 func TestParserOptionInvalidFailsBeforeLibraryResolution(t *testing.T) {
@@ -136,6 +141,18 @@ func TestParserCapacityBoundary(t *testing.T) {
 	}
 	if err := doc.Close(); err != nil {
 		t.Fatalf("exact-capacity doc.Close() error = %v", err)
+	}
+
+	doc, staleErr := parser.Parse([]byte(`[1,]`))
+	if doc != nil {
+		t.Fatal("Parse(invalid JSON) unexpectedly returned a document")
+	}
+	var staleNativeErr *Error
+	if !errors.Is(staleErr, ErrInvalidJSON) || !errors.As(staleErr, &staleNativeErr) {
+		t.Fatalf("Parse(invalid JSON) error = %v, want *Error matching ErrInvalidJSON", staleErr)
+	}
+	if staleNativeErr.Offset() == 0 && staleNativeErr.Message() == "" {
+		t.Fatalf("Parse(invalid JSON) details = offset %d, message %q; fixture did not prime stale details", staleNativeErr.Offset(), staleNativeErr.Message())
 	}
 
 	oversized := []byte(`"` + strings.Repeat("x", 31) + `"`)

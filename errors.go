@@ -41,6 +41,11 @@ var (
 	// ErrDepthLimitExceeded reports JSON nesting deeper than the native parser
 	// or materializer depth contract can process.
 	ErrDepthLimitExceeded = errors.New("depth limit exceeded")
+	// ErrCapacityLimitExceeded reports input larger than the parser's immutable
+	// configured capacity.
+	ErrCapacityLimitExceeded = errors.New("capacity limit exceeded")
+	// ErrInvalidOption reports an invalid parser construction option.
+	ErrInvalidOption = errors.New("invalid option")
 	// ErrInternal reports native panics, internal failures, and any status code
 	// not mapped to a dedicated sentinel.
 	ErrInternal = errors.New("internal error")
@@ -209,6 +214,8 @@ func sentinelForStatus(code int32) error {
 		return ErrNotImplemented
 	case ffi.ErrDepthLimit:
 		return ErrDepthLimitExceeded
+	case ffi.ErrCapacityLimit:
+		return ErrCapacityLimitExceeded
 	case ffi.ErrInvalidJSON:
 		return ErrInvalidJSON
 	case ffi.ErrNumberOutOfRange:

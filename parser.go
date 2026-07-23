@@ -22,19 +22,28 @@ type Parser struct {
 	mu      sync.Mutex
 	library *loadedLibrary
 	handle  ffi.ParserHandle
+	config  parserConfig
 	closed  bool
 	liveDoc ffi.DocHandle
 }
 
-// NewParser resolves an ABI-compatible local shared library and allocates a
-// reusable native parser.
-func NewParser() (*Parser, error) {
+// NewParser validates immutable parser options, resolves an ABI-compatible
+// local shared library, and allocates a reusable native parser.
+func NewParser(opts ...ParserOption) (*Parser, error) {
+	config, err := normalizeParserOptions(opts...)
+	if err != nil {
+		return nil, err
+	}
+	return newParserWithConfig(config)
+}
+
+func newParserWithConfig(config parserConfig) (*Parser, error) {
 	library, err := activeLibrary()
 	if err != nil {
 		return nil, err
 	}
 
-	handle, rc := library.bindings.ParserNew()
+	handle, rc := library.bindings.ParserNewConfigured(config.maxCapacity, config.maxDepth)
 	if err := wrapStatus(rc); err != nil {
 		return nil, err
 	}
@@ -42,6 +51,7 @@ func NewParser() (*Parser, error) {
 	parser := &Parser{
 		library: library,
 		handle:  handle,
+		config:  config,
 	}
 	attachParserFinalizer(parser)
 	return parser, nil
