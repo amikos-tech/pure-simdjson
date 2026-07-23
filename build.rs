@@ -62,7 +62,7 @@ fn patched_simdjson_source(source: &str) -> PathBuf {
         Command::new("git")
             .current_dir(&out_dir)
             .env("GIT_CEILING_DIRECTORIES", &package_root)
-            .args(["apply", "--check"])
+            .args(["apply", "--check", "--ignore-space-change"])
             .arg(&patch),
         "simdjson patch does not match the audited base",
     );
@@ -70,7 +70,7 @@ fn patched_simdjson_source(source: &str) -> PathBuf {
         Command::new("git")
             .current_dir(&out_dir)
             .env("GIT_CEILING_DIRECTORIES", &package_root)
-            .arg("apply")
+            .args(["apply", "--ignore-space-change"])
             .arg(&patch),
         "failed to apply the approved simdjson patch",
     );
