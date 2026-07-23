@@ -24,6 +24,9 @@ const PARSER_GENERATION_START: u32 = 1;
 const DOC_GENERATION_START: u32 = 2;
 const ROOT_JSON_INDEX: u64 = 1;
 const ITER_LEASE_START: u32 = 1;
+const DEFAULT_MAX_CAPACITY: u64 = u32::MAX as u64;
+const DEFAULT_MAX_DEPTH: u32 = 1024;
+const MIN_MAX_CAPACITY: u64 = 32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ParserState {
@@ -37,6 +40,10 @@ struct ParserEntry {
     native_ptr: usize,
     state: ParserState,
     reusable_input: Vec<u8>,
+    max_capacity: u64,
+    #[allow(dead_code)]
+    // Stored for configuration identity and Plan 11-05's bounded diagnostic replay.
+    max_depth: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -104,6 +111,11 @@ fn err_ok() -> pure_simdjson_error_code_t {
 #[inline]
 fn err_parser_busy() -> pure_simdjson_error_code_t {
     pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PARSER_BUSY
+}
+
+#[inline]
+fn err_capacity_limit() -> pure_simdjson_error_code_t {
+    pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_CAPACITY_LIMIT
 }
 
 #[inline]
@@ -204,6 +216,8 @@ impl Registry {
     fn alloc_parser(
         &mut self,
         native_ptr: usize,
+        max_capacity: u64,
+        max_depth: u32,
     ) -> Result<pure_simdjson_parser_t, pure_simdjson_error_code_t> {
         for (index, slot) in self.parsers.iter_mut().enumerate() {
             if let Slot::Vacant { generation } = slot {
@@ -214,6 +228,8 @@ impl Registry {
                     native_ptr,
                     state: ParserState::Idle,
                     reusable_input: Vec::new(),
+                    max_capacity,
+                    max_depth,
                 });
                 return Ok(pack_handle(slot_number, generation));
             }
@@ -229,6 +245,8 @@ impl Registry {
             native_ptr,
             state: ParserState::Idle,
             reusable_input: Vec::new(),
+            max_capacity,
+            max_depth,
         }));
         Ok(pack_handle(self.parsers.len() as u32, generation))
     }
@@ -377,14 +395,44 @@ impl DocEntry {
 
 pub(crate) fn parser_new() -> Result<pure_simdjson_parser_t, pure_simdjson_error_code_t> {
     let native_ptr = super::native_parser_new()?;
+    register_parser(native_ptr, DEFAULT_MAX_CAPACITY, DEFAULT_MAX_DEPTH)
+}
+
+pub(crate) fn parser_new_configured(
+    max_capacity: u64,
+    max_depth: u32,
+) -> Result<pure_simdjson_parser_t, pure_simdjson_error_code_t> {
+    let effective_max_capacity = if max_capacity == 0 {
+        DEFAULT_MAX_CAPACITY
+    } else if !(MIN_MAX_CAPACITY..=DEFAULT_MAX_CAPACITY).contains(&max_capacity) {
+        return Err(err_invalid_argument());
+    } else {
+        max_capacity
+    };
+    let effective_max_depth = if max_depth == 0 {
+        DEFAULT_MAX_DEPTH
+    } else {
+        max_depth
+    };
+
+    let native_ptr =
+        super::native_parser_new_configured(effective_max_capacity, effective_max_depth)?;
+    register_parser(native_ptr, effective_max_capacity, effective_max_depth)
+}
+
+fn register_parser(
+    native_ptr: usize,
+    max_capacity: u64,
+    max_depth: u32,
+) -> Result<pure_simdjson_parser_t, pure_simdjson_error_code_t> {
     let mut registry = registry_guard();
-    match registry.alloc_parser(native_ptr) {
+    match registry.alloc_parser(native_ptr, max_capacity, max_depth) {
         Ok(handle) => Ok(handle),
         Err(rc) => {
             let free_rc = super::native_parser_free(native_ptr);
             if free_rc != err_ok() {
                 eprintln!(
-                    "pure_simdjson cleanup failure in parser_new/alloc_parser: {:?}",
+                    "pure_simdjson cleanup failure in register_parser/alloc_parser: {:?}",
                     free_rc
                 );
             }
@@ -436,6 +484,14 @@ pub(crate) fn parser_parse(
         Some(Slot::Occupied(entry)) if entry.generation == generation => {
             if !matches!(entry.state, ParserState::Idle) {
                 return Err(err_parser_busy());
+            }
+            let reset_rc = super::native_parser_reset_diagnostics(entry.native_ptr);
+            if reset_rc != err_ok() {
+                return Err(reset_rc);
+            }
+            let input_len = u64::try_from(input.len()).map_err(|_| err_capacity_limit())?;
+            if input_len > entry.max_capacity {
+                return Err(err_capacity_limit());
             }
             (entry.native_ptr, mem::take(&mut entry.reusable_input))
         }
@@ -1285,9 +1341,7 @@ mod tests {
         json
     }
 
-    fn reusable_input_snapshot(
-        handle: pure_simdjson_parser_t,
-    ) -> (usize, usize, usize, Vec<u8>) {
+    fn reusable_input_snapshot(handle: pure_simdjson_parser_t) -> (usize, usize, usize, Vec<u8>) {
         let registry = registry_guard();
         let entry = registry
             .parser_entry(handle)

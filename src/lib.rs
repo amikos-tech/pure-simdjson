@@ -37,6 +37,9 @@ pub enum pure_simdjson_error_code_t {
     /// JSON nesting exceeds the parser/materializer depth contract. This is
     /// adversarial-input/user-actionable, not an internal native failure.
     PURE_SIMDJSON_ERR_DEPTH_LIMIT = 8,
+    /// Input exceeds the parser's immutable maximum capacity. Rust rejects
+    /// this before padding arithmetic, arena growth, or input copying.
+    PURE_SIMDJSON_ERR_CAPACITY_LIMIT = 9,
     PURE_SIMDJSON_ERR_INVALID_JSON = 32,
     PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE = 33,
     PURE_SIMDJSON_ERR_PRECISION_LOSS = 34,
@@ -408,6 +411,35 @@ pub unsafe extern "C" fn pure_simdjson_parser_new(
         }
 
         match runtime::registry::parser_new() {
+            Ok(parser) => write_out(out_parser, parser),
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Allocate a parser handle with immutable capacity and depth bounds.
+///
+/// `max_capacity == 0` uses `0xFFFFFFFF`; `max_depth == 0` uses `1024`.
+/// Positive capacities below `32` and capacities above `0xFFFFFFFF` are rejected.
+///
+/// # Safety
+/// `out_parser` must be a valid writable pointer to a `pure_simdjson_parser_t`.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_parser_new_configured(
+    max_capacity: u64,
+    max_depth: u32,
+    out_parser: *mut pure_simdjson_parser_t,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_parser_new_configured", || unsafe {
+        if out_parser.is_null() {
+            return err_invalid_argument();
+        }
+
+        if let Err(rc) = reject_fallback_implementation() {
+            return rc;
+        }
+
+        match runtime::registry::parser_new_configured(max_capacity, max_depth) {
             Ok(parser) => write_out(out_parser, parser),
             Err(rc) => rc,
         }
