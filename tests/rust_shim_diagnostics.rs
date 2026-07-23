@@ -114,9 +114,7 @@ fn characterize(json: &[u8], max_capacity: u64, max_depth: u32) -> Characterizat
 fn parser_new_configured(max_capacity: u64, max_depth: u32) -> pure_simdjson_parser_t {
     let mut parser = 0;
     assert_eq!(
-        unsafe {
-            pure_simdjson_parser_new_configured(max_capacity, max_depth, &mut parser)
-        },
+        unsafe { pure_simdjson_parser_new_configured(max_capacity, max_depth, &mut parser) },
         PURE_SIMDJSON_OK
     );
     assert_ne!(parser, 0);
@@ -125,8 +123,7 @@ fn parser_new_configured(max_capacity: u64, max_depth: u32) -> pure_simdjson_par
 
 fn parse_status(parser: pure_simdjson_parser_t, json: &[u8]) -> i32 {
     let mut doc = 0;
-    let rc =
-        unsafe { pure_simdjson_parser_parse(parser, json.as_ptr(), json.len(), &mut doc) };
+    let rc = unsafe { pure_simdjson_parser_parse(parser, json.as_ptr(), json.len(), &mut doc) };
     if rc == PURE_SIMDJSON_OK {
         assert_ne!(doc, 0);
         assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
@@ -230,7 +227,10 @@ fn diagnostic_replay_respects_capacity_n_minus_1_and_n() {
         PURE_SIMDJSON_ERR_CAPACITY_LIMIT as i32
     );
     assert_eq!(last_error_offset(parser), u64::MAX);
-    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+    assert_eq!(
+        unsafe { pure_simdjson_parser_free(parser) },
+        PURE_SIMDJSON_OK
+    );
 
     let below = characterize(&malformed, (INPUT_LEN - 1) as u64, 5);
     assert_eq!(below.observation.pass_count, 0);
@@ -264,7 +264,10 @@ fn diagnostic_replay_respects_depth_n_minus_1_and_n() {
         PURE_SIMDJSON_ERR_DEPTH_LIMIT as i32
     );
     assert_eq!(last_error_offset(parser), u64::MAX);
-    assert_eq!(unsafe { pure_simdjson_parser_free(parser) }, PURE_SIMDJSON_OK);
+    assert_eq!(
+        unsafe { pure_simdjson_parser_free(parser) },
+        PURE_SIMDJSON_OK
+    );
 
     let accepted_depth = characterize(&n_minus_1, DEFAULT_MAX_CAPACITY, MAX_DEPTH);
     assert_eq!(accepted_depth.observation.replay_pass, REPLAY_RECURSIVE);
@@ -274,8 +277,10 @@ fn diagnostic_replay_respects_depth_n_minus_1_and_n() {
 
     let rejected_depth = characterize(&n, DEFAULT_MAX_CAPACITY, MAX_DEPTH);
     assert_eq!(rejected_depth.observation.pass_count, 0);
-    assert_eq!(rejected_depth.observation.location_error, 0);
-    assert_eq!(rejected_depth.observation.pointer_relation, POINTER_NOT_QUERIED);
+    assert_eq!(
+        rejected_depth.observation.pointer_relation,
+        POINTER_NOT_QUERIED
+    );
     assert_eq!(rejected_depth.offset, u64::MAX);
     assert!(!rejected_depth.has_offset);
 

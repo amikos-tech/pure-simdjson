@@ -2,6 +2,7 @@
 #include "native_alloc_telemetry.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -79,6 +80,8 @@ struct psimdjson_parser {
   simdjson::dom::parser parser{};
   LastErrorBuffer last_error{};
   uint64_t last_error_offset{UINT64_MAX};
+  bool last_error_has_offset{false};
+  psimdjson_test_replay_observation replay_observation{};
   // Plan 11-05 diagnostic replay consumes these exact normalized values.
   uint64_t max_capacity{0};
   uint32_t max_depth{0};
@@ -89,6 +92,13 @@ namespace {
 constexpr uint64_t DEFAULT_MAX_CAPACITY = UINT64_C(0xFFFFFFFF);
 constexpr uint32_t DEFAULT_MAX_DEPTH = UINT32_C(1024);
 constexpr uint64_t MIN_MAX_CAPACITY = UINT64_C(32);
+constexpr uint32_t REPLAY_PASS_RAW_JSON = 1;
+constexpr uint32_t REPLAY_PASS_RECURSIVE = 2;
+constexpr uint32_t POINTER_NOT_QUERIED = 0;
+constexpr uint32_t POINTER_IN_BOUNDS = 1;
+constexpr uint32_t POINTER_AT_END = 2;
+constexpr uint32_t POINTER_OUT_OF_RANGE = 3;
+constexpr uint32_t POINTER_ADDRESS_OVERFLOW = 4;
 
 constexpr auto PURE_SIMDJSON_VALUE_KIND_BIGINT =
     static_cast<pure_simdjson_value_kind_t>(9);
@@ -201,11 +211,13 @@ pure_simdjson_value_kind_t map_element_type(simdjson::dom::element_type type) no
 void clear_last_error(psimdjson_parser *parser) noexcept {
   parser->last_error.clear();
   parser->last_error_offset = UINT64_MAX;
+  parser->last_error_has_offset = false;
 }
 
 void set_last_error_message(psimdjson_parser *parser, std::string_view message) {
   parser->last_error.assign(message);
   parser->last_error_offset = UINT64_MAX;
+  parser->last_error_has_offset = false;
 }
 
 void set_last_error(psimdjson_parser *parser, simdjson::error_code error) {
@@ -280,6 +292,380 @@ void capture_parser_exception(psimdjson_parser *parser) noexcept {
     capture_parser_exception(parser_ptr);                                \
     return map_cpp_exception(function_name);                              \
   }
+
+struct DiagnosticReplayLimits {
+  uint64_t max_capacity;
+  uint32_t max_depth;
+};
+
+enum class ReplayDisposition {
+  valid,
+  stopped,
+};
+
+struct ProvenDiagnosticOffset {
+  uint64_t offset{UINT64_MAX};
+  bool known{false};
+  uint32_t pointer_relation{POINTER_NOT_QUERIED};
+};
+
+void reset_replay_observation(
+    psimdjson_test_replay_observation *observation
+) noexcept {
+  *observation = {};
+  observation->primary_error = static_cast<int32_t>(simdjson::UNINITIALIZED);
+  observation->replay_error = static_cast<int32_t>(simdjson::UNINITIALIZED);
+  observation->location_error = static_cast<int32_t>(simdjson::UNINITIALIZED);
+  observation->derived_offset = UINT64_MAX;
+}
+
+ProvenDiagnosticOffset checked_diagnostic_offset(
+    std::uintptr_t input_addr,
+    size_t input_len,
+    std::uintptr_t location_addr
+) noexcept {
+  ProvenDiagnosticOffset result;
+  const auto max_addr = std::numeric_limits<std::uintptr_t>::max();
+  if (input_len > max_addr - input_addr) {
+    result.pointer_relation = POINTER_ADDRESS_OVERFLOW;
+    return result;
+  }
+
+  const auto end_addr = input_addr + input_len;
+  if (location_addr < input_addr || location_addr > end_addr) {
+    result.pointer_relation = POINTER_OUT_OF_RANGE;
+    return result;
+  }
+  if (location_addr == end_addr) {
+    result.pointer_relation = POINTER_AT_END;
+    return result;
+  }
+
+  const auto delta = location_addr - input_addr;
+  if (delta > std::numeric_limits<uint64_t>::max()) {
+    result.pointer_relation = POINTER_OUT_OF_RANGE;
+    return result;
+  }
+  result.offset = static_cast<uint64_t>(delta);
+  result.known = true;
+  result.pointer_relation = POINTER_IN_BOUNDS;
+  return result;
+}
+
+bool is_ordinary_diagnostic_error(simdjson::error_code error) noexcept {
+  return map_error(error) == PURE_SIMDJSON_ERR_INVALID_JSON;
+}
+
+void record_replay_pass(
+    psimdjson_test_replay_observation *observation,
+    uint32_t replay_pass,
+    DiagnosticReplayLimits limits
+) noexcept {
+  observation->replay_pass = replay_pass;
+  observation->pass_count++;
+  if (replay_pass == REPLAY_PASS_RAW_JSON) {
+    observation->first_max_capacity = limits.max_capacity;
+    observation->first_max_depth = limits.max_depth;
+  } else {
+    observation->second_max_capacity = limits.max_capacity;
+    observation->second_max_depth = limits.max_depth;
+  }
+}
+
+ReplayDisposition record_replay_failure(
+    psimdjson_parser *parser,
+    simdjson::ondemand::document &document,
+    const uint8_t *input_ptr,
+    size_t input_len,
+    simdjson::error_code error,
+    uint32_t replay_pass,
+    psimdjson_test_replay_observation *observation
+) noexcept {
+  observation->replay_pass = replay_pass;
+  observation->replay_error = static_cast<int32_t>(error);
+  if (!is_ordinary_diagnostic_error(error)) {
+    return ReplayDisposition::stopped;
+  }
+
+  const char *location = nullptr;
+  const auto location_error = document.current_location().get(location);
+  observation->location_error = static_cast<int32_t>(location_error);
+  if (location_error != simdjson::SUCCESS || location == nullptr) {
+    return ReplayDisposition::stopped;
+  }
+
+  const auto proven = checked_diagnostic_offset(
+      reinterpret_cast<std::uintptr_t>(input_ptr),
+      input_len,
+      reinterpret_cast<std::uintptr_t>(location)
+  );
+  observation->pointer_relation = proven.pointer_relation;
+  observation->derived_offset = proven.offset;
+  if (proven.known) {
+    parser->last_error_offset = proven.offset;
+    parser->last_error_has_offset = true;
+  }
+  return ReplayDisposition::stopped;
+}
+
+template <typename OnDemandValue>
+simdjson::error_code consume_ondemand_value(
+    OnDemandValue &value,
+    size_t current_depth,
+    size_t max_depth
+) {
+  simdjson::ondemand::json_type type;
+  auto error = value.type().get(type);
+  if (error != simdjson::SUCCESS) {
+    return error;
+  }
+
+  switch (type) {
+    case simdjson::ondemand::json_type::array: {
+      if (current_depth == std::numeric_limits<size_t>::max()) {
+        return simdjson::DEPTH_ERROR;
+      }
+      const size_t container_depth = current_depth + 1;
+      if (container_depth >= max_depth) {
+        return simdjson::DEPTH_ERROR;
+      }
+
+      simdjson::ondemand::array array;
+      error = value.get_array().get(array);
+      if (error != simdjson::SUCCESS) {
+        return error;
+      }
+      for (auto child_result : array) {
+        simdjson::ondemand::value child;
+        error = child_result.get(child);
+        if (error != simdjson::SUCCESS) {
+          return error;
+        }
+        error = consume_ondemand_value(child, container_depth, max_depth);
+        if (error != simdjson::SUCCESS) {
+          return error;
+        }
+      }
+      return simdjson::SUCCESS;
+    }
+    case simdjson::ondemand::json_type::object: {
+      if (current_depth == std::numeric_limits<size_t>::max()) {
+        return simdjson::DEPTH_ERROR;
+      }
+      const size_t container_depth = current_depth + 1;
+      if (container_depth >= max_depth) {
+        return simdjson::DEPTH_ERROR;
+      }
+
+      simdjson::ondemand::object object;
+      error = value.get_object().get(object);
+      if (error != simdjson::SUCCESS) {
+        return error;
+      }
+      for (auto field_result : object) {
+        simdjson::ondemand::field field;
+        error = std::move(field_result).get(field);
+        if (error != simdjson::SUCCESS) {
+          return error;
+        }
+        std::string_view key;
+        error = field.unescaped_key().get(key);
+        if (error != simdjson::SUCCESS) {
+          return error;
+        }
+        error = consume_ondemand_value(field.value(), container_depth, max_depth);
+        if (error != simdjson::SUCCESS) {
+          return error;
+        }
+      }
+      return simdjson::SUCCESS;
+    }
+    case simdjson::ondemand::json_type::number: {
+      simdjson::ondemand::number number;
+      return value.get_number().get(number);
+    }
+    case simdjson::ondemand::json_type::string: {
+      std::string_view string;
+      return value.get_string().get(string);
+    }
+    case simdjson::ondemand::json_type::boolean: {
+      bool boolean = false;
+      return value.get_bool().get(boolean);
+    }
+    case simdjson::ondemand::json_type::null: {
+      bool is_null = false;
+      return value.is_null().get(is_null);
+    }
+    case simdjson::ondemand::json_type::unknown:
+      return simdjson::TAPE_ERROR;
+  }
+  return simdjson::TAPE_ERROR;
+}
+
+ReplayDisposition replay_raw_json_location(
+    psimdjson_parser *parser,
+    const uint8_t *input_ptr,
+    size_t input_len,
+    DiagnosticReplayLimits limits,
+    psimdjson_test_replay_observation *observation
+) {
+  if (limits.max_capacity > std::numeric_limits<size_t>::max()) {
+    observation->replay_error = static_cast<int32_t>(simdjson::CAPACITY);
+    return ReplayDisposition::stopped;
+  }
+
+  const auto replay_capacity = static_cast<size_t>(limits.max_capacity);
+  simdjson::ondemand::parser replay_parser(replay_capacity);
+  record_replay_pass(observation, REPLAY_PASS_RAW_JSON, limits);
+
+  observation->allocation_count++;
+  const auto allocate_error =
+      replay_parser.allocate(input_len, static_cast<size_t>(limits.max_depth));
+  if (allocate_error != simdjson::SUCCESS) {
+    observation->replay_error = static_cast<int32_t>(allocate_error);
+    return ReplayDisposition::stopped;
+  }
+  if (input_len > std::numeric_limits<size_t>::max() - simdjson::SIMDJSON_PADDING) {
+    observation->replay_error = static_cast<int32_t>(simdjson::OUT_OF_CAPACITY);
+    return ReplayDisposition::stopped;
+  }
+
+  simdjson::ondemand::document document;
+  observation->iterate_count++;
+  const auto iterate_error =
+      replay_parser
+          .iterate(input_ptr, input_len, input_len + simdjson::SIMDJSON_PADDING)
+          .get(document);
+  if (iterate_error != simdjson::SUCCESS) {
+    // Upstream cannot provide current_location() when iterate() fails, including
+    // EMPTY, UTF8_ERROR, UNESCAPED_CHARS, and UNCLOSED_STRING. No broader
+    // malformed-input location coverage is inferred here.
+    observation->replay_error = static_cast<int32_t>(iterate_error);
+    return ReplayDisposition::stopped;
+  }
+
+  std::string_view raw_json;
+  const auto consume_error = document.raw_json().get(raw_json);
+  if (consume_error != simdjson::SUCCESS) {
+    return record_replay_failure(
+        parser,
+        document,
+        input_ptr,
+        input_len,
+        consume_error,
+        REPLAY_PASS_RAW_JSON,
+        observation
+    );
+  }
+  if (!document.at_end()) {
+    return record_replay_failure(
+        parser,
+        document,
+        input_ptr,
+        input_len,
+        simdjson::TRAILING_CONTENT,
+        REPLAY_PASS_RAW_JSON,
+        observation
+    );
+  }
+
+  observation->replay_error = static_cast<int32_t>(simdjson::SUCCESS);
+  return ReplayDisposition::valid;
+}
+
+ReplayDisposition replay_recursive_location(
+    psimdjson_parser *parser,
+    const uint8_t *input_ptr,
+    size_t input_len,
+    DiagnosticReplayLimits limits,
+    psimdjson_test_replay_observation *observation
+) {
+  if (limits.max_capacity > std::numeric_limits<size_t>::max()) {
+    observation->replay_error = static_cast<int32_t>(simdjson::CAPACITY);
+    return ReplayDisposition::stopped;
+  }
+
+  const auto replay_capacity = static_cast<size_t>(limits.max_capacity);
+  simdjson::ondemand::parser replay_parser(replay_capacity);
+  record_replay_pass(observation, REPLAY_PASS_RECURSIVE, limits);
+
+  observation->allocation_count++;
+  const auto allocate_error =
+      replay_parser.allocate(input_len, static_cast<size_t>(limits.max_depth));
+  if (allocate_error != simdjson::SUCCESS) {
+    observation->replay_error = static_cast<int32_t>(allocate_error);
+    return ReplayDisposition::stopped;
+  }
+  if (input_len > std::numeric_limits<size_t>::max() - simdjson::SIMDJSON_PADDING) {
+    observation->replay_error = static_cast<int32_t>(simdjson::OUT_OF_CAPACITY);
+    return ReplayDisposition::stopped;
+  }
+
+  simdjson::ondemand::document document;
+  observation->iterate_count++;
+  const auto iterate_error =
+      replay_parser
+          .iterate(input_ptr, input_len, input_len + simdjson::SIMDJSON_PADDING)
+          .get(document);
+  if (iterate_error != simdjson::SUCCESS) {
+    observation->replay_error = static_cast<int32_t>(iterate_error);
+    return ReplayDisposition::stopped;
+  }
+
+  const auto consume_error =
+      consume_ondemand_value(document, 0, static_cast<size_t>(limits.max_depth));
+  if (consume_error != simdjson::SUCCESS) {
+    return record_replay_failure(
+        parser,
+        document,
+        input_ptr,
+        input_len,
+        consume_error,
+        REPLAY_PASS_RECURSIVE,
+        observation
+    );
+  }
+  if (!document.at_end()) {
+    return record_replay_failure(
+        parser,
+        document,
+        input_ptr,
+        input_len,
+        simdjson::TRAILING_CONTENT,
+        REPLAY_PASS_RECURSIVE,
+        observation
+    );
+  }
+
+  observation->replay_error = static_cast<int32_t>(simdjson::SUCCESS);
+  return ReplayDisposition::valid;
+}
+
+void capture_diagnostic_location(
+    psimdjson_parser *parser,
+    const uint8_t *input_ptr,
+    size_t input_len,
+    simdjson::error_code primary_error,
+    psimdjson_test_replay_observation *observation
+) {
+  reset_replay_observation(observation);
+  observation->primary_error = static_cast<int32_t>(primary_error);
+  if (!is_ordinary_diagnostic_error(primary_error)) {
+    return;
+  }
+
+  const DiagnosticReplayLimits limits{
+      parser->max_capacity,
+      parser->max_depth,
+  };
+  if (replay_raw_json_location(parser, input_ptr, input_len, limits, observation) !=
+      ReplayDisposition::valid) {
+    return;
+  }
+  static_cast<void>(
+      replay_recursive_location(parser, input_ptr, input_len, limits, observation)
+  );
+}
 
 std::string implementation_name() {
   return simdjson::get_active_implementation()->name();
@@ -660,15 +1046,27 @@ pure_simdjson_error_code_t psimdjson_parser_parse(
     }
 
     *out_doc = nullptr;
+    reset_replay_observation(&parser->replay_observation);
     auto doc = std::make_unique<psimdjson_doc>();
     simdjson::dom::element root;
     const auto error =
         parser->parser.parse_into_document(doc->document, input_ptr, input_len, false).get(root);
     if (error != simdjson::SUCCESS) {
       set_last_error(parser, error);
+      // Valid input pays no replay cost. Eligible DOM syntax failures use at
+      // most two fresh, caller-bounded O(input length) On-Demand scans.
+      capture_diagnostic_location(
+          parser,
+          input_ptr,
+          input_len,
+          error,
+          &parser->replay_observation
+      );
       return map_error(error);
     }
 
+    parser->replay_observation.primary_error =
+        static_cast<int32_t>(simdjson::SUCCESS);
     clear_last_error(parser);
     doc->root.value = root;
     *out_doc = doc.release();
@@ -720,6 +1118,20 @@ pure_simdjson_error_code_t psimdjson_parser_get_last_error_offset(
     }
 
     *out_offset = parser->last_error_offset;
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_parser_get_last_error_has_offset(
+    const psimdjson_parser *parser,
+    uint8_t *out_has_offset
+) noexcept {
+  try {
+    if (parser == nullptr || out_has_offset == nullptr) {
+      return invalid_argument();
+    }
+
+    *out_has_offset = parser->last_error_has_offset ? 1 : 0;
     return PURE_SIMDJSON_OK;
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
@@ -1073,6 +1485,183 @@ pure_simdjson_error_code_t psimdjson_test_hold_materialize_guard(psimdjson_doc *
     const psdj_internal_frame_t *frames = nullptr;
     size_t frame_count = 0;
     return psimdjson_materialize_build(doc, json_index, &frames, &frame_count);
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_test_characterize_diagnostic(
+    const uint8_t *input_ptr,
+    size_t input_len,
+    uint64_t max_capacity,
+    uint32_t max_depth,
+    int32_t *out_parse_status,
+    uint64_t *out_offset,
+    uint8_t *out_has_offset,
+    psimdjson_test_replay_observation *out_observation
+) noexcept {
+  try {
+    if ((input_len != 0 && input_ptr == nullptr) ||
+        out_parse_status == nullptr ||
+        out_offset == nullptr ||
+        out_has_offset == nullptr ||
+        out_observation == nullptr) {
+      return invalid_argument();
+    }
+    if (input_len > std::numeric_limits<size_t>::max() - simdjson::SIMDJSON_PADDING) {
+      return invalid_argument();
+    }
+
+    std::vector<uint8_t> padded_input(
+        input_len + simdjson::SIMDJSON_PADDING,
+        uint8_t{0}
+    );
+    if (input_len != 0) {
+      std::memcpy(padded_input.data(), input_ptr, input_len);
+    }
+
+    psimdjson_parser *parser = nullptr;
+    const auto new_rc =
+        psimdjson_parser_new_configured(max_capacity, max_depth, &parser);
+    if (new_rc != PURE_SIMDJSON_OK) {
+      return new_rc;
+    }
+
+    psimdjson_doc *doc = nullptr;
+    const auto parse_rc =
+        psimdjson_parser_parse(parser, padded_input.data(), input_len, &doc);
+    if (doc != nullptr) {
+      const auto doc_free_rc = psimdjson_doc_free(doc);
+      if (doc_free_rc != PURE_SIMDJSON_OK) {
+        static_cast<void>(psimdjson_parser_free(parser));
+        return doc_free_rc;
+      }
+    }
+
+    *out_parse_status = static_cast<int32_t>(parse_rc);
+    *out_offset = parser->last_error_offset;
+    *out_has_offset = parser->last_error_has_offset ? 1 : 0;
+    *out_observation = parser->replay_observation;
+
+    const auto parser_free_rc = psimdjson_parser_free(parser);
+    return parser_free_rc;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_test_recursive_replay_observation(
+    const uint8_t *input_ptr,
+    size_t input_len,
+    uint64_t max_capacity,
+    uint32_t max_depth,
+    uint64_t *out_offset,
+    uint8_t *out_has_offset,
+    psimdjson_test_replay_observation *out_observation
+) noexcept {
+  try {
+    if ((input_len != 0 && input_ptr == nullptr) ||
+        out_offset == nullptr ||
+        out_has_offset == nullptr ||
+        out_observation == nullptr) {
+      return invalid_argument();
+    }
+    if (input_len > std::numeric_limits<size_t>::max() - simdjson::SIMDJSON_PADDING) {
+      return invalid_argument();
+    }
+
+    const uint64_t effective_max_capacity =
+        max_capacity == 0 ? DEFAULT_MAX_CAPACITY : max_capacity;
+    const uint32_t effective_max_depth =
+        max_depth == 0 ? DEFAULT_MAX_DEPTH : max_depth;
+    std::vector<uint8_t> padded_input(
+        input_len + simdjson::SIMDJSON_PADDING,
+        uint8_t{0}
+    );
+    if (input_len != 0) {
+      std::memcpy(padded_input.data(), input_ptr, input_len);
+    }
+
+    psimdjson_parser parser;
+    parser.max_capacity = effective_max_capacity;
+    parser.max_depth = effective_max_depth;
+    clear_last_error(&parser);
+    reset_replay_observation(out_observation);
+    static_cast<void>(replay_recursive_location(
+        &parser,
+        padded_input.data(),
+        input_len,
+        DiagnosticReplayLimits{effective_max_capacity, effective_max_depth},
+        out_observation
+    ));
+
+    *out_offset = parser.last_error_offset;
+    *out_has_offset = parser.last_error_has_offset ? 1 : 0;
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_test_terminal_diagnostic_observation(
+    uint32_t terminal_case,
+    uint64_t *out_offset,
+    uint8_t *out_has_offset,
+    psimdjson_test_replay_observation *out_observation
+) noexcept {
+  try {
+    if (out_offset == nullptr || out_has_offset == nullptr || out_observation == nullptr) {
+      return invalid_argument();
+    }
+
+    simdjson::error_code error;
+    switch (terminal_case) {
+      case 1:
+        error = simdjson::CAPACITY;
+        break;
+      case 2:
+        error = simdjson::DEPTH_ERROR;
+        break;
+      case 3:
+        error = simdjson::MEMALLOC;
+        break;
+      case 4:
+        error = simdjson::UNEXPECTED_ERROR;
+        break;
+      default:
+        return invalid_argument();
+    }
+
+    psimdjson_parser parser;
+    parser.max_capacity = DEFAULT_MAX_CAPACITY;
+    parser.max_depth = DEFAULT_MAX_DEPTH;
+    clear_last_error(&parser);
+    uint8_t padded_input[simdjson::SIMDJSON_PADDING]{};
+    capture_diagnostic_location(
+        &parser,
+        padded_input,
+        0,
+        error,
+        out_observation
+    );
+
+    *out_offset = parser.last_error_offset;
+    *out_has_offset = parser.last_error_has_offset ? 1 : 0;
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_test_checked_diagnostic_offset(
+    uintptr_t input_addr,
+    size_t input_len,
+    uintptr_t location_addr,
+    uint64_t *out_offset,
+    uint8_t *out_has_offset
+) noexcept {
+  try {
+    if (out_offset == nullptr || out_has_offset == nullptr) {
+      return invalid_argument();
+    }
+
+    const auto proven =
+        checked_diagnostic_offset(input_addr, input_len, location_addr);
+    *out_offset = proven.offset;
+    *out_has_offset = proven.known ? 1 : 0;
+    return PURE_SIMDJSON_OK;
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 

@@ -201,8 +201,9 @@ fn element_type_maps_phase2_root_literals() {
 fn invalid_json_reports_last_error_and_unknown_offset() {
     let parser = parser_new();
     let mut doc = 0_u64;
+    let json = br#"{"x":"abc}"#;
 
-    let rc = unsafe { pure_simdjson_parser_parse(parser, b"{".as_ptr(), 1, &mut doc) };
+    let rc = unsafe { pure_simdjson_parser_parse(parser, json.as_ptr(), json.len(), &mut doc) };
 
     assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_JSON);
     assert_eq!(doc, 0);
