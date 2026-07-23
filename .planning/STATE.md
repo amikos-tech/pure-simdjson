@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 11-12-PLAN.md
-last_updated: "2026-07-23T15:22:06.512Z"
+stopped_at: Completed 11-13-PLAN.md
+last_updated: "2026-07-23T15:45:50.361Z"
 last_activity: 2026-07-23
 progress:
   total_phases: 22
   completed_phases: 11
   total_plans: 64
-  completed_plans: 61
+  completed_plans: 62
   percent: 50
 ---
 
@@ -26,11 +26,11 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 ## Current Position
 
 Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — EXECUTING
-Plan: 13 of 14
+Plan: 14 of 14
 Status: Ready to execute
 Last activity: 2026-07-23
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
-Progress: [██████████] 95%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Progress: [██████████] 95%
 | Phase 11 P10 | 11min | 2 tasks | 5 files |
 | Phase 11 P11 | 13min | 2 tasks | 10 files |
 | Phase 11 P12 | 19min | 2 tasks | 8 files |
+| Phase 11 P13 | 19min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -169,6 +170,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 11]: Treat the native has-offset flag as authoritative; unknown locations normalize to Offset zero plus HasOffset false.
 - [Phase 11]: Use one Go mutex to linearize SetKernel with configured parser construction and pure-Go pool construction.
 - [Phase 11]: Keep Kernel cache-only and side-effect free while allowing SetKernel to resolve the native library for exact validation.
+- [Phase 11]: Keep the existing release/public wrapper indirection and make the tag-owned Go smoke the configured ABI 1.2 behavior contract. — This strengthens the one shared smoke path without duplicating release machinery.
+- [Phase 11]: Plan 11-13 stops at SOURCE READY — NOT RELEASED; strict origin/main ancestry and hosted proof remain the 11-14-T1 operator gate. — Local source evidence cannot substitute for tag-driven publication and Phase 06.1 public validation.
+- [Phase 11]: Every pre-publication Go runtime gate uses the freshly built release library through PURE_SIMDJSON_LIB_PATH. — The unpublished bootstrap version must not supply local readiness evidence.
 
 ### Pending Todos
 
@@ -182,8 +186,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-23T15:22:06.504Z
-Stopped at: Completed 11-12-PLAN.md
+Last session: 2026-07-23T15:45:50.353Z
+Stopped at: Completed 11-13-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
