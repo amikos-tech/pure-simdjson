@@ -19,7 +19,13 @@ Use one parser per goroutine, and hand parsers across goroutines through
 `ParserPool` rather than sharing one live parser concurrently.
 
 ```go
-pool := purejson.NewParserPool()
+pool, err := purejson.NewParserPool(
+	purejson.WithMaxCapacity(8 << 20),
+	purejson.WithMaxDepth(256),
+)
+if err != nil {
+	return err
+}
 
 parser, err := pool.Get()
 if err != nil {
@@ -47,6 +53,15 @@ if err := pool.Put(parser); err != nil {
 }
 ```
 
+Parser options are immutable. Omitted or zero capacity/depth options select the
+defaults (`0xFFFFFFFF` bytes and depth `1024`), and repeated options use the
+last value. The pool stores the normalized values and applies them to every
+cache miss.
+
+Constructing a pool only validates and stores those Go values; it does not
+resolve, download, or load a native library. The first `Get` cache miss creates
+a parser and may run the normal bootstrap path.
+
 ## Put Rejection Rules
 
 `ParserPool.Put` rejects parsers that do not satisfy the parser-pool lifecycle
@@ -55,9 +70,11 @@ contract:
 - `nil` parsers return `ErrInvalidHandle`
 - closed parsers return `ErrClosed`
 - parsers that still own a live document return `ErrParserBusy`
+- parsers created with different capacity or depth options return
+  `ErrInvalidOption`
 
 Those failures are intentional. The pool does not auto-close documents, replace
-parsers, or silently repair misuse.
+parsers, mix parser configurations, or silently repair misuse.
 
 ## Pool Shutdown
 
