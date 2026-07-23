@@ -17,5 +17,5 @@ Reduce Phase 11 execution risk with isolated, reproducible experiments around th
 | # | Name | Type | Validates | Verdict | Tags |
 |---|------|------|-----------|---------|------|
 | 001 | v464-error-location-replay | standard | Given malformed inputs and pinned simdjson v4.6.4, when an upstream-only On-Demand replay runs after DOM failure, then only stable in-range pointers become known offsets | VALIDATED | [simdjson, diagnostics, offsets, phase-11] |
-| 002 | abi-first-staged-binding | standard | Given ABI 1.1, complete ABI 1.2, and incomplete ABI 1.2 libraries, when the loader probes ABI before mandatory symbols, then mismatch and corruption remain distinguishable | PENDING | [purego, abi, loader, phase-11] |
+| 002 | abi-first-staged-binding | standard | Given ABI 1.1, complete ABI 1.2, and incomplete ABI 1.2 libraries, when the loader probes ABI before mandatory symbols, then mismatch and corruption remain distinguishable | VALIDATED | [purego, abi, loader, phase-11] |
 | 003 | pre-copy-capacity-proof | standard | Given an oversized input and stale parser diagnostics, when parsing starts, then capacity rejection occurs before Rust buffer growth/copy and clears stale details | PENDING | [rust, capacity, memory, diagnostics, phase-11] |
