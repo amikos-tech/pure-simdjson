@@ -101,4 +101,3 @@ Pruned entries from STATE.md. Recoverable but no longer loaded into agent contex
 | Phase 08 P03 | 9min | 2 tasks | 6 files |
 | Phase 08 P04 | 6min | 2 tasks | 2 files |
 | Phase 08 P05 | 29min | 2 tasks | 7 files |
-
