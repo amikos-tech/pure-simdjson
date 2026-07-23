@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 11-08-PLAN.md
-last_updated: "2026-07-23T14:07:18.871Z"
+stopped_at: Completed 11-09-PLAN.md
+last_updated: "2026-07-23T14:24:37.562Z"
 last_activity: 2026-07-23
 progress:
   total_phases: 22
   completed_phases: 11
   total_plans: 64
-  completed_plans: 57
+  completed_plans: 58
   percent: 50
 ---
 
@@ -26,11 +26,11 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 ## Current Position
 
 Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — EXECUTING
-Plan: 9 of 14
+Plan: 10 of 14
 Status: Ready to execute
 Last activity: 2026-07-23
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
-Progress: [█████████░] 89%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [█████████░] 89%
 | Phase 11 P06 | 11min | 2 tasks | 6 files |
 | Phase 11 P07 | 11min | 2 tasks | 10 files |
 | Phase 11 P08 | 14min | 2 tasks | 7 files |
+| Phase 11 P09 | 13min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -154,6 +155,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 11]: Accept ABI major 1 values at or above 0x00010002 only after the complete wrapper-required symbol surface binds.
 - [Phase 11]: Loader compatibility classification replaces parser-level ABI re-query and test override state.
 - [Phase 11]: Cache installation follows complete binding and successful implementation-name retrieval.
+- [Phase 11]: Public ABI declarations remain generated from src/lib.rs; private psimdjson bridge declarations are excluded explicitly.
+- [Phase 11]: The shared C smoke proves automatic selection, configured parsing, construction locking, and legacy compatibility in one process.
+- [Phase 11]: ABI 1.2 is the strict minimum; later ABI 1.x artifacts require the complete wrapper symbol surface.
 
 ### Pending Todos
 
@@ -167,8 +171,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-23T14:07:18.862Z
-Stopped at: Completed 11-08-PLAN.md
+Last session: 2026-07-23T14:24:37.554Z
+Stopped at: Completed 11-09-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
