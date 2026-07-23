@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 11-06-PLAN.md
-last_updated: "2026-07-23T13:33:35.753Z"
+stopped_at: Completed 11-07-PLAN.md
+last_updated: "2026-07-23T13:51:29.662Z"
 last_activity: 2026-07-23
 progress:
   total_phases: 22
   completed_phases: 11
   total_plans: 64
-  completed_plans: 55
+  completed_plans: 56
   percent: 50
 ---
 
@@ -26,11 +26,11 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 ## Current Position
 
 Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — EXECUTING
-Plan: 7 of 14
+Plan: 8 of 14
 Status: Ready to execute
 Last activity: 2026-07-23
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
-Progress: [█████████░] 86%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [█████████░] 86%
 | Phase 11 P04 | 16min | 2 tasks | 6 files |
 | Phase 11 P05 | 26min | 2 tasks | 7 files |
 | Phase 11 P06 | 11min | 2 tasks | 6 files |
+| Phase 11 P07 | 11min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -146,6 +147,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 11]: Use one native mutex/state for setter, explicit lock, and both parser constructors; a valid construction attempt sets locked before allocation.
 - [Phase 11]: Keep native state authoritative for production fallback policy while retaining the Rust forced-fallback seam only for isolated tests.
 - [Phase 11]: Compile upstream fallback on every supported architecture so explicit diagnostic fallback remains available on arm64 and x86-64.
+- [Phase 11]: Bootstrap 0.1.5 requires ABI 0x00010002; an older ABI cannot claim the newer source identity. — Enforces the version/ABI policy in both directions.
+- [Phase 11]: BigInt kind 9 and statuses 9/10 are append-only; all existing numeric values and layouts remain unchanged. — Preserves ABI compatibility while adding the Phase 11 surface.
+- [Phase 11]: The 0.1.5 pin is source preparation only; tag-driven CI and Phase 06.1 validation remain future gates. — Prevents source readiness from being mistaken for publication.
 
 ### Pending Todos
 
@@ -159,8 +163,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-23T13:33:34.858Z
-Stopped at: Completed 11-06-PLAN.md
+Last session: 2026-07-23T13:51:29.653Z
+Stopped at: Completed 11-07-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
