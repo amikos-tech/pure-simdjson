@@ -226,6 +226,22 @@ func (e Element) GetString() (string, error) {
 	return value, nil
 }
 
+// GetBigInt reads the current element as exact copied decimal text. It accepts
+// only TypeBigInt and returns ErrWrongType for every other element kind.
+func (e Element) GetBigInt() (string, error) {
+	doc, err := e.usableDoc()
+	if err != nil {
+		return "", err
+	}
+
+	value, rc := doc.parser.library.bindings.ElementGetBigInt(&e.view)
+	runtime.KeepAlive(doc)
+	if err := wrapStatus(rc); err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
 // GetBool reads the current element as a bool and returns ErrClosed when the
 // owning document has already been released.
 func (e Element) GetBool() (bool, error) {
