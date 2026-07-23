@@ -172,8 +172,9 @@ readiness goal.
 - From the approved `origin/main`-anchored commit, Plan 11-14 owns strict
   readiness, annotated-tag publication through `release.yml`, and the Phase
   06.1 hosted public bootstrap validation.
-- `v0.1.5` is not released, no default-bootstrap proof is claimed, and Phase
-  11 is not complete.
+- `v0.1.5` failed before publication and remains immutable. Recovery source
+  now targets `v0.1.6`; no default-bootstrap proof is claimed, and Phase 11 is
+  not complete.
 
 ## Self-Check: PASSED
 

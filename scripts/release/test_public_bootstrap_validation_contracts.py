@@ -125,11 +125,11 @@ class PublicBootstrapValidationContractTests(unittest.TestCase):
         ):
             self.assertIn(snippet, smoke_text)
 
-    def test_bootstrap_docs_mark_0_1_5_as_source_prepared(self) -> None:
+    def test_bootstrap_docs_mark_0_1_6_as_source_prepared(self) -> None:
         bootstrap_text = BOOTSTRAP_DOC.read_text(encoding="utf-8")
 
         for snippet in (
-            "v0.1.5",
+            "v0.1.6",
             "source-prepared",
             "ErrABIVersionMismatch",
             "Phase `06.1`",

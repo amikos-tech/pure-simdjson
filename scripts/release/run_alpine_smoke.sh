@@ -56,7 +56,7 @@ docker run --rm \
     set -euo pipefail
     export HOME=/tmp/pure-simdjson-home
     mkdir -p "$HOME"
-    apk add --no-cache bash build-base clang go cargo rust
+    apk add --no-cache bash build-base clang git go cargo rust
     cargo build --release
     export PURE_SIMDJSON_LIB_PATH=/repo/target/release/libpure_simdjson.so
     go run ./tests/smoke/go_bootstrap_smoke.go
