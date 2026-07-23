@@ -3,9 +3,7 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-use crate::{
-    pure_simdjson_error_code_t, pure_simdjson_native_alloc_stats_t, pure_simdjson_value_kind_t,
-};
+use crate::{pure_simdjson_error_code_t, pure_simdjson_native_alloc_stats_t};
 
 pub(crate) mod registry;
 
@@ -113,12 +111,12 @@ unsafe extern "C" {
     ) -> pure_simdjson_error_code_t;
     fn psimdjson_element_type(
         element: *const psimdjson_element,
-        out_kind: *mut pure_simdjson_value_kind_t,
+        out_kind: *mut u32,
     ) -> pure_simdjson_error_code_t;
     fn psimdjson_element_type_at(
         doc: *const psimdjson_doc,
         json_index: u64,
-        out_kind: *mut pure_simdjson_value_kind_t,
+        out_kind: *mut u32,
     ) -> pure_simdjson_error_code_t;
     fn psimdjson_element_get_int64_at(
         doc: *const psimdjson_doc,
@@ -389,10 +387,10 @@ pub(crate) fn native_doc_free(doc_ptr: usize) -> pure_simdjson_error_code_t {
 }
 
 pub(crate) fn native_element_type(element_ptr: usize) -> Result<u32, pure_simdjson_error_code_t> {
-    let mut kind = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_INVALID;
+    let mut kind = 0_u32;
     let rc = unsafe { psimdjson_element_type(element_ptr as *const psimdjson_element, &mut kind) };
     if rc == err_ok() {
-        Ok(kind as u32)
+        Ok(kind)
     } else {
         Err(rc)
     }
@@ -402,12 +400,12 @@ pub(crate) fn native_element_type_at(
     doc_ptr: usize,
     json_index: u64,
 ) -> Result<u32, pure_simdjson_error_code_t> {
-    let mut kind = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_INVALID;
+    let mut kind = 0_u32;
     let rc = unsafe {
         psimdjson_element_type_at(doc_ptr as *const psimdjson_doc, json_index, &mut kind)
     };
     if rc == err_ok() {
-        Ok(kind as u32)
+        Ok(kind)
     } else {
         Err(rc)
     }

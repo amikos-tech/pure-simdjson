@@ -83,6 +83,9 @@ struct psimdjson_parser {
 
 namespace {
 
+constexpr auto PURE_SIMDJSON_VALUE_KIND_BIGINT =
+    static_cast<pure_simdjson_value_kind_t>(9);
+
 pure_simdjson_error_code_t invalid_argument() noexcept {
   return PURE_SIMDJSON_ERR_INVALID_ARGUMENT;
 }
@@ -163,15 +166,6 @@ pure_simdjson_error_code_t map_error(simdjson::error_code error) noexcept {
   }
 }
 
-pure_simdjson_error_code_t map_parse_error(simdjson::error_code error) noexcept {
-  // Parse treats BIGINT as invalid JSON for the public v0.1 contract, while
-  // element accessors/materialization map BIGINT to precision loss.
-  if (error == simdjson::BIGINT_ERROR) {
-    return PURE_SIMDJSON_ERR_INVALID_JSON;
-  }
-  return map_error(error);
-}
-
 pure_simdjson_value_kind_t map_element_type(simdjson::dom::element_type type) noexcept {
   switch (type) {
     case simdjson::dom::element_type::ARRAY:
@@ -191,7 +185,7 @@ pure_simdjson_value_kind_t map_element_type(simdjson::dom::element_type type) no
     case simdjson::dom::element_type::NULL_VALUE:
       return PURE_SIMDJSON_VALUE_KIND_NULL;
     case simdjson::dom::element_type::BIGINT:
-      return PURE_SIMDJSON_VALUE_KIND_INVALID;
+      return PURE_SIMDJSON_VALUE_KIND_BIGINT;
   }
 
   return PURE_SIMDJSON_VALUE_KIND_INVALID;
@@ -414,9 +408,6 @@ pure_simdjson_error_code_t append_materialize_frame(
   set_frame_key(frame, key);
 
   const auto type = element.type();
-  if (type == simdjson::dom::element_type::BIGINT) {
-    return PURE_SIMDJSON_ERR_PRECISION_LOSS;
-  }
   frame.kind = map_element_type(type);
 
   switch (type) {
@@ -526,8 +517,18 @@ pure_simdjson_error_code_t append_materialize_frame(
     case simdjson::dom::element_type::NULL_VALUE:
       doc->materialize_frames.push_back(frame);
       return PURE_SIMDJSON_OK;
-    case simdjson::dom::element_type::BIGINT:
-      return PURE_SIMDJSON_ERR_PRECISION_LOSS;
+    case simdjson::dom::element_type::BIGINT: {
+      std::string_view value;
+      const auto error = element.get_bigint().get(value);
+      if (error != simdjson::SUCCESS) {
+        return map_error(error);
+      }
+      frame.string_len = value.size();
+      frame.string_ptr =
+          value.empty() ? nullptr : reinterpret_cast<const uint8_t *>(value.data());
+      doc->materialize_frames.push_back(frame);
+      return PURE_SIMDJSON_OK;
+    }
   }
 
   return PURE_SIMDJSON_ERR_INTERNAL;
@@ -582,6 +583,7 @@ pure_simdjson_error_code_t psimdjson_parser_new(psimdjson_parser **out_parser) n
     }
 
     auto parser = std::make_unique<psimdjson_parser>();
+    parser->parser.number_as_string(true);
     *out_parser = parser.release();
     return PURE_SIMDJSON_OK;
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
@@ -616,7 +618,7 @@ pure_simdjson_error_code_t psimdjson_parser_parse(
         parser->parser.parse_into_document(doc->document, input_ptr, input_len, false).get(root);
     if (error != simdjson::SUCCESS) {
       set_last_error(parser, error);
-      return map_parse_error(error);
+      return map_error(error);
     }
 
     clear_last_error(parser);
@@ -708,12 +710,7 @@ pure_simdjson_error_code_t psimdjson_element_type(
       return invalid_argument();
     }
 
-    const auto type = element->value.type();
-    if (type == simdjson::dom::element_type::BIGINT) {
-      return PURE_SIMDJSON_ERR_PRECISION_LOSS;
-    }
-
-    *out_kind = map_element_type(type);
+    *out_kind = map_element_type(element->value.type());
     return PURE_SIMDJSON_OK;
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
@@ -742,12 +739,7 @@ pure_simdjson_error_code_t psimdjson_element_type_at(
       return invalid_argument();
     }
 
-    const auto type = element_at(doc, json_index).type();
-    if (type == simdjson::dom::element_type::BIGINT) {
-      return PURE_SIMDJSON_ERR_PRECISION_LOSS;
-    }
-
-    *out_kind = map_element_type(type);
+    *out_kind = map_element_type(element_at(doc, json_index).type());
     return PURE_SIMDJSON_OK;
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
