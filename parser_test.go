@@ -316,6 +316,127 @@ func TestStructuredErrorDetails(t *testing.T) {
 	}
 }
 
+func TestErrorOffsetKnownZero(t *testing.T) {
+	parser := mustNewParser(t)
+	t.Cleanup(func() {
+		if err := parser.Close(); err != nil {
+			t.Fatalf("parser.Close() cleanup error = %v", err)
+		}
+	})
+
+	_, err := parser.Parse([]byte("x"))
+	nativeErr := requireNativeError(t, err, ErrInvalidJSON)
+	if nativeErr.Offset() != 0 || !nativeErr.HasOffset() {
+		t.Fatalf("Parse(\"x\") offset = (%d, %t), want (0, true)", nativeErr.Offset(), nativeErr.HasOffset())
+	}
+	if !strings.Contains(nativeErr.Error(), "offset=0") {
+		t.Fatalf("Parse(\"x\") error = %q, want offset=0", nativeErr.Error())
+	}
+}
+
+func TestErrorOffsetUnknown(t *testing.T) {
+	parser := mustNewParser(t)
+	t.Cleanup(func() {
+		if err := parser.Close(); err != nil {
+			t.Fatalf("parser.Close() cleanup error = %v", err)
+		}
+	})
+
+	_, err := parser.Parse(nil)
+	nativeErr := requireNativeError(t, err, ErrInvalidJSON)
+	if nativeErr.Offset() != 0 || nativeErr.HasOffset() {
+		t.Fatalf("Parse(nil) offset = (%d, %t), want (0, false)", nativeErr.Offset(), nativeErr.HasOffset())
+	}
+	if strings.Contains(nativeErr.Error(), "offset=") {
+		t.Fatalf("Parse(nil) error = %q, want no offset clause", nativeErr.Error())
+	}
+}
+
+func TestErrorOffsetCorpus(t *testing.T) {
+	parser := mustNewParser(t)
+	t.Cleanup(func() {
+		if err := parser.Close(); err != nil {
+			t.Fatalf("parser.Close() cleanup error = %v", err)
+		}
+	})
+
+	invalidUTF8 := append([]byte(`{"x":"`), 0xff)
+	invalidUTF8 = append(invalidUTF8, []byte(`"}`)...)
+	testCases := []struct {
+		name       string
+		input      []byte
+		wantOffset uint64
+		wantKnown  bool
+	}{
+		{name: "empty", input: nil},
+		{name: "invalid utf8", input: invalidUTF8},
+		{name: "unclosed string", input: []byte(`{"x":"abc}`)},
+		{name: "array trailing comma", input: []byte(`[1,]`), wantOffset: 3, wantKnown: true},
+		{name: "trailing content", input: []byte(`{"a":1} trailing`), wantOffset: 8, wantKnown: true},
+		{name: "missing object key", input: []byte(`{"double":13.06,false,"integer":-343}`), wantOffset: 16, wantKnown: true},
+		{name: "unexpected root token", input: []byte("x"), wantKnown: true},
+		{name: "extra closing bracket", input: []byte(`["extra close"]]`), wantOffset: 15, wantKnown: true},
+		{name: "mismatched container", input: []byte(`{"a":[1,2}`), wantOffset: 9, wantKnown: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parser.Parse(tc.input)
+			nativeErr := requireNativeError(t, err, ErrInvalidJSON)
+			if nativeErr.Offset() != tc.wantOffset || nativeErr.HasOffset() != tc.wantKnown {
+				t.Fatalf(
+					"offset = (%d, %t), want (%d, %t)",
+					nativeErr.Offset(),
+					nativeErr.HasOffset(),
+					tc.wantOffset,
+					tc.wantKnown,
+				)
+			}
+		})
+	}
+}
+
+func TestErrorOffsetStaleDetails(t *testing.T) {
+	parser, err := NewParser(WithMaxCapacity(32))
+	if err != nil {
+		t.Fatalf("NewParser(WithMaxCapacity(32)) error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := parser.Close(); err != nil {
+			t.Fatalf("parser.Close() cleanup error = %v", err)
+		}
+	})
+
+	_, err = parser.Parse([]byte("x"))
+	primed := requireNativeError(t, err, ErrInvalidJSON)
+	if !primed.HasOffset() || primed.Message() == "" {
+		t.Fatalf("priming error details = (%d, %t, %q), want known offset and message", primed.Offset(), primed.HasOffset(), primed.Message())
+	}
+
+	_, err = parser.Parse(bytes.Repeat([]byte(" "), 33))
+	nativeErr := requireNativeError(t, err, ErrCapacityLimitExceeded)
+	if nativeErr.Offset() != 0 || nativeErr.HasOffset() || nativeErr.Message() != "" {
+		t.Fatalf(
+			"capacity error details = (%d, %t, %q), want (0, false, empty)",
+			nativeErr.Offset(),
+			nativeErr.HasOffset(),
+			nativeErr.Message(),
+		)
+	}
+}
+
+func requireNativeError(t *testing.T, err, want error) *Error {
+	t.Helper()
+	if !errors.Is(err, want) {
+		t.Fatalf("error = %v, want %v", err, want)
+	}
+	var nativeErr *Error
+	if !errors.As(err, &nativeErr) {
+		t.Fatalf("error = %v, want *Error", err)
+	}
+	return nativeErr
+}
+
 func TestLeakWarningTestBuild(t *testing.T) {
 	if helperMode := os.Getenv("PUREJSON_HELPER_MODE"); helperMode != "" && helperMode != "single-parser-leak" {
 		t.Skip("different helper mode")
