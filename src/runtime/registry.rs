@@ -76,7 +76,7 @@ enum Slot<T> {
 struct Registry {
     parsers: Vec<Slot<ParserEntry>>,
     docs: Vec<Slot<DocEntry>>,
-    string_allocations: HashMap<usize, usize>,
+    byte_allocations: HashMap<usize, usize>,
 }
 
 static REGISTRY: OnceLock<Mutex<Registry>> = OnceLock::new();
@@ -107,18 +107,10 @@ fn err_parser_busy() -> pure_simdjson_error_code_t {
 }
 
 #[inline]
-fn err_precision_loss() -> pure_simdjson_error_code_t {
-    pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PRECISION_LOSS
-}
-
-#[inline]
 fn err_wrong_type() -> pure_simdjson_error_code_t {
     pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_WRONG_TYPE
 }
 
-/// Coarse value kind sentinel for views whose backing element cannot be classified
-/// (e.g. BIGINT elements, where the canonical error surfaces at `pure_simdjson_element_type`).
-const KIND_HINT_INVALID: u32 = 0;
 const KIND_HINT_STRING: u32 = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_STRING as u32;
 const KIND_HINT_ARRAY: u32 = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_ARRAY as u32;
 const KIND_HINT_OBJECT: u32 = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_OBJECT as u32;
@@ -643,15 +635,7 @@ pub(crate) fn doc_root(
 ) -> Result<pure_simdjson_value_view_t, pure_simdjson_error_code_t> {
     let registry = registry_guard();
     let entry = registry.doc_entry(handle)?;
-    // BIGINT roots are unreachable today (bridge does not enable bigint storage), but the bridge's
-    // `psimdjson_element_type` would surface PRECISION_LOSS for them. Per the header contract that
-    // error must surface at `pure_simdjson_element_type`, not at `pure_simdjson_doc_root`, so we
-    // hand back a view with an invalid kind hint and let the canonical error fire downstream.
-    let kind_hint = match super::native_element_type(entry.root_ptr) {
-        Ok(kind) => kind,
-        Err(rc) if rc == err_precision_loss() => KIND_HINT_INVALID,
-        Err(rc) => return Err(rc),
-    };
+    let kind_hint = super::native_element_type(entry.root_ptr)?;
     Ok(pure_simdjson_value_view_t {
         doc: handle,
         state0: entry.root_ptr as u64,
@@ -725,11 +709,7 @@ fn encode_descendant_view_locked(
     if json_index == 0 || json_index >= entry.root_after_index {
         return Err(err_invalid_handle());
     }
-    let kind_hint = match super::native_element_type_at(entry.native_ptr, json_index) {
-        Ok(kind) => kind,
-        Err(rc) if rc == err_precision_loss() => KIND_HINT_INVALID,
-        Err(rc) => return Err(rc),
-    };
+    let kind_hint = super::native_element_type_at(entry.native_ptr, json_index)?;
     entry.descendant_indices.insert(json_index);
 
     Ok(pure_simdjson_value_view_t {
@@ -774,14 +754,14 @@ pub(crate) fn element_get_float64(
             kind if kind == pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_INT64 as u32 => {
                 let value = super::native_element_get_int64_at(entry.native_ptr, json_index)?;
                 if !int64_is_exact_float64(value) {
-                    return Err(err_precision_loss());
+                    return Err(pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PRECISION_LOSS);
                 }
                 Ok(value as f64)
             }
             kind if kind == pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_UINT64 as u32 => {
                 let value = super::native_element_get_uint64_at(entry.native_ptr, json_index)?;
                 if !uint64_is_exact_float64(value) {
-                    return Err(err_precision_loss());
+                    return Err(pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PRECISION_LOSS);
                 }
                 Ok(value as f64)
             }
@@ -790,12 +770,12 @@ pub(crate) fn element_get_float64(
     )
 }
 
-pub(crate) fn element_get_string(
+fn element_get_bytes_copy(
     view: *const pure_simdjson_value_view_t,
+    native_getter: fn(usize, u64) -> Result<(usize, usize), pure_simdjson_error_code_t>,
 ) -> Result<(*mut u8, usize), pure_simdjson_error_code_t> {
     let (ptr, len) = with_resolved_view(view, |entry, json_index, _| {
-        let (borrowed_ptr, len) =
-            super::native_element_get_string_view(entry.native_ptr, json_index)?;
+        let (borrowed_ptr, len) = native_getter(entry.native_ptr, json_index)?;
         if len == 0 {
             return Ok((ptr::null_mut(), 0));
         }
@@ -820,7 +800,7 @@ pub(crate) fn element_get_string(
 
     let mut registry = registry_guard();
     if registry
-        .string_allocations
+        .byte_allocations
         .insert(ptr as usize, len)
         .is_some()
     {
@@ -834,6 +814,18 @@ pub(crate) fn element_get_string(
     }
 
     Ok((ptr, len))
+}
+
+pub(crate) fn element_get_string(
+    view: *const pure_simdjson_value_view_t,
+) -> Result<(*mut u8, usize), pure_simdjson_error_code_t> {
+    element_get_bytes_copy(view, super::native_element_get_string_view)
+}
+
+pub(crate) fn element_get_bigint_copy(
+    view: *const pure_simdjson_value_view_t,
+) -> Result<(*mut u8, usize), pure_simdjson_error_code_t> {
+    element_get_bytes_copy(view, super::native_element_get_bigint_view)
 }
 
 pub(crate) fn bytes_free(ptr: *mut u8, len: usize) -> pure_simdjson_error_code_t {
@@ -850,11 +842,11 @@ pub(crate) fn bytes_free(ptr: *mut u8, len: usize) -> pure_simdjson_error_code_t
 
     {
         let mut registry = registry_guard();
-        match registry.string_allocations.remove(&(ptr as usize)) {
+        match registry.byte_allocations.remove(&(ptr as usize)) {
             Some(registered_len) if registered_len == len => {}
             Some(registered_len) => {
                 registry
-                    .string_allocations
+                    .byte_allocations
                     .insert(ptr as usize, registered_len);
                 return err_invalid_handle();
             }

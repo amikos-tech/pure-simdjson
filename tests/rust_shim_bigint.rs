@@ -130,7 +130,7 @@ fn bigint_accessor_is_strict_for_every_other_json_kind() {
         let parser = parser_new();
         let doc = parser_parse_literal(parser, literal);
         let root = doc_root(doc);
-        let sentinel = ptr::dangling_mut::<u8>();
+        let sentinel = ptr::NonNull::<u8>::dangling().as_ptr();
         let mut out_ptr = sentinel;
         let mut out_len = usize::MAX;
 
@@ -158,7 +158,7 @@ fn bigint_accessor_rejects_null_outputs_without_partial_writes() {
     assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_ARGUMENT);
     assert_eq!(out_len, 41);
 
-    let sentinel = ptr::dangling_mut::<u8>();
+    let sentinel = ptr::NonNull::<u8>::dangling().as_ptr();
     let mut out_ptr = sentinel;
     let rc = unsafe { pure_simdjson_element_get_bigint(&root, &mut out_ptr, ptr::null_mut()) };
     assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_ARGUMENT);

@@ -548,9 +548,8 @@ pub unsafe extern "C" fn pure_simdjson_doc_free(
 
 /// Resolve the root value view for a live document handle.
 ///
-/// The returned view's `kind_hint` is `PURE_SIMDJSON_VALUE_KIND_INVALID` for roots whose value
-/// kind cannot be classified (for example, BIGINT). The canonical precision-loss error surfaces
-/// at `pure_simdjson_element_type`, not here.
+/// The returned view's `kind_hint` reports the native value kind directly, including kind `9` for
+/// BigInt roots.
 ///
 /// # Safety
 /// `doc` must be a live document handle from this library. `out_root` must be a valid writable
@@ -570,8 +569,8 @@ pub unsafe extern "C" fn pure_simdjson_doc_root(
 
 /// Report the value kind for a document-tied view.
 ///
-/// Returns `PURE_SIMDJSON_ERR_PRECISION_LOSS` for BIGINT values and
-/// `PURE_SIMDJSON_ERR_INVALID_HANDLE` when reserved bits are non-zero or the root tag is invalid.
+/// BigInt values report kind `9`. Returns `PURE_SIMDJSON_ERR_INVALID_HANDLE` when reserved bits
+/// are non-zero or the root tag is invalid.
 ///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -591,6 +590,8 @@ pub unsafe extern "C" fn pure_simdjson_element_type(
 
 /// Decode the referenced value as `int64_t`.
 ///
+/// BigInt and other non-int64 kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
+///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
 /// `out_value` must point to writable `i64` storage.
@@ -609,8 +610,8 @@ pub unsafe extern "C" fn pure_simdjson_element_get_int64(
 
 /// Decode the referenced value as `uint64_t`.
 ///
-/// Negative integers return `PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE`; non-uint64 kinds return
-/// `PURE_SIMDJSON_ERR_WRONG_TYPE`.
+/// Negative integers return `PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE`; BigInt and other non-uint64
+/// kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
 ///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -630,8 +631,9 @@ pub unsafe extern "C" fn pure_simdjson_element_get_uint64(
 
 /// Decode the referenced value as `double`.
 ///
-/// Integral values that cannot be represented exactly as `double` return
-/// `PURE_SIMDJSON_ERR_PRECISION_LOSS`; non-numeric kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
+/// Int64 and uint64 values that cannot be represented exactly as `double` return
+/// `PURE_SIMDJSON_ERR_PRECISION_LOSS`.
+/// BigInt and non-numeric kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
 ///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -679,12 +681,43 @@ pub unsafe extern "C" fn pure_simdjson_element_get_string(
     })
 }
 
-/// Release memory previously returned by `pure_simdjson_element_get_string`.
+/// Copy the referenced BigInt value into a newly allocated byte buffer.
+///
+/// Only kind `9` is accepted. The caller receives the exact decimal spelling through `*out_ptr`
+/// plus `*out_len` and must release that allocation with `pure_simdjson_bytes_free`.
+///
+/// # Safety
+/// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+/// `out_ptr` and `out_len` must point to writable storage owned by the caller.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_element_get_bigint(
+    view: *const pure_simdjson_value_view_t,
+    out_ptr: *mut *mut u8,
+    out_len: *mut usize,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_element_get_bigint", || unsafe {
+        if out_ptr.is_null() || out_len.is_null() {
+            return err_invalid_argument();
+        }
+
+        match runtime::registry::element_get_bigint_copy(view) {
+            Ok((ptr_value, len)) => {
+                ptr::write(out_ptr, ptr_value);
+                ptr::write(out_len, len);
+                err_ok()
+            }
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Release memory previously returned by `pure_simdjson_element_get_string` or
+/// `pure_simdjson_element_get_bigint`.
 /// The empty-string sentinel is `ptr == NULL && len == 0`.
 ///
 /// # Safety
 /// `ptr` and `len` must describe an allocation previously returned by
-/// `pure_simdjson_element_get_string`.
+/// `pure_simdjson_element_get_string` or `pure_simdjson_element_get_bigint`.
 #[no_mangle]
 pub unsafe extern "C" fn pure_simdjson_bytes_free(
     ptr: *mut u8,
