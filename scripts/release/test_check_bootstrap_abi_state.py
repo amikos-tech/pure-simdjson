@@ -113,6 +113,20 @@ class BootstrapABIStateTest(unittest.TestCase):
             result.stdout,
         )
 
+    def test_accepts_recovery_0_1_7_abi_1_2_state(self) -> None:
+        result = self.run_checker(
+            requested_version="0.1.7",
+            bootstrap_version="0.1.7",
+            go_abi="0x00010002",
+            rust_abi="0x0001_0002",
+        )
+
+        self.assertEqual(result.returncode, 0, result)
+        self.assertIn(
+            "bootstrap ABI state ok: version 0.1.7, abi 0x00010002",
+            result.stdout,
+        )
+
     def test_rejects_0_1_4_as_stale_for_abi_1_2(self) -> None:
         result = self.run_checker(
             requested_version="0.1.4",

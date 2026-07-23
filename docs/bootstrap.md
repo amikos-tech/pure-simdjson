@@ -14,7 +14,7 @@ the process from workflow YAML.
 
 ## ABI 1.2 Source State
 
-Version `v0.1.6` is source-prepared for ABI `0x00010002`, but it is not a
+Version `v0.1.7` is source-prepared for ABI `0x00010002`, but it is not a
 published release until the tag-driven `release.yml` run succeeds. The
 default bootstrap URL and real no-override smoke remain unproven until the
 Phase `06.1` hosted public validation passes for all five R2 targets and the
@@ -74,8 +74,8 @@ pure-simdjson-bootstrap fetch --all-platforms --dest ./vendor-libs
 
 # (transport ./vendor-libs to the air-gapped host)
 
-# On the air-gapped host, after the hosted v0.1.6 publication succeeds:
-export PURE_SIMDJSON_LIB_PATH=/path/to/vendor-libs/v0.1.6/linux-amd64/libpure_simdjson.so
+# On the air-gapped host, after the hosted v0.1.7 publication succeeds:
+export PURE_SIMDJSON_LIB_PATH=/path/to/vendor-libs/v0.1.7/linux-amd64/libpure_simdjson.so
 ```
 
 With `PURE_SIMDJSON_LIB_PATH` set, no network calls are made — ever.
@@ -178,8 +178,8 @@ layer is the SHA-256 check baked into the bootstrap library; cosign adds a
 provenance layer on top.
 
 ```bash
-# After the hosted v0.1.6 publication succeeds:
-TAG=v0.1.6
+# After the hosted v0.1.7 publication succeeds:
+TAG=v0.1.7
 OS=linux
 ARCH=amd64
 BASE_URL="https://releases.amikos.tech/pure-simdjson/${TAG}"
