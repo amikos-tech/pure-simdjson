@@ -1272,3 +1272,51 @@ mod materialize_tests {
         cleanup(parser, doc);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn json_string_with_total_len(total_len: usize) -> Vec<u8> {
+        assert!(total_len >= 2);
+        let mut json = vec![b'x'; total_len];
+        json[0] = b'"';
+        json[total_len - 1] = b'"';
+        json
+    }
+
+    fn reusable_input_snapshot(
+        handle: pure_simdjson_parser_t,
+    ) -> (usize, usize, usize, Vec<u8>) {
+        let registry = registry_guard();
+        let entry = registry
+            .parser_entry(handle)
+            .expect("configured parser should remain registered");
+        (
+            entry.reusable_input.as_ptr() as usize,
+            entry.reusable_input.len(),
+            entry.reusable_input.capacity(),
+            entry.reusable_input.clone(),
+        )
+    }
+
+    #[test]
+    fn capacity_rejection_preserves_reusable_input_arena() {
+        let parser =
+            parser_new_configured(32, 0).expect("configured parser construction should succeed");
+        let exact = json_string_with_total_len(32);
+        let doc = parser_parse(parser, &exact).expect("exact-capacity input should parse");
+        assert_eq!(doc_free(doc), err_ok());
+
+        let before = reusable_input_snapshot(parser);
+        let oversized = json_string_with_total_len(33);
+        assert_eq!(
+            parser_parse(parser, &oversized),
+            Err(pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_CAPACITY_LIMIT)
+        );
+        let after = reusable_input_snapshot(parser);
+
+        assert_eq!(after, before, "capacity rejection mutated reusable arena");
+        assert_eq!(parser_free(parser), err_ok());
+    }
+}
