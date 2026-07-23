@@ -246,11 +246,10 @@ func TestActiveLibraryLockScope(t *testing.T) {
 	}
 }
 
-// TestNewParserSignatureUnchanged pins NewParser's signature: no ctx argument,
-// preserving D-02. Compile-time assertion only — the call itself may fail if
-// the native library is not loaded on this machine, which we ignore.
-func TestNewParserSignatureUnchanged(t *testing.T) {
-	var f func() (*Parser, error) = NewParser
+// TestNewParserVariadicSignature pins the immutable option call shape while
+// preserving zero-argument construction.
+func TestNewParserVariadicSignature(t *testing.T) {
+	var f func(...ParserOption) (*Parser, error) = NewParser
 	_ = f
 }
 

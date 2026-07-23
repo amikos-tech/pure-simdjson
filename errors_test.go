@@ -91,3 +91,24 @@ func TestWrapStatusMapsDepthLimitSeparately(t *testing.T) {
 		t.Fatalf("wrapStatus(%d) native code = %d, want %d", ffi.ErrDepthLimit, nativeErr.Code(), ffi.ErrDepthLimit)
 	}
 }
+
+func TestSentinelMapping(t *testing.T) {
+	testCases := []struct {
+		name string
+		code ffi.ErrorCode
+		want error
+	}{
+		{name: "capacity limit", code: ffi.ErrCapacityLimit, want: ErrCapacityLimitExceeded},
+		{name: "depth limit", code: ffi.ErrDepthLimit, want: ErrDepthLimitExceeded},
+		{name: "invalid argument remains internal", code: ffi.ErrInvalidArg, want: ErrInternal},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := wrapStatus(int32(tc.code))
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("wrapStatus(%d) error = %v, want %v", tc.code, err, tc.want)
+			}
+		})
+	}
+}
