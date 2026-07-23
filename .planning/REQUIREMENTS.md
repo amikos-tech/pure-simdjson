@@ -270,7 +270,7 @@ Populated during roadmap creation by `gsd-roadmapper`. Each requirement maps to 
 | NUM-01 | Phase 11 | Complete |
 | NUM-02 | Phase 11 | Complete |
 | DIAG-01 | Phase 11 | Pending |
-| DIAG-02 | Phase 11 | Pending |
+| DIAG-02 | Phase 11 | Complete |
 | LIMIT-01 | Phase 11 | Complete |
 | DOM-01 | Phase 12 | Pending |
 | DOM-02 | Phase 12 | Pending |
