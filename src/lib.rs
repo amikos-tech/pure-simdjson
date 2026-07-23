@@ -14,7 +14,7 @@ use std::{
 ///
 /// This constant is part of the public C header and stays numerically pinned alongside
 /// `pure_simdjson_get_abi_version`.
-pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0001;
+pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0002;
 
 /// Public error codes for the stable ABI v0.1 surface.
 ///
@@ -66,6 +66,7 @@ pub enum pure_simdjson_value_kind_t {
     PURE_SIMDJSON_VALUE_KIND_STRING = 6,
     PURE_SIMDJSON_VALUE_KIND_ARRAY = 7,
     PURE_SIMDJSON_VALUE_KIND_OBJECT = 8,
+    PURE_SIMDJSON_VALUE_KIND_BIGINT = 9,
 }
 
 /// Generic packed handle transport for the public ABI.
