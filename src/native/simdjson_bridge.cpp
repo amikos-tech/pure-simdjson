@@ -812,6 +812,29 @@ pure_simdjson_error_code_t psimdjson_element_get_string_view(
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
+pure_simdjson_error_code_t psimdjson_element_get_bigint_view(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t **out_ptr,
+    size_t *out_len
+) noexcept {
+  try {
+    if (doc == nullptr || out_ptr == nullptr || out_len == nullptr) {
+      return invalid_argument();
+    }
+
+    std::string_view value;
+    const auto error = element_at(doc, json_index).get_bigint().get(value);
+    if (error != simdjson::SUCCESS) {
+      return map_error(error);
+    }
+
+    *out_len = value.size();
+    *out_ptr = value.empty() ? nullptr : reinterpret_cast<const uint8_t *>(value.data());
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
 pure_simdjson_error_code_t psimdjson_element_get_bool_at(
     const psimdjson_doc *doc,
     uint64_t json_index,

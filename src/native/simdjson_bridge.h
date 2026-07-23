@@ -118,6 +118,12 @@ pure_simdjson_error_code_t psimdjson_element_get_string_view(
     const uint8_t **out_ptr,
     size_t *out_len
 ) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_element_get_bigint_view(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t **out_ptr,
+    size_t *out_len
+) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_element_get_bool_at(
     const psimdjson_doc *doc,
     uint64_t json_index,

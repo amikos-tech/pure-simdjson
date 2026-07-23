@@ -139,6 +139,12 @@ unsafe extern "C" {
         out_ptr: *mut *const u8,
         out_len: *mut usize,
     ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_get_bigint_view(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_ptr: *mut *const u8,
+        out_len: *mut usize,
+    ) -> pure_simdjson_error_code_t;
     fn psimdjson_element_get_bool_at(
         doc: *const psimdjson_doc,
         json_index: u64,
@@ -464,6 +470,27 @@ pub(crate) fn native_element_get_string_view(
     let mut len = 0_usize;
     let rc = unsafe {
         psimdjson_element_get_string_view(
+            doc_ptr as *const psimdjson_doc,
+            json_index,
+            &mut ptr,
+            &mut len,
+        )
+    };
+    if rc == err_ok() {
+        Ok((ptr as usize, len))
+    } else {
+        Err(rc)
+    }
+}
+
+pub(crate) fn native_element_get_bigint_view(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<(usize, usize), pure_simdjson_error_code_t> {
+    let mut ptr = ptr::null();
+    let mut len = 0_usize;
+    let rc = unsafe {
+        psimdjson_element_get_bigint_view(
             doc_ptr as *const psimdjson_doc,
             json_index,
             &mut ptr,
