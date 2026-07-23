@@ -12,6 +12,7 @@ import sys
 ABI_MINIMUM_VERSION = {
     "0x00010000": "0.1.0",
     "0x00010001": "0.1.2",
+    "0x00010002": "0.1.5",
 }
 
 VERSION_RE = re.compile(r'const\s+Version\s*=\s*"([^"]+)"')
@@ -93,6 +94,20 @@ def check_state(repo_root: pathlib.Path, requested_version: str) -> tuple[str, s
         raise BootstrapABIStateError(
             f"stale bootstrap.Version: {bootstrap_version} is below minimum "
             f"{minimum_version} for ABI {go_abi}"
+        )
+
+    required_abi = max(
+        (
+            policy_abi
+            for policy_abi, policy_version in ABI_MINIMUM_VERSION.items()
+            if semver_tuple(bootstrap_version) >= semver_tuple(policy_version)
+        ),
+        key=lambda policy_abi: int(policy_abi, 16),
+    )
+    if int(go_abi, 16) < int(required_abi, 16):
+        raise BootstrapABIStateError(
+            f"stale ABI policy: {go_abi} is below required {required_abi} "
+            f"for bootstrap.Version {bootstrap_version}"
         )
 
     if bootstrap_version != requested_version:

@@ -4,7 +4,7 @@ const (
 	// ABIVersion encodes the expected native ABI as 0xMMMMmmmm (16-bit major,
 	// 16-bit minor). It must match PURE_SIMDJSON_ABI_VERSION exported by the
 	// Rust shim; bumping major signals a breaking C-ABI change.
-	ABIVersion             uint32 = 0x00010001
+	ABIVersion             uint32 = 0x00010002
 	LastErrorOffsetUnknown uint64 = ^uint64(0)
 )
 
@@ -22,6 +22,8 @@ const (
 	ErrBufferTooSmall  ErrorCode = 6
 	ErrNotImplemented  ErrorCode = 7
 	ErrDepthLimit      ErrorCode = 8
+	ErrCapacityLimit   ErrorCode = 9
+	ErrKernelLocked    ErrorCode = 10
 
 	ErrInvalidJSON      ErrorCode = 32
 	ErrNumberOutOfRange ErrorCode = 33
@@ -47,6 +49,7 @@ const (
 	ValueKindString  ValueKind = 6
 	ValueKindArray   ValueKind = 7
 	ValueKindObject  ValueKind = 8
+	ValueKindBigInt  ValueKind = 9
 )
 
 type ParserHandle uint64

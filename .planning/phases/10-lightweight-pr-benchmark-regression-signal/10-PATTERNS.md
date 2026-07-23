@@ -551,7 +551,7 @@ From global `~/.claude/CLAUDE.md` and `RESEARCH § Project Constraints`:
 | Constraint | Where it lands in Phase 10 |
 |---|---|
 | Conventional commits (`type(scope): subject`) | Plan's commit checklist; e.g. `feat(ci): add PR benchmark regression workflow`, `feat(bench): add PR regression parser`, `test(bench): cover boundary thresholds for regression parser`, `docs(changelog): note PR benchmark regression workflow` |
-| No `github.teliacompany.net` / internal references | Auto-compliance — Phase 10 has zero internal infra contact. Sanity-check: no env vars from internal repos, no hardcoded URLs |
+| No internal infrastructure references | Auto-compliance — Phase 10 has zero internal infra contact. Sanity-check: no env vars from internal repos, no hardcoded URLs |
 | No "🤖 Generated with Claude Code" attribution | Plan's commit/PR checklists |
 | GH issue prefixes | If any spillover issue is filed: `[BLD]` (closest match for CI), `[TST]` (parser test gap), `[ENH]` (future blocking flip). Phase 10 likely needs `[ENH]` follow-up issue for "graduate PR regression check to required status" (D-14) |
 | Don't push to main without a PR | Plan ships via `gsd/phase-10-...` → PR → main. Same as every prior phase |

@@ -19,6 +19,14 @@ static_assert(PURE_SIMDJSON_ERR_ELEMENT_NOT_FOUND == 5,
               "PURE_SIMDJSON_ERR_ELEMENT_NOT_FOUND must stay pinned");
 static_assert(PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL == 6,
               "PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL must stay pinned");
+static_assert(PURE_SIMDJSON_ERR_NOT_IMPLEMENTED == 7,
+              "PURE_SIMDJSON_ERR_NOT_IMPLEMENTED must stay pinned");
+static_assert(PURE_SIMDJSON_ERR_DEPTH_LIMIT == 8,
+              "PURE_SIMDJSON_ERR_DEPTH_LIMIT must stay pinned");
+static_assert(PURE_SIMDJSON_ERR_CAPACITY_LIMIT == 9,
+              "PURE_SIMDJSON_ERR_CAPACITY_LIMIT must stay pinned");
+static_assert(PURE_SIMDJSON_ERR_KERNEL_LOCKED == 10,
+              "PURE_SIMDJSON_ERR_KERNEL_LOCKED must stay pinned");
 static_assert(PURE_SIMDJSON_ERR_INVALID_JSON == 32,
               "PURE_SIMDJSON_ERR_INVALID_JSON must stay pinned");
 static_assert(PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE == 33,
@@ -35,7 +43,7 @@ static_assert(PURE_SIMDJSON_ERR_CPP_EXCEPTION == 97,
               "PURE_SIMDJSON_ERR_CPP_EXCEPTION must stay pinned");
 static_assert(PURE_SIMDJSON_ERR_INTERNAL == 127,
               "PURE_SIMDJSON_ERR_INTERNAL must stay pinned");
-static_assert(PURE_SIMDJSON_ABI_VERSION == 0x00010001u,
+static_assert(PURE_SIMDJSON_ABI_VERSION == 0x00010002u,
               "PURE_SIMDJSON_ABI_VERSION must stay pinned");
 
 static_assert(PURE_SIMDJSON_VALUE_KIND_INVALID == 0,
@@ -56,6 +64,8 @@ static_assert(PURE_SIMDJSON_VALUE_KIND_ARRAY == 7,
               "PURE_SIMDJSON_VALUE_KIND_ARRAY must stay pinned");
 static_assert(PURE_SIMDJSON_VALUE_KIND_OBJECT == 8,
               "PURE_SIMDJSON_VALUE_KIND_OBJECT must stay pinned");
+static_assert(PURE_SIMDJSON_VALUE_KIND_BIGINT == 9,
+              "PURE_SIMDJSON_VALUE_KIND_BIGINT must stay pinned");
 
 static_assert(sizeof(pure_simdjson_handle_t) == 8, "pure_simdjson_handle_t must stay 8 bytes");
 static_assert(sizeof(pure_simdjson_parser_t) == 8, "pure_simdjson_parser_t must stay 8 bytes");

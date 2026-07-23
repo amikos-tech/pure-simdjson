@@ -6,9 +6,9 @@ i_number_pos_double_huge_exp.json	reject	simdjson v4.6.1 observed reject
 i_number_real_neg_overflow.json	reject	simdjson v4.6.1 observed reject
 i_number_real_pos_overflow.json	reject	simdjson v4.6.1 observed reject
 i_number_real_underflow.json	accept	simdjson v4.6.1 observed accept
-i_number_too_big_neg_int.json	reject	simdjson v4.6.1 observed reject
-i_number_too_big_pos_int.json	reject	simdjson v4.6.1 observed reject
-i_number_very_big_negative_int.json	reject	simdjson v4.6.1 observed reject
+i_number_too_big_neg_int.json	accept	simdjson v4.6.4 BigInt preservation
+i_number_too_big_pos_int.json	accept	simdjson v4.6.4 BigInt preservation
+i_number_very_big_negative_int.json	accept	simdjson v4.6.4 BigInt preservation
 i_object_key_lone_2nd_surrogate.json	reject	simdjson v4.6.1 observed reject
 i_string_1st_surrogate_but_2nd_missing.json	reject	simdjson v4.6.1 observed reject
 i_string_1st_valid_surrogate_2nd_invalid.json	reject	simdjson v4.6.1 observed reject

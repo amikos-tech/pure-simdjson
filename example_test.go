@@ -318,7 +318,10 @@ func ExampleObjectIter_Next() {
 }
 
 func ExampleParserPool_Get() {
-	pool := NewParserPool()
+	pool, err := NewParserPool()
+	if err != nil {
+		panic(err)
+	}
 
 	parser, err := pool.Get()
 	if err != nil {

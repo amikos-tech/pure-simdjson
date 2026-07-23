@@ -15,18 +15,22 @@ var bytesFreeFailureWarningCount atomic.Uint64
 type Bindings struct {
 	handle uintptr
 
-	getABIVersion            func(*uint32) int32
-	getImplementationNameLen func(*uintptr) int32
-	copyImplementationName   func(*byte, uintptr, *uintptr) int32
-	nativeAllocStatsReset    func() int32
-	nativeAllocStatsSnapshot func(*NativeAllocStats) int32
+	setImplementation           func(*byte, uintptr) int32
+	lockImplementationSelection func() int32
+	getABIVersion               func(*uint32) int32
+	getImplementationNameLen    func(*uintptr) int32
+	copyImplementationName      func(*byte, uintptr, *uintptr) int32
+	nativeAllocStatsReset       func() int32
+	nativeAllocStatsSnapshot    func(*NativeAllocStats) int32
 
-	parserNew                func(*ParserHandle) int32
-	parserFree               func(ParserHandle) int32
-	parserParse              func(ParserHandle, *byte, uintptr, *DocHandle) int32
-	parserGetLastErrorLen    func(ParserHandle, *uintptr) int32
-	parserCopyLastError      func(ParserHandle, *byte, uintptr, *uintptr) int32
-	parserGetLastErrorOffset func(ParserHandle, *uint64) int32
+	parserNew                   func(*ParserHandle) int32
+	parserNewConfigured         func(uint64, uint32, *ParserHandle) int32
+	parserFree                  func(ParserHandle) int32
+	parserParse                 func(ParserHandle, *byte, uintptr, *DocHandle) int32
+	parserGetLastErrorLen       func(ParserHandle, *uintptr) int32
+	parserCopyLastError         func(ParserHandle, *byte, uintptr, *uintptr) int32
+	parserGetLastErrorOffset    func(ParserHandle, *uint64) int32
+	parserGetLastErrorHasOffset func(ParserHandle, *byte) int32
 
 	docFree                  func(DocHandle) int32
 	docRoot                  func(DocHandle, *ValueView) int32
@@ -35,6 +39,7 @@ type Bindings struct {
 	elementGetUint64         func(*ValueView, *uint64) int32
 	elementGetFloat64        func(*ValueView, *float64) int32
 	elementGetString         func(*ValueView, **byte, *uintptr) int32
+	elementGetBigInt         func(*ValueView, **byte, *uintptr) int32
 	bytesFree                func(*byte, uintptr) int32
 	elementGetBool           func(*ValueView, *byte) int32
 	elementIsNull            func(*ValueView, *byte) int32
@@ -50,7 +55,33 @@ type Bindings struct {
 
 type SymbolLookup func(handle uintptr, name string) (uintptr, error)
 
+type symbolRegistrar func(name string, target any, symbol uintptr) error
+
+func ProbeABI(handle uintptr, lookup SymbolLookup) (uint32, error) {
+	return probeABIWithRegistrar(handle, lookup, registerResolvedFunc)
+}
+
+func probeABIWithRegistrar(handle uintptr, lookup SymbolLookup, registrar symbolRegistrar) (uint32, error) {
+	const symbolName = "pure_simdjson_get_abi_version"
+
+	var getABI func(*uint32) int32
+	if err := registerFuncWithRegistrar(handle, lookup, registrar, symbolName, &getABI); err != nil {
+		return 0, err
+	}
+
+	var abi uint32
+	if rc := getABI(&abi); rc != int32(OK) {
+		return 0, fmt.Errorf("call %s: status %d", symbolName, rc)
+	}
+	runtime.KeepAlive(getABI)
+	return abi, nil
+}
+
 func Bind(handle uintptr, lookup SymbolLookup) (*Bindings, error) {
+	return bindWithRegistrar(handle, lookup, registerResolvedFunc)
+}
+
+func bindWithRegistrar(handle uintptr, lookup SymbolLookup, registrar symbolRegistrar) (*Bindings, error) {
 	b := &Bindings{handle: handle}
 
 	symbols := []struct {
@@ -58,14 +89,18 @@ func Bind(handle uintptr, lookup SymbolLookup) (*Bindings, error) {
 		target any
 	}{
 		{name: "pure_simdjson_get_abi_version", target: &b.getABIVersion},
+		{name: "pure_simdjson_set_implementation", target: &b.setImplementation},
+		{name: "pure_simdjson_lock_implementation_selection", target: &b.lockImplementationSelection},
 		{name: "pure_simdjson_get_implementation_name_len", target: &b.getImplementationNameLen},
 		{name: "pure_simdjson_copy_implementation_name", target: &b.copyImplementationName},
 		{name: "pure_simdjson_parser_new", target: &b.parserNew},
+		{name: "pure_simdjson_parser_new_configured", target: &b.parserNewConfigured},
 		{name: "pure_simdjson_parser_free", target: &b.parserFree},
 		{name: "pure_simdjson_parser_parse", target: &b.parserParse},
 		{name: "pure_simdjson_parser_get_last_error_len", target: &b.parserGetLastErrorLen},
 		{name: "pure_simdjson_parser_copy_last_error", target: &b.parserCopyLastError},
 		{name: "pure_simdjson_parser_get_last_error_offset", target: &b.parserGetLastErrorOffset},
+		{name: "pure_simdjson_parser_get_last_error_has_offset", target: &b.parserGetLastErrorHasOffset},
 		{name: "pure_simdjson_doc_free", target: &b.docFree},
 		{name: "pure_simdjson_doc_root", target: &b.docRoot},
 		{name: "pure_simdjson_element_type", target: &b.elementType},
@@ -73,6 +108,7 @@ func Bind(handle uintptr, lookup SymbolLookup) (*Bindings, error) {
 		{name: "pure_simdjson_element_get_uint64", target: &b.elementGetUint64},
 		{name: "pure_simdjson_element_get_float64", target: &b.elementGetFloat64},
 		{name: "pure_simdjson_element_get_string", target: &b.elementGetString},
+		{name: "pure_simdjson_element_get_bigint", target: &b.elementGetBigInt},
 		{name: "pure_simdjson_bytes_free", target: &b.bytesFree},
 		{name: "pure_simdjson_element_get_bool", target: &b.elementGetBool},
 		{name: "pure_simdjson_element_is_null", target: &b.elementIsNull},
@@ -84,15 +120,15 @@ func Bind(handle uintptr, lookup SymbolLookup) (*Bindings, error) {
 	}
 
 	for _, symbol := range symbols {
-		if err := registerFunc(handle, lookup, symbol.name, symbol.target); err != nil {
+		if err := registerFuncWithRegistrar(handle, lookup, registrar, symbol.name, symbol.target); err != nil {
 			return nil, err
 		}
 	}
-	resetRegistered, err := registerOptionalFunc(handle, lookup, "pure_simdjson_native_alloc_stats_reset", &b.nativeAllocStatsReset)
+	resetRegistered, err := registerOptionalFuncWithRegistrar(handle, lookup, registrar, "pure_simdjson_native_alloc_stats_reset", &b.nativeAllocStatsReset)
 	if err != nil {
 		return nil, err
 	}
-	snapshotRegistered, err := registerOptionalFunc(handle, lookup, "pure_simdjson_native_alloc_stats_snapshot", &b.nativeAllocStatsSnapshot)
+	snapshotRegistered, err := registerOptionalFuncWithRegistrar(handle, lookup, registrar, "pure_simdjson_native_alloc_stats_snapshot", &b.nativeAllocStatsSnapshot)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +137,7 @@ func Bind(handle uintptr, lookup SymbolLookup) (*Bindings, error) {
 		b.nativeAllocStatsReset = nil
 		b.nativeAllocStatsSnapshot = nil
 	}
-	registered, err := registerOptionalFunc(handle, lookup, "psdj_internal_materialize_build", &b.internalMaterializeBuild)
+	registered, err := registerOptionalFuncWithRegistrar(handle, lookup, registrar, "psdj_internal_materialize_build", &b.internalMaterializeBuild)
 	if err != nil {
 		return nil, err
 	}
@@ -111,15 +147,23 @@ func Bind(handle uintptr, lookup SymbolLookup) (*Bindings, error) {
 }
 
 func registerFunc(handle uintptr, lookup SymbolLookup, name string, target any) (err error) {
+	return registerFuncWithRegistrar(handle, lookup, registerResolvedFunc, name, target)
+}
+
+func registerFuncWithRegistrar(handle uintptr, lookup SymbolLookup, registrar symbolRegistrar, name string, target any) error {
 	sym, err := lookup(handle, name)
 	if err != nil {
 		return fmt.Errorf("lookup %s: %w", name, err)
 	}
 
-	return registerResolvedFunc(name, target, sym)
+	return registrar(name, target, sym)
 }
 
 func registerOptionalFunc(handle uintptr, lookup SymbolLookup, name string, target any) (bool, error) {
+	return registerOptionalFuncWithRegistrar(handle, lookup, registerResolvedFunc, name, target)
+}
+
+func registerOptionalFuncWithRegistrar(handle uintptr, lookup SymbolLookup, registrar symbolRegistrar, name string, target any) (bool, error) {
 	sym, err := lookup(handle, name)
 	if err != nil {
 		// Internal symbols may be absent from released/bootstrap artifacts. Treat
@@ -131,7 +175,7 @@ func registerOptionalFunc(handle uintptr, lookup SymbolLookup, name string, targ
 		return false, nil
 	}
 
-	if err := registerResolvedFunc(name, target, sym); err != nil {
+	if err := registrar(name, target, sym); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -218,6 +262,13 @@ func (b *Bindings) ParserNew() (ParserHandle, int32) {
 	return parser, rc
 }
 
+func (b *Bindings) ParserNewConfigured(maxCapacity uint64, maxDepth uint32) (ParserHandle, int32) {
+	var parser ParserHandle
+	rc := b.parserNewConfigured(maxCapacity, maxDepth, &parser)
+	runtime.KeepAlive(b)
+	return parser, rc
+}
+
 func (b *Bindings) ParserFree(parser ParserHandle) int32 {
 	rc := b.parserFree(parser)
 	runtime.KeepAlive(b)
@@ -271,6 +322,13 @@ func (b *Bindings) ParserLastErrorOffset(parser ParserHandle) (uint64, int32) {
 	return offset, rc
 }
 
+func (b *Bindings) ParserLastErrorHasOffset(parser ParserHandle) (bool, int32) {
+	var hasOffset byte
+	rc := b.parserGetLastErrorHasOffset(parser, &hasOffset)
+	runtime.KeepAlive(b)
+	return hasOffset != 0, rc
+}
+
 func (b *Bindings) DocFree(doc DocHandle) int32 {
 	rc := b.docFree(doc)
 	runtime.KeepAlive(b)
@@ -317,9 +375,17 @@ func (b *Bindings) ElementGetFloat64(view *ValueView) (float64, int32) {
 }
 
 func (b *Bindings) ElementGetString(view *ValueView) (string, int32) {
+	return b.copyElementBytes(view, b.elementGetString)
+}
+
+func (b *Bindings) ElementGetBigInt(view *ValueView) (string, int32) {
+	return b.copyElementBytes(view, b.elementGetBigInt)
+}
+
+func (b *Bindings) copyElementBytes(view *ValueView, getter func(*ValueView, **byte, *uintptr) int32) (string, int32) {
 	var ptr *byte
 	var length uintptr
-	rc := b.elementGetString(view, &ptr, &length)
+	rc := getter(view, &ptr, &length)
 	runtime.KeepAlive(view)
 	runtime.KeepAlive(b)
 	if rc != int32(OK) {
@@ -340,6 +406,28 @@ func (b *Bindings) ElementGetString(view *ValueView) (string, int32) {
 	}
 
 	return string(unsafe.Slice(ptr, length)), int32(OK)
+}
+
+func (b *Bindings) SetImplementation(name string) int32 {
+	var nameBytes []byte
+	if name != "" {
+		nameBytes = []byte(name)
+	}
+	var namePtr *byte
+	if len(nameBytes) != 0 {
+		namePtr = unsafe.SliceData(nameBytes)
+	}
+
+	rc := b.setImplementation(namePtr, uintptr(len(nameBytes)))
+	runtime.KeepAlive(nameBytes)
+	runtime.KeepAlive(b)
+	return rc
+}
+
+func (b *Bindings) LockImplementationSelection() int32 {
+	rc := b.lockImplementationSelection()
+	runtime.KeepAlive(b)
+	return rc
 }
 
 func (b *Bindings) BytesFree(ptr *byte, length uintptr) int32 {

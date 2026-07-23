@@ -2,10 +2,68 @@ package purejson
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
+
+func TestErrorHasOffset(t *testing.T) {
+	testCases := []struct {
+		name       string
+		err        *Error
+		wantOffset uint64
+		wantKnown  bool
+		wantText   string
+	}{
+		{
+			name:       "known nonzero",
+			err:        &Error{code: int32(ffi.ErrInvalidJSON), offset: 3, hasOffset: true, err: ErrInvalidJSON},
+			wantOffset: 3,
+			wantKnown:  true,
+			wantText:   "offset=3",
+		},
+		{
+			name:       "known zero",
+			err:        &Error{code: int32(ffi.ErrInvalidJSON), offset: 0, hasOffset: true, err: ErrInvalidJSON},
+			wantOffset: 0,
+			wantKnown:  true,
+			wantText:   "offset=0",
+		},
+		{
+			name:       "unknown",
+			err:        &Error{code: int32(ffi.ErrInvalidJSON), err: ErrInvalidJSON},
+			wantOffset: 0,
+			wantKnown:  false,
+		},
+		{
+			name:       "nil",
+			err:        nil,
+			wantOffset: 0,
+			wantKnown:  false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.err.Offset(); got != tc.wantOffset {
+				t.Fatalf("Offset() = %d, want %d", got, tc.wantOffset)
+			}
+			if got := tc.err.HasOffset(); got != tc.wantKnown {
+				t.Fatalf("HasOffset() = %t, want %t", got, tc.wantKnown)
+			}
+			if tc.err == nil {
+				return
+			}
+			if tc.wantText != "" && !strings.Contains(tc.err.Error(), tc.wantText) {
+				t.Fatalf("Error() = %q, want %q", tc.err.Error(), tc.wantText)
+			}
+			if !tc.wantKnown && strings.Contains(tc.err.Error(), "offset=") {
+				t.Fatalf("Error() = %q, want no offset clause", tc.err.Error())
+			}
+		})
+	}
+}
 
 func TestWrapStatusInternalCodesMapToErrInternal(t *testing.T) {
 	testCases := []struct {
@@ -89,5 +147,27 @@ func TestWrapStatusMapsDepthLimitSeparately(t *testing.T) {
 	}
 	if nativeErr.Code() != int32(ffi.ErrDepthLimit) {
 		t.Fatalf("wrapStatus(%d) native code = %d, want %d", ffi.ErrDepthLimit, nativeErr.Code(), ffi.ErrDepthLimit)
+	}
+}
+
+func TestSentinelMapping(t *testing.T) {
+	testCases := []struct {
+		name string
+		code ffi.ErrorCode
+		want error
+	}{
+		{name: "capacity limit", code: ffi.ErrCapacityLimit, want: ErrCapacityLimitExceeded},
+		{name: "depth limit", code: ffi.ErrDepthLimit, want: ErrDepthLimitExceeded},
+		{name: "kernel locked", code: ffi.ErrKernelLocked, want: ErrKernelLocked},
+		{name: "invalid argument remains internal", code: ffi.ErrInvalidArg, want: ErrInternal},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := wrapStatus(int32(tc.code))
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("wrapStatus(%d) error = %v, want %v", tc.code, err, tc.want)
+			}
+		})
 	}
 }

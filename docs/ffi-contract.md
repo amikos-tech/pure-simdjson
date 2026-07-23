@@ -1,12 +1,12 @@
 # Scope
 
-This document is the normative FFI contract for `pure-simdjson` ABI `v0.1`. It defines the public C ABI exported in [include/pure_simdjson.h](../include/pure_simdjson.h) and the semantic rules later phases must implement verbatim.
+This document is the normative FFI contract for `pure-simdjson` ABI 1.2 (`0x00010002`). It defines the public C ABI exported in [include/pure_simdjson.h](../include/pure_simdjson.h).
 
-`v0.1` is DOM-only. On-Demand APIs, pinned-input parsing, and borrowed string-view APIs remain deferred work and are not part of this contract.
+The `v0.1.x` product line remains DOM-only. On-Demand APIs, pinned-input parsing, and borrowed string-view APIs remain deferred work and are not part of this contract.
 
-The generated header is authoritative for exact symbol names, field names, and C types. This document is authoritative for lifecycle, ownership, diagnostics, panic/exception policy, and compatibility rules. Go-side consumers must enforce ABI compatibility against `^0.1.x`.
+The generated header is authoritative for exact symbol names, field names, and C types. This document is authoritative for lifecycle, ownership, limits, kernel selection, diagnostics, panic/exception policy, and compatibility rules. `^0.1.x` describes the Go module's semantic-version family; native compatibility is the stricter ABI handshake defined below.
 
-The current ABI v0.1 implementation exposes the typed DOM accessor surface end to end: metadata helpers, parser/document lifecycle, root resolution, `pure_simdjson_element_type`, the split numeric/string/bool/null accessors, array/object iterators, `pure_simdjson_object_get_field`, and the diagnostic native allocator reset/snapshot surface. The generated header and implementation currently match; later work may extend the ABI, but this document describes the full surface shipped today.
+ABI 1.2 extends the original typed DOM surface with configured parser construction, exact BigInt copy-out, explicit known-offset state, and process-global implementation control. It is append-only: every ABI 1.1 symbol, signature, numeric value, and public layout remains intact.
 
 # ABI invariants
 
@@ -18,6 +18,9 @@ The current ABI v0.1 implementation exposes the typed DOM accessor surface end t
 - `pure_simdjson_value_view_t`, `pure_simdjson_array_iter_t`, and `pure_simdjson_object_iter_t` are lightweight document-tied view/iterator structs.
 - Control flow is driven by numeric status codes, not by diagnostic strings.
 - Boolean out-params typed as `uint8_t *` are written as exactly `0` for false and `1` for true. Callers may rely on strict `0`/`1` rather than accepting any non-zero value.
+- ABI growth within major 1 is append-only. Existing enum values are never renumbered, existing function signatures are never replaced, and existing public structs are never resized or reinterpreted.
+- The pinned sizes remain 8 bytes for handles and `pure_simdjson_handle_parts_t`, 32 bytes for `pure_simdjson_value_view_t` and both iterator structs, and 48 bytes for `pure_simdjson_native_alloc_stats_t`.
+- Internal `psdj_internal_*` and `psimdjson_*` bridge/test symbols are not part of the public header or compatibility surface.
 
 # Out-param semantics
 
@@ -36,6 +39,10 @@ The current ABI v0.1 implementation exposes the typed DOM accessor surface end t
 | `PURE_SIMDJSON_ERR_WRONG_TYPE` | 4 | Value kind does not match the requested accessor |
 | `PURE_SIMDJSON_ERR_ELEMENT_NOT_FOUND` | 5 | Requested object field is absent |
 | `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL` | 6 | Caller-provided destination buffer is too small |
+| `PURE_SIMDJSON_ERR_NOT_IMPLEMENTED` | 7 | Optional diagnostic surface is unavailable |
+| `PURE_SIMDJSON_ERR_DEPTH_LIMIT` | 8 | Input exceeds the parser's immutable maximum depth |
+| `PURE_SIMDJSON_ERR_CAPACITY_LIMIT` | 9 | Input exceeds the parser's immutable maximum capacity |
+| `PURE_SIMDJSON_ERR_KERNEL_LOCKED` | 10 | Process-global implementation selection is permanently locked |
 | `PURE_SIMDJSON_ERR_INVALID_JSON` | 32 | Parse failure, including malformed JSON and invalid UTF-8 in DOM mode |
 | `PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE` | 33 | Numeric value cannot fit the requested integer domain |
 | `PURE_SIMDJSON_ERR_PRECISION_LOSS` | 34 | Requested numeric conversion would lose precision |
@@ -47,7 +54,7 @@ The current ABI v0.1 implementation exposes the typed DOM accessor surface end t
 
 These values are part of the public ABI. Downstream wrappers may map them to richer errors, but they must preserve the numeric meaning.
 
-The numeric gaps between assigned values (7–31, 35–63, 66–95, 98–126) are reserved for future minor-version additions within the same error class. Consumers that range-check, bucket, or exhaustively map these codes must tolerate new values appearing in the reserved bands across `0.1.x` releases.
+The numeric gaps between assigned values (11–31, 35–63, 66–95, 98–126) are reserved for future additive ABI values. Consumers that range-check, bucket, or exhaustively map these codes must tolerate new values appearing in reserved bands.
 
 # Handle format
 
@@ -105,6 +112,21 @@ Rules:
 - `pure_simdjson_doc_root`, `pure_simdjson_object_get_field`, `pure_simdjson_array_iter_next`, and `pure_simdjson_object_iter_next` return new view state through out-params rather than allocating child handles.
 - `pure_simdjson_object_get_field` returns the first matching field when duplicate keys are present, matching simdjson DOM `object::at_key` semantics.
 
+The value-kind numbers are pinned:
+
+| Kind | Value |
+| --- | ---: |
+| `PURE_SIMDJSON_VALUE_KIND_INVALID` | 0 |
+| `PURE_SIMDJSON_VALUE_KIND_NULL` | 1 |
+| `PURE_SIMDJSON_VALUE_KIND_BOOL` | 2 |
+| `PURE_SIMDJSON_VALUE_KIND_INT64` | 3 |
+| `PURE_SIMDJSON_VALUE_KIND_UINT64` | 4 |
+| `PURE_SIMDJSON_VALUE_KIND_FLOAT64` | 5 |
+| `PURE_SIMDJSON_VALUE_KIND_STRING` | 6 |
+| `PURE_SIMDJSON_VALUE_KIND_ARRAY` | 7 |
+| `PURE_SIMDJSON_VALUE_KIND_OBJECT` | 8 |
+| `PURE_SIMDJSON_VALUE_KIND_BIGINT` | 9 |
+
 Split numeric access is mandatory:
 
 - `pure_simdjson_element_get_int64` returns a signed integer only.
@@ -116,11 +138,17 @@ Split numeric access is mandatory:
 
 This contract forbids a combined "number union" return or automatic widening that hides overflow or rounding behavior.
 
+BigInt is strict and additive:
+
+- Integer-syntax values below `-9223372036854775808` or above `18446744073709551615` are kind 9. The two boundary values remain int64/uint64, and decimal or exponent syntax remains float64.
+- `pure_simdjson_element_get_bigint` accepts only kind 9 and copies the exact decimal spelling.
+- `pure_simdjson_element_get_int64`, `pure_simdjson_element_get_uint64`, and `pure_simdjson_element_get_float64` return `PURE_SIMDJSON_ERR_WRONG_TYPE` for BigInt. BigInt never reports `PURE_SIMDJSON_ERR_PRECISION_LOSS`.
+
 # Parser lifecycle
 
 The parser/document state machine is fixed:
 
-1. `pure_simdjson_parser_new` creates a parser handle.
+1. `pure_simdjson_parser_new` or `pure_simdjson_parser_new_configured` creates a parser handle.
 2. `pure_simdjson_parser_parse` parses one input buffer into one `Doc`.
 3. `pure_simdjson_doc_root` resolves the root view for that `Doc`.
 4. Value accessors and iterators operate while the `Doc` remains live.
@@ -137,29 +165,44 @@ Busy-state rule:
 
 The lifecycle is explicit by design so later phases do not introduce hidden reuse semantics.
 
+# Configured parser limits
+
+`pure_simdjson_parser_new` retains the ABI 1.1 behavior and uses the defaults below. `pure_simdjson_parser_new_configured(max_capacity, max_depth, out_parser)` selects immutable limits:
+
+- `max_capacity == 0` means the default `4294967295` (`0xFFFFFFFF`) bytes.
+- A non-zero capacity must be in `32..4294967295`; other values return `PURE_SIMDJSON_ERR_INVALID_ARGUMENT`.
+- `max_depth == 0` means the default `1024`.
+- A non-zero `uint32_t` depth is used as supplied.
+- The effective pair is stored on the parser and reused unchanged by primary DOM parsing and diagnostic replay.
+- Input longer than the effective capacity returns status 9 before padding arithmetic, arena growth, input allocation, or input copying.
+- Input that crosses the effective nesting limit returns status 8.
+
+Limits cannot change after construction. A legacy parser is therefore equivalent to a configured parser constructed with `(0, 0)`.
+
 # Ownership and padding
 
-Every `pure_simdjson_parser_parse` call copies `input_ptr[..input_len]` into Rust-owned padded storage before simdjson sees it.
+Every accepted `pure_simdjson_parser_parse` call copies `input_ptr[..input_len]` into Rust-owned padded storage before simdjson sees it.
 
 Rules:
 
 - The public ABI never stores a Go-owned or caller-owned input pointer beyond the parsing call.
+- The configured capacity check occurs before the copy or any input-sized allocation.
 - The copied buffer must satisfy `SIMDJSON_PADDING` semantics.
 - `Doc` lifetime owns the backing parsed storage and any document-tied views/iterators derived from it.
 - `Doc` release invalidates all derived `pure_simdjson_value_view_t`, `pure_simdjson_array_iter_t`, and `pure_simdjson_object_iter_t` state.
 
-This choice is part of the `v0.1` contract and is not an optimization detail.
+This choice is part of the ABI 1.2 contract and is not an optimization detail.
 
-# Strings and diagnostics
+# Copied scalars and diagnostics
 
-String access is copy-out only in `v0.1`.
+String and BigInt access are copy-out only.
 
-`pure_simdjson_element_get_string` returns:
+`pure_simdjson_element_get_string` and `pure_simdjson_element_get_bigint` return:
 
 - `uint8_t **out_ptr`
 - `size_t *out_len`
 
-The callee allocates the returned byte buffer, and the caller must release it with `pure_simdjson_bytes_free(ptr, len)`. String getters that expose borrowed document memory are outside this contract.
+The callee allocates the returned byte buffer, and the caller must release it with `pure_simdjson_bytes_free(ptr, len)`. The bytes remain valid after the document is freed until that explicit release. Borrowed scalar getters are outside this contract.
 
 Diagnostics helpers are part of the ABI surface:
 
@@ -171,12 +214,27 @@ Diagnostics helpers are part of the ABI surface:
 - `pure_simdjson_parser_get_last_error_len`
 - `pure_simdjson_parser_copy_last_error`
 - `pure_simdjson_parser_get_last_error_offset`
+- `pure_simdjson_parser_get_last_error_has_offset`
 
 Diagnostics are advisory only:
 
 - Callers must branch on the `pure_simdjson_error_code_t` status code first.
 - Diagnostic text and offsets help logging and debugging but do not redefine success/failure.
 - `pure_simdjson_parser_copy_last_error` and `pure_simdjson_copy_implementation_name` use bounded caller-provided buffers and may return `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL`.
+- Callers must read the known bit separately. A proven failure at byte zero is `(offset=0, has_offset=1)`; an unknown location is `(offset=UINT64_MAX, has_offset=0)`. Inferring known/unknown from the numeric offset alone is forbidden.
+- A location is known only when upstream provides a non-end pointer proven inside the copied input. No secondary JSON parser, guessed index, or message parsing may manufacture an offset.
+- A successful DOM parse performs zero diagnostic replay. An eligible failure performs at most two additional `O(input length)` upstream scans, each using a fresh parser and bounded by the configured capacity and depth. Resource or limit errors stop replay rather than starting an unbounded retry path.
+
+# Process-global implementation selection
+
+Implementation selection is diagnostic and process-global:
+
+- `pure_simdjson_set_implementation(name, name_len)` selects an exact, case-sensitive compiled implementation supported by the current CPU.
+- `(name=NULL, name_len=0)` restores upstream automatic selection.
+- `pure_simdjson_get_implementation_name_len` and `pure_simdjson_copy_implementation_name` read the selected implementation.
+- `pure_simdjson_lock_implementation_selection` irreversibly locks selection and is idempotent.
+- The first valid legacy or configured parser construction attempt also locks selection before native allocation.
+- Every setter call after the lock returns status 10. There is no per-parser implementation override or unlock operation.
 
 # Native allocator telemetry
 
@@ -211,11 +269,13 @@ Rules:
 
 The ABI version export is `pure_simdjson_get_abi_version`.
 
-- The current packed ABI version is `0x00010001`.
-- The compatibility rule for `v0.1` consumers is `^0.1.x`.
-- A loader or wrapper that detects an incompatible version must fail with `PURE_SIMDJSON_ERR_ABI_MISMATCH` rather than attempting best-effort execution.
+- The current packed ABI version is `0x00010002`.
+- ABI 1.2 is the strict minimum for the Phase 11 wrapper. ABI 1.1 is rejected with an ABI-version mismatch before any ABI 1.2-only lookup.
+- ABI 1.2 makes `pure_simdjson_set_implementation`, `pure_simdjson_lock_implementation_selection`, `pure_simdjson_parser_new_configured`, `pure_simdjson_parser_get_last_error_has_offset`, and `pure_simdjson_element_get_bigint` mandatory.
+- After the one-symbol version probe succeeds, the loader must bind its complete required surface before cache installation. An artifact claiming compatible ABI 1.2 (or a later additive ABI 1.x) but missing any required symbol is corrupt/incomplete and must fail closed with that symbol named; optional downgrade is forbidden.
+- Other ABI majors are incompatible. Later ABI 1.x values may be accepted only when every wrapper-required symbol binds successfully.
 
-`pure_simdjson_get_implementation_name_len` plus `pure_simdjson_copy_implementation_name` provide the active implementation identity for diagnostics and support cases; they do not participate in compatibility decisions.
+The version probe is the only pre-classification symbol. Implementation-name reads occur only after the complete compatible surface binds and must succeed before the loaded library is cached.
 
 # Panic and exception policy
 
@@ -225,7 +285,7 @@ Rules:
 
 - `ffi_wrap` is mandatory for every public export.
 - `catch_unwind` is required when unwinding is enabled so Rust panics do not cross the C ABI boundary.
-- The ABI v0.1 build policy pins `panic = "abort"` in the dev and release Cargo profiles. Cargo ignores that setting for the `test` profile, so unwind-enabled test builds still require the `ffi_wrap`/`catch_unwind` boundary above to convert internal panics into `PURE_SIMDJSON_ERR_PANIC`.
+- The ABI 1.2 build policy pins `panic = "abort"` in the dev and release Cargo profiles. Cargo ignores that setting for the `test` profile, so unwind-enabled test builds still require the `ffi_wrap`/`catch_unwind` boundary above to convert internal panics into `PURE_SIMDJSON_ERR_PANIC`.
 - The Rust/C++ seam must use non-throwing simdjson access patterns such as `.get(err)`.
 - C++ exceptions must be trapped before re-entering Rust and converted into `PURE_SIMDJSON_ERR_CPP_EXCEPTION`.
 - No foreign exception or Rust unwind may cross into Go or C callers.

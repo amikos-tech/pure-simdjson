@@ -96,7 +96,7 @@ func TestErrorFormatBranches(t *testing.T) {
 	}{
 		{
 			name: "code-message-offset",
-			err:  &Error{code: 32, offset: 7, message: "bad token", err: sentinel},
+			err:  &Error{code: 32, offset: 7, hasOffset: true, message: "bad token", err: sentinel},
 			want: "test sentinel (code=32, offset=7): bad token",
 		},
 		{
@@ -106,7 +106,7 @@ func TestErrorFormatBranches(t *testing.T) {
 		},
 		{
 			name: "code-offset",
-			err:  &Error{code: 32, offset: 7, err: sentinel},
+			err:  &Error{code: 32, offset: 7, hasOffset: true, err: sentinel},
 			want: "test sentinel (code=32, offset=7)",
 		},
 		{

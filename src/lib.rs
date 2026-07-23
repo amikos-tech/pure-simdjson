@@ -14,7 +14,7 @@ use std::{
 ///
 /// This constant is part of the public C header and stays numerically pinned alongside
 /// `pure_simdjson_get_abi_version`.
-pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0001;
+pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0002;
 
 /// Public error codes for the stable ABI v0.1 surface.
 ///
@@ -37,6 +37,12 @@ pub enum pure_simdjson_error_code_t {
     /// JSON nesting exceeds the parser/materializer depth contract. This is
     /// adversarial-input/user-actionable, not an internal native failure.
     PURE_SIMDJSON_ERR_DEPTH_LIMIT = 8,
+    /// Input exceeds the parser's immutable maximum capacity. Rust rejects
+    /// this before padding arithmetic, arena growth, or input copying.
+    PURE_SIMDJSON_ERR_CAPACITY_LIMIT = 9,
+    /// Process-global implementation selection is permanently locked after
+    /// explicit locking or the first valid parser construction attempt.
+    PURE_SIMDJSON_ERR_KERNEL_LOCKED = 10,
     PURE_SIMDJSON_ERR_INVALID_JSON = 32,
     PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE = 33,
     PURE_SIMDJSON_ERR_PRECISION_LOSS = 34,
@@ -60,6 +66,7 @@ pub enum pure_simdjson_value_kind_t {
     PURE_SIMDJSON_VALUE_KIND_STRING = 6,
     PURE_SIMDJSON_VALUE_KIND_ARRAY = 7,
     PURE_SIMDJSON_VALUE_KIND_OBJECT = 8,
+    PURE_SIMDJSON_VALUE_KIND_BIGINT = 9,
 }
 
 /// Generic packed handle transport for the public ABI.
@@ -247,8 +254,10 @@ unsafe fn copy_out_bytes(
 
 #[inline]
 fn reject_fallback_implementation() -> Result<(), pure_simdjson_error_code_t> {
-    let implementation_name = runtime::selected_implementation_name_for_parser_new()?;
-    if implementation_name.as_slice() == b"fallback" && !runtime::fallback_allowed_for_tests() {
+    let forced_implementation = runtime::forced_implementation_name_for_parser_new();
+    if matches!(forced_implementation.as_deref(), Some(b"fallback"))
+        && !runtime::fallback_allowed_for_tests()
+    {
         return Err(err_cpu_unsupported());
     }
 
@@ -318,6 +327,45 @@ pub unsafe extern "C" fn pure_simdjson_get_abi_version(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_get_abi_version", || unsafe {
         write_out(out_version, PURE_SIMDJSON_ABI_VERSION)
+    })
+}
+
+/// Select the process-global simdjson implementation by exact, case-sensitive name.
+///
+/// An empty name restores upstream automatic detection. A nonempty name must identify a
+/// compiled implementation supported by the current CPU. Selection becomes permanently locked
+/// after the first valid parser construction attempt or an explicit lock call.
+///
+/// # Safety
+/// When `name_len` is nonzero, `name` must point to readable storage for at least `name_len`
+/// bytes. A null pointer is accepted only when `name_len` is zero.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_set_implementation(
+    name: *const u8,
+    name_len: usize,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_set_implementation", || {
+        if name_len != 0 && name.is_null() {
+            return err_invalid_argument();
+        }
+
+        let name = if name_len == 0 {
+            &[][..]
+        } else {
+            unsafe { slice::from_raw_parts(name, name_len) }
+        };
+        runtime::set_implementation(name)
+    })
+}
+
+/// Permanently lock process-global implementation selection.
+///
+/// Repeated lock calls succeed, while every later selection attempt returns
+/// `PURE_SIMDJSON_ERR_KERNEL_LOCKED`.
+#[no_mangle]
+pub extern "C" fn pure_simdjson_lock_implementation_selection() -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_lock_implementation_selection", || {
+        runtime::lock_implementation_selection()
     })
 }
 
@@ -408,6 +456,35 @@ pub unsafe extern "C" fn pure_simdjson_parser_new(
         }
 
         match runtime::registry::parser_new() {
+            Ok(parser) => write_out(out_parser, parser),
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Allocate a parser handle with immutable capacity and depth bounds.
+///
+/// `max_capacity == 0` uses `0xFFFFFFFF`; `max_depth == 0` uses `1024`.
+/// Positive capacities below `32` and capacities above `0xFFFFFFFF` are rejected.
+///
+/// # Safety
+/// `out_parser` must be a valid writable pointer to a `pure_simdjson_parser_t`.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_parser_new_configured(
+    max_capacity: u64,
+    max_depth: u32,
+    out_parser: *mut pure_simdjson_parser_t,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_parser_new_configured", || unsafe {
+        if out_parser.is_null() {
+            return err_invalid_argument();
+        }
+
+        if let Err(rc) = reject_fallback_implementation() {
+            return rc;
+        }
+
+        match runtime::registry::parser_new_configured(max_capacity, max_depth) {
             Ok(parser) => write_out(out_parser, parser),
             Err(rc) => rc,
         }
@@ -526,6 +603,30 @@ pub unsafe extern "C" fn pure_simdjson_parser_get_last_error_offset(
     })
 }
 
+/// Report whether the parser's last failure has a proven byte offset.
+///
+/// A zero result is distinct from a known offset at byte zero. Call this alongside
+/// [`pure_simdjson_parser_get_last_error_offset`] instead of interpreting the offset sentinel.
+///
+/// # Safety
+/// `parser` must be a live parser handle from this library. `out_has_offset` must be a valid
+/// writable pointer to a `u8`.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_parser_get_last_error_has_offset(
+    parser: pure_simdjson_parser_t,
+    out_has_offset: *mut u8,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap(
+        "pure_simdjson_parser_get_last_error_has_offset",
+        || unsafe {
+            match runtime::registry::parser_last_error_has_offset(parser) {
+                Ok(has_offset) => write_out(out_has_offset, has_offset),
+                Err(rc) => rc,
+            }
+        },
+    )
+}
+
 /// Release a live document handle.
 ///
 /// Contract:
@@ -548,9 +649,8 @@ pub unsafe extern "C" fn pure_simdjson_doc_free(
 
 /// Resolve the root value view for a live document handle.
 ///
-/// The returned view's `kind_hint` is `PURE_SIMDJSON_VALUE_KIND_INVALID` for roots whose value
-/// kind cannot be classified (for example, BIGINT). The canonical precision-loss error surfaces
-/// at `pure_simdjson_element_type`, not here.
+/// The returned view's `kind_hint` reports the native value kind directly, including kind `9` for
+/// BigInt roots.
 ///
 /// # Safety
 /// `doc` must be a live document handle from this library. `out_root` must be a valid writable
@@ -570,8 +670,8 @@ pub unsafe extern "C" fn pure_simdjson_doc_root(
 
 /// Report the value kind for a document-tied view.
 ///
-/// Returns `PURE_SIMDJSON_ERR_PRECISION_LOSS` for BIGINT values and
-/// `PURE_SIMDJSON_ERR_INVALID_HANDLE` when reserved bits are non-zero or the root tag is invalid.
+/// BigInt values report kind `9`. Returns `PURE_SIMDJSON_ERR_INVALID_HANDLE` when reserved bits
+/// are non-zero or the root tag is invalid.
 ///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -591,6 +691,8 @@ pub unsafe extern "C" fn pure_simdjson_element_type(
 
 /// Decode the referenced value as `int64_t`.
 ///
+/// BigInt and other non-int64 kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
+///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
 /// `out_value` must point to writable `i64` storage.
@@ -609,8 +711,8 @@ pub unsafe extern "C" fn pure_simdjson_element_get_int64(
 
 /// Decode the referenced value as `uint64_t`.
 ///
-/// Negative integers return `PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE`; non-uint64 kinds return
-/// `PURE_SIMDJSON_ERR_WRONG_TYPE`.
+/// Negative integers return `PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE`; BigInt and other non-uint64
+/// kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
 ///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -630,8 +732,9 @@ pub unsafe extern "C" fn pure_simdjson_element_get_uint64(
 
 /// Decode the referenced value as `double`.
 ///
-/// Integral values that cannot be represented exactly as `double` return
-/// `PURE_SIMDJSON_ERR_PRECISION_LOSS`; non-numeric kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
+/// Int64 and uint64 values that cannot be represented exactly as `double` return
+/// `PURE_SIMDJSON_ERR_PRECISION_LOSS`.
+/// BigInt and non-numeric kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
 ///
 /// # Safety
 /// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -679,12 +782,43 @@ pub unsafe extern "C" fn pure_simdjson_element_get_string(
     })
 }
 
-/// Release memory previously returned by `pure_simdjson_element_get_string`.
+/// Copy the referenced BigInt value into a newly allocated byte buffer.
+///
+/// Only kind `9` is accepted. The caller receives the exact decimal spelling through `*out_ptr`
+/// plus `*out_len` and must release that allocation with `pure_simdjson_bytes_free`.
+///
+/// # Safety
+/// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+/// `out_ptr` and `out_len` must point to writable storage owned by the caller.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_element_get_bigint(
+    view: *const pure_simdjson_value_view_t,
+    out_ptr: *mut *mut u8,
+    out_len: *mut usize,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_element_get_bigint", || unsafe {
+        if out_ptr.is_null() || out_len.is_null() {
+            return err_invalid_argument();
+        }
+
+        match runtime::registry::element_get_bigint_copy(view) {
+            Ok((ptr_value, len)) => {
+                ptr::write(out_ptr, ptr_value);
+                ptr::write(out_len, len);
+                err_ok()
+            }
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Release memory previously returned by `pure_simdjson_element_get_string` or
+/// `pure_simdjson_element_get_bigint`.
 /// The empty-string sentinel is `ptr == NULL && len == 0`.
 ///
 /// # Safety
 /// `ptr` and `len` must describe an allocation previously returned by
-/// `pure_simdjson_element_get_string`.
+/// `pure_simdjson_element_get_string` or `pure_simdjson_element_get_bigint`.
 #[no_mangle]
 pub unsafe extern "C" fn pure_simdjson_bytes_free(
     ptr: *mut u8,
@@ -885,8 +1019,121 @@ mod tests {
         let rc = unsafe { pure_simdjson_get_abi_version(&mut abi_version) };
 
         assert_eq!(rc, err_ok());
-        assert_eq!(PURE_SIMDJSON_ABI_VERSION, 0x0001_0001);
-        assert_eq!(abi_version, 0x0001_0001);
+        assert_eq!(PURE_SIMDJSON_ABI_VERSION, 0x0001_0002);
+        assert_eq!(abi_version, 0x0001_0002);
+    }
+
+    #[test]
+    fn public_enum_values_are_append_only() {
+        let error_codes = [
+            (pure_simdjson_error_code_t::PURE_SIMDJSON_OK, 0),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INVALID_ARGUMENT,
+                1,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INVALID_HANDLE,
+                2,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PARSER_BUSY,
+                3,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_WRONG_TYPE,
+                4,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_ELEMENT_NOT_FOUND,
+                5,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL,
+                6,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_NOT_IMPLEMENTED,
+                7,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_DEPTH_LIMIT,
+                8,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_CAPACITY_LIMIT,
+                9,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_KERNEL_LOCKED,
+                10,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INVALID_JSON,
+                32,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE,
+                33,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PRECISION_LOSS,
+                34,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_CPU_UNSUPPORTED,
+                64,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_ABI_MISMATCH,
+                65,
+            ),
+            (pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PANIC, 96),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_CPP_EXCEPTION,
+                97,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INTERNAL,
+                127,
+            ),
+        ];
+        for (code, expected) in error_codes {
+            assert_eq!(code as i32, expected);
+        }
+
+        let value_kinds = [
+            (pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_INVALID, 0),
+            (pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_NULL, 1),
+            (pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_BOOL, 2),
+            (
+                pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_INT64,
+                3,
+            ),
+            (
+                pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_UINT64,
+                4,
+            ),
+            (
+                pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_FLOAT64,
+                5,
+            ),
+            (
+                pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_STRING,
+                6,
+            ),
+            (pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_ARRAY, 7),
+            (
+                pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_OBJECT,
+                8,
+            ),
+            (
+                pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_BIGINT,
+                9,
+            ),
+        ];
+        for (kind, expected) in value_kinds {
+            assert_eq!(kind as u32, expected);
+        }
     }
 
     #[test]

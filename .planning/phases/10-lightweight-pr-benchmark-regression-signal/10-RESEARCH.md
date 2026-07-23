@@ -692,7 +692,7 @@ Plus structural cases:
 ## Project Constraints (from CLAUDE.md)
 
 - **Conventional commits required.** Commit messages must follow `type(scope): subject` format. Phase 10 commits should be e.g. `feat(ci): add PR benchmark regression workflow`, `feat(bench): add PR regression parser`, `test(bench): cover boundary thresholds for regression parser`.
-- **No internal teliacompany references** in commits, PRs, issues. Phase 10 has no contact with internal infra — automatic compliance.
+- **No internal infrastructure references** in commits, PRs, issues. Phase 10 has no contact with internal infra — automatic compliance.
 - **No "Generated with Claude Code" attribution** in commits, PRs, issues, or any artifact.
 - **GH issue prefixes:** `[BUG]`, `[ENH]`, `[PERF]`, `[TST]`, `[CLN]`, `[CHORE]`, `[DOC]`, `[BLD]`. Phase 10 issues, if any, would be `[CI]` is not in the list — closest match `[BLD]` (build/CI). Planner should clarify if any issue is filed; otherwise the phase ships entirely via PR.
 - **Don't push to main without a PR.** Phase 10 ships through `gsd/phase-10-lightweight-pr-benchmark-regression-signal` → PR → main, mirroring every prior phase.

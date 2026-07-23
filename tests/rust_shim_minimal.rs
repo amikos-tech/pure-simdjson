@@ -7,7 +7,8 @@ use std::{
 
 use pure_simdjson::{
     pure_simdjson_copy_implementation_name, pure_simdjson_doc_free, pure_simdjson_doc_root,
-    pure_simdjson_doc_t, pure_simdjson_element_get_int64, pure_simdjson_element_type,
+    pure_simdjson_doc_t, pure_simdjson_element_get_float64, pure_simdjson_element_get_int64,
+    pure_simdjson_element_get_uint64, pure_simdjson_element_type,
     pure_simdjson_error_code_t::{
         PURE_SIMDJSON_ERR_CPP_EXCEPTION, PURE_SIMDJSON_ERR_INVALID_ARGUMENT,
         PURE_SIMDJSON_ERR_INVALID_HANDLE, PURE_SIMDJSON_ERR_INVALID_JSON,
@@ -27,6 +28,8 @@ use pure_simdjson::{
     },
     pure_simdjson_value_view_t, PURE_SIMDJSON_ABI_VERSION,
 };
+
+const EXPECTED_BIGINT_KIND: u32 = 9;
 
 fn parser_new() -> pure_simdjson_parser_t {
     let mut parser = 0_u64;
@@ -198,8 +201,9 @@ fn element_type_maps_phase2_root_literals() {
 fn invalid_json_reports_last_error_and_unknown_offset() {
     let parser = parser_new();
     let mut doc = 0_u64;
+    let json = br#"{"x":"abc}"#;
 
-    let rc = unsafe { pure_simdjson_parser_parse(parser, b"{".as_ptr(), 1, &mut doc) };
+    let rc = unsafe { pure_simdjson_parser_parse(parser, json.as_ptr(), json.len(), &mut doc) };
 
     assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_JSON);
     assert_eq!(doc, 0);
@@ -501,18 +505,73 @@ fn element_get_int64_reports_wrong_type_for_bool() {
 }
 
 #[test]
-fn oversized_integer_is_rejected_at_parse_time() {
+fn bigint_boundaries_preserve_native_kinds() {
+    let cases = [
+        (
+            b"-9223372036854775808".as_slice(),
+            PURE_SIMDJSON_VALUE_KIND_INT64 as u32,
+        ),
+        (
+            b"18446744073709551615".as_slice(),
+            PURE_SIMDJSON_VALUE_KIND_UINT64 as u32,
+        ),
+        (b"-9223372036854775809".as_slice(), EXPECTED_BIGINT_KIND),
+        (b"18446744073709551616".as_slice(), EXPECTED_BIGINT_KIND),
+        (
+            b"1.0".as_slice(),
+            PURE_SIMDJSON_VALUE_KIND_FLOAT64 as u32,
+        ),
+        (
+            b"1e20".as_slice(),
+            PURE_SIMDJSON_VALUE_KIND_FLOAT64 as u32,
+        ),
+    ];
+
+    for (json, expected_kind) in cases {
+        let parser = parser_new();
+        let doc = parser_parse_literal(parser, json);
+        let root = doc_root(doc);
+
+        assert_eq!(
+            element_type_of(&root),
+            expected_kind,
+            "root literal {:?}",
+            json
+        );
+
+        assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
+        assert_eq!(
+            unsafe { pure_simdjson_parser_free(parser) },
+            PURE_SIMDJSON_OK
+        );
+    }
+}
+
+#[test]
+fn bigint_numeric_getters_report_wrong_type() {
     let parser = parser_new();
-    let mut doc = 0_u64;
+    let doc = parser_parse_literal(parser, b"18446744073709551616");
+    let root = doc_root(doc);
 
-    let rc = unsafe {
-        pure_simdjson_parser_parse(parser, b"99999999999999999999".as_ptr(), 20, &mut doc)
-    };
-    assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_JSON);
-    assert_eq!(doc, 0);
-    assert!(!parser_last_error(parser).is_empty());
-    assert_eq!(parser_last_error_offset(parser), u64::MAX);
+    let mut int64_value = 0_i64;
+    assert_eq!(
+        unsafe { pure_simdjson_element_get_int64(&root, &mut int64_value) },
+        PURE_SIMDJSON_ERR_WRONG_TYPE
+    );
 
+    let mut uint64_value = 0_u64;
+    assert_eq!(
+        unsafe { pure_simdjson_element_get_uint64(&root, &mut uint64_value) },
+        PURE_SIMDJSON_ERR_WRONG_TYPE
+    );
+
+    let mut float64_value = 0_f64;
+    assert_eq!(
+        unsafe { pure_simdjson_element_get_float64(&root, &mut float64_value) },
+        PURE_SIMDJSON_ERR_WRONG_TYPE
+    );
+
+    assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
     assert_eq!(
         unsafe { pure_simdjson_parser_free(parser) },
         PURE_SIMDJSON_OK

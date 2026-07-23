@@ -41,6 +41,13 @@ var (
 	// ErrDepthLimitExceeded reports JSON nesting deeper than the native parser
 	// or materializer depth contract can process.
 	ErrDepthLimitExceeded = errors.New("depth limit exceeded")
+	// ErrCapacityLimitExceeded reports input larger than the parser's immutable
+	// configured capacity.
+	ErrCapacityLimitExceeded = errors.New("capacity limit exceeded")
+	// ErrInvalidOption reports an invalid parser construction option.
+	ErrInvalidOption = errors.New("invalid option")
+	// ErrKernelLocked reports kernel selection after parser or pool creation.
+	ErrKernelLocked = errors.New("kernel selection locked")
 	// ErrInternal reports native panics, internal failures, and any status code
 	// not mapped to a dedicated sentinel.
 	ErrInternal = errors.New("internal error")
@@ -63,10 +70,11 @@ var errLoadLibrary = errors.New("load library")
 // sentinel-error matching via Unwrap. Status details are exposed through
 // accessor methods so callers cannot mutate them after construction.
 type Error struct {
-	code    int32
-	offset  uint64
-	message string
-	err     error
+	code      int32
+	offset    uint64
+	hasOffset bool
+	message   string
+	err       error
 }
 
 // Error formats the native status details as a human-readable message while
@@ -82,11 +90,11 @@ func (e *Error) Error() string {
 	}
 
 	switch {
-	case e.code != 0 && e.message != "" && hasOffset(e.offset):
+	case e.code != 0 && e.message != "" && e.hasOffset:
 		return fmt.Sprintf("%s (code=%d, offset=%d): %s", label, e.code, e.offset, e.message)
 	case e.code != 0 && e.message != "":
 		return fmt.Sprintf("%s (code=%d): %s", label, e.code, e.message)
-	case e.code != 0 && hasOffset(e.offset):
+	case e.code != 0 && e.hasOffset:
 		return fmt.Sprintf("%s (code=%d, offset=%d)", label, e.code, e.offset)
 	case e.code != 0:
 		return fmt.Sprintf("%s (code=%d)", label, e.code)
@@ -105,12 +113,21 @@ func (e *Error) Code() int32 {
 	return e.code
 }
 
-// Offset returns the reported byte offset for parse errors. Zero means unknown.
+// Offset returns the reported byte offset for parse errors. Call HasOffset to
+// distinguish a known location at byte zero from an unknown location.
 func (e *Error) Offset() uint64 {
 	if e == nil {
 		return 0
 	}
 	return e.offset
+}
+
+// HasOffset reports whether Offset is a trustworthy native error location.
+func (e *Error) HasOffset() bool {
+	if e == nil {
+		return false
+	}
+	return e.hasOffset
 }
 
 // Message returns the native error message, when available.
@@ -131,8 +148,9 @@ func (e *Error) Unwrap() error {
 }
 
 type nativeDetails struct {
-	message string
-	offset  uint64
+	message   string
+	offset    uint64
+	hasOffset bool
 }
 
 func wrapParserStatus(bindings *ffi.Bindings, parser ffi.ParserHandle, code int32) error {
@@ -145,8 +163,11 @@ func wrapParserStatus(bindings *ffi.Bindings, parser ffi.ParserHandle, code int3
 		if message, rc := bindings.ParserLastError(parser); rc == int32(ffi.OK) && message != "" {
 			details.message = message
 		}
-		if offset, rc := bindings.ParserLastErrorOffset(parser); rc == int32(ffi.OK) {
+		offset, offsetRC := bindings.ParserLastErrorOffset(parser)
+		hasOffset, hasOffsetRC := bindings.ParserLastErrorHasOffset(parser)
+		if offsetRC == int32(ffi.OK) && hasOffsetRC == int32(ffi.OK) && hasOffset {
 			details.offset = offset
+			details.hasOffset = true
 		}
 	}
 
@@ -163,7 +184,6 @@ func wrapStatus(code int32) error {
 func wrapABIMismatch(expected, actual uint32, libraryPath string) error {
 	return newError(int32(ffi.ErrABIMismatch), nativeDetails{
 		message: fmt.Sprintf("expected ABI 0x%08x, got 0x%08x from %s", expected, actual, libraryPath),
-		offset:  ffi.LastErrorOffsetUnknown,
 	}, ErrABIVersionMismatch)
 }
 
@@ -174,24 +194,28 @@ func wrapLoadFailure(message string, err error) error {
 	}
 	return newError(0, nativeDetails{
 		message: message,
-		offset:  ffi.LastErrorOffsetUnknown,
 	}, loadErr)
 }
 
 func newError(code int32, details nativeDetails, err error) error {
-	if code == int32(ffi.OK) && err == nil && details.message == "" {
+	if code == int32(ffi.OK) && err == nil && details.message == "" && !details.hasOffset {
 		return nil
 	}
 
-	if details.message == "" && !hasOffset(details.offset) && err != nil && code == 0 {
+	if details.message == "" && !details.hasOffset && err != nil && code == 0 {
 		return err
 	}
 
+	offset := details.offset
+	if !details.hasOffset {
+		offset = 0
+	}
 	return &Error{
-		code:    code,
-		offset:  normalizeOffset(details.offset),
-		message: details.message,
-		err:     err,
+		code:      code,
+		offset:    offset,
+		hasOffset: details.hasOffset,
+		message:   details.message,
+		err:       err,
 	}
 }
 
@@ -209,6 +233,10 @@ func sentinelForStatus(code int32) error {
 		return ErrNotImplemented
 	case ffi.ErrDepthLimit:
 		return ErrDepthLimitExceeded
+	case ffi.ErrCapacityLimit:
+		return ErrCapacityLimitExceeded
+	case ffi.ErrKernelLocked:
+		return ErrKernelLocked
 	case ffi.ErrInvalidJSON:
 		return ErrInvalidJSON
 	case ffi.ErrNumberOutOfRange:
@@ -228,15 +256,4 @@ func sentinelForStatus(code int32) error {
 		// not user error; they intentionally map to ErrInternal.
 		return ErrInternal
 	}
-}
-
-func normalizeOffset(offset uint64) uint64 {
-	if !hasOffset(offset) {
-		return 0
-	}
-	return offset
-}
-
-func hasOffset(offset uint64) bool {
-	return offset != 0 && offset != ffi.LastErrorOffsetUnknown
 }

@@ -7,9 +7,9 @@ package bootstrap
 // the release tag. Tests and controlled local flows may inject overrides here to
 // avoid network metadata lookups.
 var Checksums = map[string]string{
-	// "v0.1.4/linux-amd64/libpure_simdjson.so":      "<sha256>",
-	// "v0.1.4/linux-arm64/libpure_simdjson.so":      "<sha256>",
-	// "v0.1.4/darwin-amd64/libpure_simdjson.dylib":  "<sha256>",
-	// "v0.1.4/darwin-arm64/libpure_simdjson.dylib":  "<sha256>",
-	// "v0.1.4/windows-amd64/pure_simdjson-msvc.dll": "<sha256>",
+	// "v0.1.5/linux-amd64/libpure_simdjson.so":      "<sha256>",
+	// "v0.1.5/linux-arm64/libpure_simdjson.so":      "<sha256>",
+	// "v0.1.5/darwin-amd64/libpure_simdjson.dylib":  "<sha256>",
+	// "v0.1.5/darwin-arm64/libpure_simdjson.dylib":  "<sha256>",
+	// "v0.1.5/windows-amd64/pure_simdjson-msvc.dll": "<sha256>",
 }

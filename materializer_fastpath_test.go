@@ -105,7 +105,76 @@ func TestFastMaterializerNumericSemantics(t *testing.T) {
 	}
 }
 
-func TestFastMaterializerOversizedLiteralParseRejected(t *testing.T) {
+func TestBigIntMaterializerRootAndNested(t *testing.T) {
+	const (
+		positive = "99999999999999999999999"
+		negative = "-100000000000000000000"
+	)
+
+	t.Run("root", func(t *testing.T) {
+		_, doc := mustParseDoc(t, positive)
+
+		got, err := fastMaterializeElement(doc.Root())
+		if err != nil {
+			t.Fatalf("fastMaterializeElement() error = %v", err)
+		}
+		if got != positive {
+			t.Fatalf("fastMaterializeElement() = %v (%T), want %q", got, got, positive)
+		}
+	})
+
+	t.Run("nested", func(t *testing.T) {
+		_, doc := mustParseDoc(t, `{"positive":99999999999999999999999,"nested":[-100000000000000000000]}`)
+
+		got, err := fastMaterializeElement(doc.Root())
+		if err != nil {
+			t.Fatalf("fastMaterializeElement() error = %v", err)
+		}
+		want := map[string]any{
+			"positive": positive,
+			"nested":   []any{negative},
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("fastMaterializeElement() = %#v, want %#v", got, want)
+		}
+	})
+}
+
+func TestAccessorMaterializerBigIntParity(t *testing.T) {
+	const (
+		positive = "18446744073709551616"
+		negative = "-9223372036854775809"
+	)
+
+	_, doc := mustParseDoc(t, `{"positive":18446744073709551616,"nested":[-9223372036854775809]}`)
+	want := map[string]any{
+		"positive": positive,
+		"nested":   []any{negative},
+	}
+
+	accessorValue, err := materializeElementViaAccessors(doc.Root())
+	if err != nil {
+		t.Fatalf("materializeElementViaAccessors() error = %v", err)
+	}
+	if !reflect.DeepEqual(accessorValue, want) {
+		t.Fatalf("materializeElementViaAccessors() = %#v, want %#v", accessorValue, want)
+	}
+
+	frameValue, err := fastMaterializeElement(doc.Root())
+	if err != nil {
+		t.Fatalf("fastMaterializeElement() error = %v", err)
+	}
+	if !reflect.DeepEqual(frameValue, want) {
+		t.Fatalf("fastMaterializeElement() = %#v, want %#v", frameValue, want)
+	}
+	if !reflect.DeepEqual(frameValue, accessorValue) {
+		t.Fatalf("frame materializer = %#v, accessor materializer = %#v", frameValue, accessorValue)
+	}
+}
+
+func TestFastMaterializerBigIntOwnershipAfterCloseAndGC(t *testing.T) {
+	const want = "-100000000000000000000000000000000000000"
+
 	parser := mustNewParser(t)
 	t.Cleanup(func() {
 		if err := parser.Close(); err != nil {
@@ -113,13 +182,67 @@ func TestFastMaterializerOversizedLiteralParseRejected(t *testing.T) {
 		}
 	})
 
-	doc, err := parser.Parse([]byte(`{"ok":1,"big":99999999999999999999999}`))
-	if doc != nil {
-		t.Fatal("Parse() oversized literal unexpectedly returned a document")
+	doc, err := parser.Parse([]byte(`{"value":` + want + `}`))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
 	}
-	if !errors.Is(err, ErrInvalidJSON) {
-		t.Fatalf("Parse() oversized literal error = %v, want ErrInvalidJSON", err)
+	t.Cleanup(func() {
+		if !doc.isClosed() {
+			if err := doc.Close(); err != nil {
+				t.Fatalf("doc.Close() cleanup error = %v", err)
+			}
+		}
+	})
+	got, err := fastMaterializeElement(doc.Root())
+	if err != nil {
+		t.Fatalf("fastMaterializeElement() error = %v", err)
 	}
+	object, ok := got.(map[string]any)
+	if !ok {
+		t.Fatalf("fast materialized root = %T, want map[string]any", got)
+	}
+	value, ok := object["value"].(string)
+	if !ok {
+		t.Fatalf("fast materialized value = %v (%T), want string", object["value"], object["value"])
+	}
+	if err := doc.Close(); err != nil {
+		t.Fatalf("doc.Close() error = %v", err)
+	}
+
+	runtime.GC()
+	if value != want {
+		t.Fatalf("materialized BigInt after Close+GC = %q, want %q", value, want)
+	}
+}
+
+func TestFastMaterializerBigIntAdversarialFrames(t *testing.T) {
+	if got := reflect.TypeOf(ffi.InternalFrame{}).Size(); got != 72 {
+		t.Fatalf("ffi.InternalFrame size = %d, want 72", got)
+	}
+
+	t.Run("nil nonempty span fails", func(t *testing.T) {
+		_, err := buildAnyFromFrames([]ffi.InternalFrame{
+			{Kind: uint32(ffi.ValueKindBigInt), StringLen: 1},
+		})
+		if !errors.Is(err, ErrInternal) {
+			t.Fatalf("buildAnyFromFrames() error = %v, want ErrInternal", err)
+		}
+		if !strings.Contains(err.Error(), "bigint span has nil pointer") {
+			t.Fatalf("buildAnyFromFrames() error = %v, want bigint-span detail", err)
+		}
+	})
+
+	t.Run("empty span succeeds", func(t *testing.T) {
+		got, err := buildAnyFromFrames([]ffi.InternalFrame{
+			{Kind: uint32(ffi.ValueKindBigInt)},
+		})
+		if err != nil {
+			t.Fatalf("buildAnyFromFrames() error = %v", err)
+		}
+		if got != "" {
+			t.Fatalf("buildAnyFromFrames() = %v (%T), want empty string", got, got)
+		}
+	})
 }
 
 func TestFastMaterializerDepthLimitExceeded(t *testing.T) {
@@ -449,6 +572,12 @@ func materializeViaAccessorsForTest(t *testing.T, element Element) any {
 		value, err := element.GetString()
 		if err != nil {
 			t.Fatalf("GetString() error = %v", err)
+		}
+		return value
+	case TypeBigInt:
+		value, err := element.GetBigInt()
+		if err != nil {
+			t.Fatalf("GetBigInt() error = %v", err)
 		}
 		return value
 	case TypeArray:

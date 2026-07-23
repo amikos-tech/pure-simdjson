@@ -9,9 +9,14 @@ import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 CHECK_HEADER_PATH = REPO_ROOT / "tests" / "abi" / "check_header.py"
-ABI_VERSION_DEFINE = "#define PURE_SIMDJSON_ABI_VERSION 0x00010001"
+ABI_VERSION_DEFINE = "#define PURE_SIMDJSON_ABI_VERSION 0x00010002"
 SURFACE_SIGNATURES = {
     "pure_simdjson_get_abi_version": ["uint32_t *out_version"],
+    "pure_simdjson_set_implementation": [
+        "const uint8_t *name",
+        "size_t name_len",
+    ],
+    "pure_simdjson_lock_implementation_selection": [],
     "pure_simdjson_get_implementation_name_len": ["size_t *out_len"],
     "pure_simdjson_copy_implementation_name": [
         "uint8_t *dst",
@@ -23,6 +28,11 @@ SURFACE_SIGNATURES = {
         "struct pure_simdjson_native_alloc_stats_t *out_stats",
     ],
     "pure_simdjson_parser_new": ["pure_simdjson_parser_t *out_parser"],
+    "pure_simdjson_parser_new_configured": [
+        "uint64_t max_capacity",
+        "uint32_t max_depth",
+        "pure_simdjson_parser_t *out_parser",
+    ],
     "pure_simdjson_parser_free": ["pure_simdjson_parser_t parser"],
     "pure_simdjson_parser_parse": [
         "pure_simdjson_parser_t parser",
@@ -43,6 +53,10 @@ SURFACE_SIGNATURES = {
     "pure_simdjson_parser_get_last_error_offset": [
         "pure_simdjson_parser_t parser",
         "uint64_t *out_offset",
+    ],
+    "pure_simdjson_parser_get_last_error_has_offset": [
+        "pure_simdjson_parser_t parser",
+        "uint8_t *out_has_offset",
     ],
     "pure_simdjson_doc_free": ["pure_simdjson_doc_t doc"],
     "pure_simdjson_doc_root": [
@@ -66,6 +80,11 @@ SURFACE_SIGNATURES = {
         "double *out_value",
     ],
     "pure_simdjson_element_get_string": [
+        "const struct pure_simdjson_value_view_t *view",
+        "uint8_t **out_ptr",
+        "size_t *out_len",
+    ],
+    "pure_simdjson_element_get_bigint": [
         "const struct pure_simdjson_value_view_t *view",
         "uint8_t **out_ptr",
         "size_t *out_len",
@@ -105,6 +124,31 @@ SURFACE_SIGNATURES = {
         "struct pure_simdjson_value_view_t *out_value",
     ],
 }
+PHASE_11_SYMBOLS = (
+    "pure_simdjson_parser_new_configured",
+    "pure_simdjson_parser_get_last_error_has_offset",
+    "pure_simdjson_element_get_bigint",
+    "pure_simdjson_set_implementation",
+    "pure_simdjson_lock_implementation_selection",
+)
+SURFACE_COMMENTS = {
+    "pure_simdjson_doc_root": (
+        "The returned view reports kind 9 for BigInt roots."
+    ),
+    "pure_simdjson_element_type": "BigInt values report kind 9.",
+    "pure_simdjson_element_get_int64": (
+        "BigInt values return PURE_SIMDJSON_ERR_WRONG_TYPE."
+    ),
+    "pure_simdjson_element_get_uint64": (
+        "BigInt values return PURE_SIMDJSON_ERR_WRONG_TYPE."
+    ),
+    "pure_simdjson_element_get_float64": (
+        "BigInt values return PURE_SIMDJSON_ERR_WRONG_TYPE."
+    ),
+    "pure_simdjson_element_get_bigint": (
+        "The caller must release the copied bytes with pure_simdjson_bytes_free."
+    ),
+}
 NATIVE_ALLOC_STATS_STRUCT = """
 typedef struct pure_simdjson_native_alloc_stats_t {
   uint64_t epoch;
@@ -122,10 +166,15 @@ check_header = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(check_header)
 
 
-def make_required_symbols_header(*, extra_symbols: list[str] | None = None) -> str:
+def make_required_symbols_header(
+    *,
+    omit_symbols: set[str] | None = None,
+    extra_symbols: list[str] | None = None,
+) -> str:
     prototypes = [
         f"pure_simdjson_error_code_t {symbol}(void);"
-        for symbol in check_header.REQUIRED_SYMBOLS
+        for symbol in SURFACE_SIGNATURES
+        if not omit_symbols or symbol not in omit_symbols
     ]
     if extra_symbols:
         prototypes.extend(
@@ -141,6 +190,7 @@ def make_surface_header(
     return_type: str = "pure_simdjson_error_code_t",
     overrides: dict[str, list[str]] | None = None,
     omit_symbols: set[str] | None = None,
+    comment_overrides: dict[str, str] | None = None,
     extra_lines: list[str] | None = None,
 ) -> str:
     lines: list[str] = []
@@ -154,9 +204,15 @@ def make_surface_header(
         for symbol in omit_symbols:
             signatures.pop(symbol, None)
 
-    for symbol in check_header.REQUIRED_SYMBOLS:
+    comments = dict(SURFACE_COMMENTS)
+    if comment_overrides:
+        comments.update(comment_overrides)
+
+    for symbol in SURFACE_SIGNATURES:
         if symbol not in signatures:
             continue
+        if symbol in comments:
+            lines.append(f"/** {comments[symbol]} */")
         params_list = signatures[symbol]
         params = "void" if not params_list else ", ".join(params_list)
         lines.append(f"{return_type} {symbol}({params});")
@@ -211,6 +267,19 @@ class RequiredSymbolsRuleTests(unittest.TestCase):
             "missing required symbols: pure_simdjson_object_get_field",
             str(excinfo.exception),
         )
+
+    def test_rejects_each_missing_phase_11_symbol(self) -> None:
+        for symbol in PHASE_11_SYMBOLS:
+            with self.subTest(symbol=symbol):
+                header_text = make_required_symbols_header(
+                    omit_symbols={symbol}
+                )
+                prototypes = check_header.parse_prototypes(header_text)
+
+                with self.assertRaises(SystemExit) as excinfo:
+                    check_header.rule_required_symbols(prototypes, header_text)
+
+                self.assertIn(symbol, str(excinfo.exception))
 
 
 class InternalSymbolsRuleTests(unittest.TestCase):
@@ -341,6 +410,44 @@ class StringCopyOwnershipRuleTests(unittest.TestCase):
 
         self.assertIn("pure_simdjson_bytes_free: expected", str(excinfo.exception))
 
+    def test_rejects_wrong_bigint_copy_signature(self) -> None:
+        header_text = make_surface_header(
+            overrides={
+                "pure_simdjson_element_get_bigint": [
+                    "const struct pure_simdjson_value_view_t *view",
+                    "const uint8_t **out_ptr",
+                    "size_t *out_len",
+                ]
+            }
+        )
+        prototypes = check_header.parse_prototypes(header_text)
+
+        with self.assertRaises(SystemExit) as excinfo:
+            check_header.rule_string_copy_ownership(prototypes, header_text)
+
+        self.assertIn(
+            "pure_simdjson_element_get_bigint: expected",
+            str(excinfo.exception),
+        )
+
+    def test_rejects_bigint_ownership_without_bytes_free_rule(self) -> None:
+        header_text = make_surface_header(
+            comment_overrides={
+                "pure_simdjson_element_get_bigint": (
+                    "The caller owns the copied bytes."
+                )
+            }
+        )
+        prototypes = check_header.parse_prototypes(header_text)
+
+        with self.assertRaises(SystemExit) as excinfo:
+            check_header.rule_string_copy_ownership(prototypes, header_text)
+
+        self.assertIn(
+            "BigInt ownership comment must require pure_simdjson_bytes_free",
+            str(excinfo.exception),
+        )
+
 
 class DiagSurfaceRuleTests(unittest.TestCase):
     def test_accepts_expected_surface_and_abi_macro(self) -> None:
@@ -376,6 +483,44 @@ class DiagSurfaceRuleTests(unittest.TestCase):
             "pure_simdjson_parser_get_last_error_offset: expected",
             str(excinfo.exception),
         )
+
+    def test_rejects_each_wrong_phase_11_signature(self) -> None:
+        for symbol in PHASE_11_SYMBOLS:
+            with self.subTest(symbol=symbol):
+                header_text = make_surface_header(
+                    overrides={symbol: ["uint32_t wrong_parameter"]}
+                )
+                prototypes = check_header.parse_prototypes(header_text)
+
+                with self.assertRaises(SystemExit) as excinfo:
+                    check_header.rule_diag_surface(prototypes, header_text)
+
+                self.assertIn(symbol, str(excinfo.exception))
+
+    def test_rejects_stale_bigint_contract_comments(self) -> None:
+        stale_comments = {
+            "pure_simdjson_doc_root": (
+                "The kind cannot be classified (for example, BIGINT)."
+            ),
+            "pure_simdjson_element_type": (
+                "BigInt's canonical precision-loss error surfaces here."
+            ),
+            "pure_simdjson_element_get_int64": (
+                "PRECISION_LOSS is returned for BigInt."
+            ),
+        }
+
+        for symbol, stale_comment in stale_comments.items():
+            with self.subTest(symbol=symbol):
+                header_text = make_surface_header(
+                    comment_overrides={symbol: stale_comment}
+                )
+                prototypes = check_header.parse_prototypes(header_text)
+
+                with self.assertRaises(SystemExit) as excinfo:
+                    check_header.rule_diag_surface(prototypes, header_text)
+
+                self.assertIn("stale BigInt contract", str(excinfo.exception))
 
 
 class NativeAllocSurfaceRuleTests(unittest.TestCase):

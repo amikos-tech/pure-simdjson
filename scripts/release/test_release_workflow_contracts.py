@@ -14,11 +14,69 @@ BUILD_SHARED_LIBRARY_ACTION = (
 BUILD_RS = REPO_ROOT / "build.rs"
 SETUP_RUST_ACTION = REPO_ROOT / ".github" / "actions" / "setup-rust" / "action.yml"
 RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
+GO_BOOTSTRAP_SMOKE = REPO_ROOT / "tests" / "smoke" / "go_bootstrap_smoke.go"
+RUN_GO_PACKAGED_SMOKE = REPO_ROOT / "scripts" / "release" / "run_go_packaged_smoke.sh"
 RUN_NATIVE_SMOKE = REPO_ROOT / "scripts" / "release" / "run_native_smoke.sh"
 VERIFY_GLIBC_FLOOR = REPO_ROOT / "scripts" / "release" / "verify_glibc_floor.sh"
 
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
+    def test_release_matrix_keeps_five_targets_and_native_smoke(self) -> None:
+        workflow_text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertEqual(
+            tuple(
+                re.findall(
+                    r"^\s+- platform_id:\s+([a-z0-9-]+)\s*$",
+                    workflow_text,
+                    re.MULTILINE,
+                )
+            ),
+            (
+                "linux-amd64",
+                "linux-arm64",
+                "darwin-amd64",
+                "darwin-arm64",
+                "windows-amd64",
+            ),
+        )
+
+        for job_name, next_job_name in (
+            ("linux-build", "darwin-build"),
+            ("darwin-build", "windows-build"),
+            ("windows-build", "alpine-smoke"),
+        ):
+            job_text = workflow_text.split(f"  {job_name}:", 1)[1]
+            job_text = job_text.split(f"  {next_job_name}:", 1)[0]
+            self.assertIn("bash scripts/release/run_native_smoke.sh", job_text)
+
+    def test_packaged_smoke_reaches_abi_1_2_go_contract(self) -> None:
+        workflow_text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+        harness_text = RUN_GO_PACKAGED_SMOKE.read_text(encoding="utf-8")
+        smoke_text = GO_BOOTSTRAP_SMOKE.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "bash scripts/release/run_go_packaged_smoke.sh",
+            workflow_text,
+        )
+        self.assertIn(
+            "go run ./tests/smoke/go_bootstrap_smoke.go",
+            harness_text,
+        )
+        self.assertIn(
+            "PURE_SIMDJSON_LIB_PATH must stay unset for packaged-artifact smoke",
+            harness_text,
+        )
+        for snippet in (
+            "WithMaxCapacity",
+            "WithMaxDepth",
+            "TypeBigInt",
+            "GetBigInt",
+            "GetInt64",
+            "Kernel()",
+        ):
+            self.assertIn(snippet, smoke_text)
+
     def test_build_shared_library_forwards_toolchain_file_input(self) -> None:
         action_text = BUILD_SHARED_LIBRARY_ACTION.read_text(encoding="utf-8")
 

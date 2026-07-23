@@ -10,6 +10,24 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 - Advisory pull-request benchmark regression check (Tier 1/2/3 on twitter and canada fixtures, advisory-only). The future blocking-flip is gated by the `REQUIRE_NO_REGRESSION` env var in `.github/workflows/pr-benchmark.yml`.
 
+## [0.1.5] - 2026-07-23
+
+This source state prepares `0.1.5` as an intermediate Phase 11 compatibility
+artifact. It is not the final v0.2 release, and it does not claim publication:
+default-bootstrap availability remains unproven until Plan 11-14 completes the
+tag-driven CI and fresh-runner validation gates.
+
+### Added
+- Exact oversized-integer access through `TypeBigInt` and copied decimal text from `GetBigInt`.
+- Immutable parser capacity/depth options, process-wide kernel selection diagnostics, and explicit known/unknown parse offsets.
+
+### Changed — ABI
+- The audited simdjson base is now v4.6.4 and `PURE_SIMDJSON_ABI_VERSION` is `0x00010002`, with append-only BigInt, parser-control, kernel, and offset-diagnostic surface.
+- ABI 1.1 native libraries are rejected by the Phase 11 wrapper. Consumers of the native ABI must rebuild before using this compatibility artifact.
+
+### Changed
+- `NewParserPool` now accepts parser options and returns `(*ParserPool, error)`; this is a deliberate Go source break so invalid configuration fails at construction.
+
 ## [0.1.4] - 2026-04-27
 
 ### Fixed

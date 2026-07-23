@@ -1,0 +1,76 @@
+Subject: [PATCH] route positive uint64 overflow through BIGINT_ERROR
+Upstream-Base: simdjson v4.6.4
+Upstream-Commit: 1bcf71bd85059ab6574ea1159de9298dcc1212c5
+
+Official v4.6.4 classifies positive 20-digit uint64 overflow as NUMBER_ERROR,
+which prevents number_as_string(true) from preserving values such as
+18446744073709551616. Route that already-detected overflow through the
+existing BIGINT_ERROR path. The repeated hunks are the architecture copies
+generated into simdjson's official singleheader source.
+
+diff --git a/simdjson.cpp b/simdjson.cpp
+--- a/simdjson.cpp
++++ b/simdjson.cpp
+@@ -10888,5 +10888,5 @@
+     // - Therefore, if the number is positive and lower than that, it's overflow.
+     // - The value we are looking at is less than or equal to INT64_MAX.
+     //
+-    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
+   }
+@@ -17421,5 +17421,5 @@
+     // - Therefore, if the number is positive and lower than that, it's overflow.
+     // - The value we are looking at is less than or equal to INT64_MAX.
+     //
+-    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
+   }
+@@ -23809,5 +23809,5 @@
+     // - Therefore, if the number is positive and lower than that, it's overflow.
+     // - The value we are looking at is less than or equal to INT64_MAX.
+     //
+-    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
+   }
+@@ -30354,5 +30354,5 @@
+     // - Therefore, if the number is positive and lower than that, it's overflow.
+     // - The value we are looking at is less than or equal to INT64_MAX.
+     //
+-    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
+   }
+@@ -37259,5 +37259,5 @@
+     // - Therefore, if the number is positive and lower than that, it's overflow.
+     // - The value we are looking at is less than or equal to INT64_MAX.
+     //
+-    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
+   }
+@@ -44010,5 +44010,5 @@
+     // - Therefore, if the number is positive and lower than that, it's overflow.
+     // - The value we are looking at is less than or equal to INT64_MAX.
+     //
+-    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
+   }
+@@ -50198,5 +50198,5 @@
+     // - Therefore, if the number is positive and lower than that, it's overflow.
+     // - The value we are looking at is less than or equal to INT64_MAX.
+     //
+-    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
+   }
+@@ -56374,5 +56374,5 @@
+     // - Therefore, if the number is positive and lower than that, it's overflow.
+     // - The value we are looking at is less than or equal to INT64_MAX.
+     //
+-    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
+   }
+@@ -62527,5 +62527,5 @@
+     // - Therefore, if the number is positive and lower than that, it's overflow.
+     // - The value we are looking at is less than or equal to INT64_MAX.
+     //
+-    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
+   }

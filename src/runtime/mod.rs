@@ -3,9 +3,7 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-use crate::{
-    pure_simdjson_error_code_t, pure_simdjson_native_alloc_stats_t, pure_simdjson_value_kind_t,
-};
+use crate::{pure_simdjson_error_code_t, pure_simdjson_native_alloc_stats_t};
 
 pub(crate) mod registry;
 
@@ -71,6 +69,9 @@ const _: () = assert!(
 );
 
 unsafe extern "C" {
+    fn psimdjson_set_implementation(name: *const u8, name_len: usize)
+        -> pure_simdjson_error_code_t;
+    fn psimdjson_lock_implementation_selection() -> pure_simdjson_error_code_t;
     fn psimdjson_get_implementation_name_len(out_len: *mut usize) -> pure_simdjson_error_code_t;
     fn psimdjson_copy_implementation_name(
         dst: *mut u8,
@@ -84,7 +85,15 @@ unsafe extern "C" {
     fn psimdjson_padding_bytes() -> usize;
 
     fn psimdjson_parser_new(out_parser: *mut *mut psimdjson_parser) -> pure_simdjson_error_code_t;
+    fn psimdjson_parser_new_configured(
+        max_capacity: u64,
+        max_depth: u32,
+        out_parser: *mut *mut psimdjson_parser,
+    ) -> pure_simdjson_error_code_t;
     fn psimdjson_parser_free(parser: *mut psimdjson_parser) -> pure_simdjson_error_code_t;
+    fn psimdjson_parser_reset_diagnostics(
+        parser: *mut psimdjson_parser,
+    ) -> pure_simdjson_error_code_t;
     fn psimdjson_parser_parse(
         parser: *mut psimdjson_parser,
         input_ptr: *const u8,
@@ -105,6 +114,10 @@ unsafe extern "C" {
         parser: *const psimdjson_parser,
         out_offset: *mut u64,
     ) -> pure_simdjson_error_code_t;
+    fn psimdjson_parser_get_last_error_has_offset(
+        parser: *const psimdjson_parser,
+        out_has_offset: *mut u8,
+    ) -> pure_simdjson_error_code_t;
 
     fn psimdjson_doc_free(doc: *mut psimdjson_doc) -> pure_simdjson_error_code_t;
     fn psimdjson_doc_root(
@@ -113,12 +126,12 @@ unsafe extern "C" {
     ) -> pure_simdjson_error_code_t;
     fn psimdjson_element_type(
         element: *const psimdjson_element,
-        out_kind: *mut pure_simdjson_value_kind_t,
+        out_kind: *mut u32,
     ) -> pure_simdjson_error_code_t;
     fn psimdjson_element_type_at(
         doc: *const psimdjson_doc,
         json_index: u64,
-        out_kind: *mut pure_simdjson_value_kind_t,
+        out_kind: *mut u32,
     ) -> pure_simdjson_error_code_t;
     fn psimdjson_element_get_int64_at(
         doc: *const psimdjson_doc,
@@ -136,6 +149,12 @@ unsafe extern "C" {
         out_value: *mut f64,
     ) -> pure_simdjson_error_code_t;
     fn psimdjson_element_get_string_view(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_ptr: *mut *const u8,
+        out_len: *mut usize,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_get_bigint_view(
         doc: *const psimdjson_doc,
         json_index: u64,
         out_ptr: *mut *const u8,
@@ -212,6 +231,16 @@ fn err_ok() -> pure_simdjson_error_code_t {
 }
 
 #[inline]
+pub(crate) fn set_implementation(name: &[u8]) -> pure_simdjson_error_code_t {
+    unsafe { psimdjson_set_implementation(name.as_ptr(), name.len()) }
+}
+
+#[inline]
+pub(crate) fn lock_implementation_selection() -> pure_simdjson_error_code_t {
+    unsafe { psimdjson_lock_implementation_selection() }
+}
+
+#[inline]
 pub(crate) fn implementation_name_len() -> Result<usize, pure_simdjson_error_code_t> {
     let mut len = 0_usize;
     let rc = unsafe { psimdjson_get_implementation_name_len(&mut len) };
@@ -231,6 +260,7 @@ pub(crate) fn copy_implementation_name(
     unsafe { psimdjson_copy_implementation_name(dst, dst_cap, out_written) }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn implementation_name() -> Result<Vec<u8>, pure_simdjson_error_code_t> {
     let len = implementation_name_len()?;
     let mut bytes = vec![0_u8; len];
@@ -286,8 +316,27 @@ pub(crate) fn native_parser_new() -> Result<usize, pure_simdjson_error_code_t> {
     Ok(parser as usize)
 }
 
+pub(crate) fn native_parser_new_configured(
+    max_capacity: u64,
+    max_depth: u32,
+) -> Result<usize, pure_simdjson_error_code_t> {
+    let mut parser = ptr::null_mut();
+    let rc = unsafe { psimdjson_parser_new_configured(max_capacity, max_depth, &mut parser) };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    if parser.is_null() {
+        return Err(err_internal());
+    }
+    Ok(parser as usize)
+}
+
 pub(crate) fn native_parser_free(parser_ptr: usize) -> pure_simdjson_error_code_t {
     unsafe { psimdjson_parser_free(parser_ptr as *mut psimdjson_parser) }
+}
+
+pub(crate) fn native_parser_reset_diagnostics(parser_ptr: usize) -> pure_simdjson_error_code_t {
+    unsafe { psimdjson_parser_reset_diagnostics(parser_ptr as *mut psimdjson_parser) }
 }
 
 pub(crate) fn native_parser_parse(
@@ -384,15 +433,32 @@ pub(crate) fn native_parser_get_last_error_offset(
     }
 }
 
+pub(crate) fn native_parser_get_last_error_has_offset(
+    parser_ptr: usize,
+) -> Result<u8, pure_simdjson_error_code_t> {
+    let mut has_offset = 0_u8;
+    let rc = unsafe {
+        psimdjson_parser_get_last_error_has_offset(
+            parser_ptr as *const psimdjson_parser,
+            &mut has_offset,
+        )
+    };
+    if rc == err_ok() {
+        Ok(has_offset)
+    } else {
+        Err(rc)
+    }
+}
+
 pub(crate) fn native_doc_free(doc_ptr: usize) -> pure_simdjson_error_code_t {
     unsafe { psimdjson_doc_free(doc_ptr as *mut psimdjson_doc) }
 }
 
 pub(crate) fn native_element_type(element_ptr: usize) -> Result<u32, pure_simdjson_error_code_t> {
-    let mut kind = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_INVALID;
+    let mut kind = 0_u32;
     let rc = unsafe { psimdjson_element_type(element_ptr as *const psimdjson_element, &mut kind) };
     if rc == err_ok() {
-        Ok(kind as u32)
+        Ok(kind)
     } else {
         Err(rc)
     }
@@ -402,12 +468,12 @@ pub(crate) fn native_element_type_at(
     doc_ptr: usize,
     json_index: u64,
 ) -> Result<u32, pure_simdjson_error_code_t> {
-    let mut kind = pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_INVALID;
+    let mut kind = 0_u32;
     let rc = unsafe {
         psimdjson_element_type_at(doc_ptr as *const psimdjson_doc, json_index, &mut kind)
     };
     if rc == err_ok() {
-        Ok(kind as u32)
+        Ok(kind)
     } else {
         Err(rc)
     }
@@ -466,6 +532,27 @@ pub(crate) fn native_element_get_string_view(
     let mut len = 0_usize;
     let rc = unsafe {
         psimdjson_element_get_string_view(
+            doc_ptr as *const psimdjson_doc,
+            json_index,
+            &mut ptr,
+            &mut len,
+        )
+    };
+    if rc == err_ok() {
+        Ok((ptr as usize, len))
+    } else {
+        Err(rc)
+    }
+}
+
+pub(crate) fn native_element_get_bigint_view(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<(usize, usize), pure_simdjson_error_code_t> {
+    let mut ptr = ptr::null();
+    let mut len = 0_usize;
+    let rc = unsafe {
+        psimdjson_element_get_bigint_view(
             doc_ptr as *const psimdjson_doc,
             json_index,
             &mut ptr,
@@ -631,11 +718,10 @@ pub(crate) fn native_test_hold_materialize_guard(
     unsafe { psimdjson_test_hold_materialize_guard(doc_ptr as *mut psimdjson_doc, json_index) }
 }
 
-pub(crate) fn selected_implementation_name_for_parser_new(
-) -> Result<Vec<u8>, pure_simdjson_error_code_t> {
+pub(crate) fn forced_implementation_name_for_parser_new() -> Option<Vec<u8>> {
     let override_lock = TEST_FORCED_IMPLEMENTATION_OVERRIDE.get_or_init(|| Mutex::new(None));
     if let Some(value) = lock_poison_tolerant(override_lock).clone() {
-        return Ok(value);
+        return Some(value);
     }
 
     if let Some(value) = FORCED_IMPLEMENTATION_NAME
@@ -647,7 +733,7 @@ pub(crate) fn selected_implementation_name_for_parser_new(
         .clone()
     {
         if value == b"fallback" {
-            return Ok(value);
+            return Some(value);
         }
         // Test-only env var; fail loud so a typo (e.g. "fallbck") does not silently no-op.
         panic!(
@@ -655,7 +741,7 @@ pub(crate) fn selected_implementation_name_for_parser_new(
             String::from_utf8_lossy(&value)
         );
     }
-    implementation_name()
+    None
 }
 
 pub(crate) fn fallback_allowed_for_tests() -> bool {

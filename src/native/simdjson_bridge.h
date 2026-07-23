@@ -1,6 +1,8 @@
 #ifndef PSIMDJSON_BRIDGE_H
 #define PSIMDJSON_BRIDGE_H
 
+#include <stdint.h>
+
 #include "../../include/pure_simdjson.h"
 #include "simdjson.h"
 
@@ -14,6 +16,22 @@ extern "C" {
 typedef struct psimdjson_parser psimdjson_parser;
 typedef struct psimdjson_doc psimdjson_doc;
 typedef struct psimdjson_element psimdjson_element;
+
+typedef struct psimdjson_test_replay_observation {
+  int32_t primary_error;
+  int32_t replay_error;
+  int32_t location_error;
+  uint32_t replay_pass;
+  uint32_t pointer_relation;
+  uint32_t pass_count;
+  uint32_t allocation_count;
+  uint32_t iterate_count;
+  uint64_t derived_offset;
+  uint64_t first_max_capacity;
+  uint64_t second_max_capacity;
+  uint32_t first_max_depth;
+  uint32_t second_max_depth;
+} psimdjson_test_replay_observation;
 
 typedef struct psdj_internal_frame_t {
   /* Stores pure_simdjson_value_kind_t; kept as uint32_t to pin the v0.1 layout. */
@@ -44,6 +62,11 @@ static_assert(
     "Rust (src/runtime/mod.rs), and Go (InternalFrame) together");
 #endif
 
+pure_simdjson_error_code_t psimdjson_set_implementation(
+    const uint8_t *name,
+    size_t name_len
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_lock_implementation_selection(void) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_get_implementation_name_len(size_t *out_len) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_copy_implementation_name(
     uint8_t *dst,
@@ -57,7 +80,15 @@ pure_simdjson_error_code_t psimdjson_native_alloc_stats_snapshot(
 size_t psimdjson_padding_bytes(void) PSIMDJSON_NOEXCEPT;
 
 pure_simdjson_error_code_t psimdjson_parser_new(psimdjson_parser **out_parser) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_parser_new_configured(
+    uint64_t max_capacity,
+    uint32_t max_depth,
+    psimdjson_parser **out_parser
+) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_parser_free(psimdjson_parser *parser) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_parser_reset_diagnostics(
+    psimdjson_parser *parser
+) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_parser_parse(
     psimdjson_parser *parser,
     const uint8_t *input_ptr,
@@ -77,6 +108,10 @@ pure_simdjson_error_code_t psimdjson_parser_copy_last_error(
 pure_simdjson_error_code_t psimdjson_parser_get_last_error_offset(
     const psimdjson_parser *parser,
     uint64_t *out_offset
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_parser_get_last_error_has_offset(
+    const psimdjson_parser *parser,
+    uint8_t *out_has_offset
 ) PSIMDJSON_NOEXCEPT;
 
 pure_simdjson_error_code_t psimdjson_doc_free(psimdjson_doc *doc) PSIMDJSON_NOEXCEPT;
@@ -113,6 +148,12 @@ pure_simdjson_error_code_t psimdjson_element_get_float64_at(
     double *out_value
 ) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_element_get_string_view(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t **out_ptr,
+    size_t *out_len
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_element_get_bigint_view(
     const psimdjson_doc *doc,
     uint64_t json_index,
     const uint8_t **out_ptr,
@@ -162,6 +203,39 @@ pure_simdjson_error_code_t psimdjson_materialize_build(psimdjson_doc *doc,
                                                        size_t *out_frame_count) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_test_hold_materialize_guard(psimdjson_doc *doc,
                                                                  uint64_t json_index) PSIMDJSON_NOEXCEPT;
+
+pure_simdjson_error_code_t psimdjson_test_characterize_diagnostic(
+    const uint8_t *input_ptr,
+    size_t input_len,
+    uint64_t max_capacity,
+    uint32_t max_depth,
+    int32_t *out_parse_status,
+    uint64_t *out_offset,
+    uint8_t *out_has_offset,
+    psimdjson_test_replay_observation *out_observation
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_test_recursive_replay_observation(
+    const uint8_t *input_ptr,
+    size_t input_len,
+    uint64_t max_capacity,
+    uint32_t max_depth,
+    uint64_t *out_offset,
+    uint8_t *out_has_offset,
+    psimdjson_test_replay_observation *out_observation
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_test_terminal_diagnostic_observation(
+    uint32_t terminal_case,
+    uint64_t *out_offset,
+    uint8_t *out_has_offset,
+    psimdjson_test_replay_observation *out_observation
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_test_checked_diagnostic_offset(
+    uintptr_t input_addr,
+    size_t input_len,
+    uintptr_t location_addr,
+    uint64_t *out_offset,
+    uint8_t *out_has_offset
+) PSIMDJSON_NOEXCEPT;
 
 pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(void) PSIMDJSON_NOEXCEPT;
 
