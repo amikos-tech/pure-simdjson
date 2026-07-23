@@ -3,29 +3,30 @@ Status: SOURCE READY — NOT RELEASED
 # Phase 11 ABI 1.2 Artifact Readiness
 
 This record covers local source readiness only. It does not claim that
-`v0.1.6` exists at the default bootstrap URL, that hosted release jobs passed,
+`v0.1.7` exists at the default bootstrap URL, that hosted release jobs passed,
 or that any artifact was published.
 
 ## Tested Source Identity
 
 | Property | Observed value |
 |---|---|
-| Approved intermediate version | `0.1.6` |
+| Approved intermediate version | `0.1.7` |
 | Public ABI | `0x00010002` |
 | Audited upstream release | simdjson `v4.6.4` |
 | Audited upstream commit | `1bcf71bd85059ab6574ea1159de9298dcc1212c5` |
-| Tested source commit | `76303dcac30301f7a7d76cc4bacfe85a4915f3c7` |
+| Tested source commit | `a959baeb3394a1f6cb0946c0384e7f5b7d9cd5fb` |
 | Host | `darwin/arm64` |
-| Fresh release library | `/tmp/pure-simdjson-recovery-host-target/release/libpure_simdjson.dylib` |
+| Fresh release library | `/tmp/pure-simdjson-recovery-017-host-target/release/libpure_simdjson.dylib` |
 
 The upstream commit equality check exited `0`. The tracked submodule remains
 the audited official commit; the repository-owned positive-overflow patch is
 applied only to the verified build-output copy by `build.rs`.
 
-The exact serial source gate was rerun in full for the `0.1.6` recovery after
-the build-only line-ending compatibility fix and the Alpine smoke dependency
-fix. All commands below exited `0` at
-`76303dcac30301f7a7d76cc4bacfe85a4915f3c7`; the ABI, audited upstream commit,
+The exact serial source gate was rerun in full for the `0.1.7` recovery after
+the build-only line-ending compatibility fix, Alpine smoke dependency fix,
+and scoped safe-directory configuration for the bind-mounted checkout and
+submodule. All commands below exited `0` at
+`a959baeb3394a1f6cb0946c0384e7f5b7d9cd5fb`; the ABI, audited upstream commit,
 and patched native behavior are unchanged.
 
 ## Packaged Smoke Contract Feedback
@@ -62,11 +63,11 @@ runtime command received the same freshly built library through
 | 1 | `make verify-contract` | `0` | Rust unit/integration suites, generated-header diff, 25 ABI-header tests, header rules, and C layout compile passed. |
 | 2 | `cargo build --release --locked` | `0` | Fresh host release library built successfully. |
 | 3 | `PURE_SIMDJSON_LIB_PATH="$LOCAL_LIBRARY" go test ./... -race -count=1` | `0` | Root package plus bootstrap, CLI, and FFI packages passed under the race detector. |
-| 4 | `python3 scripts/release/test_check_bootstrap_abi_state.py` | `0` | 11 bootstrap/ABI policy tests passed. |
+| 4 | `python3 scripts/release/test_check_bootstrap_abi_state.py` | `0` | 12 bootstrap/ABI policy tests passed. |
 | 5 | `python3 scripts/release/test_release_workflow_contracts.py` | `0` | 13 release workflow contract tests passed. |
 | 6 | `python3 scripts/release/test_public_bootstrap_validation_contracts.py` | `0` | 11 public validation contract tests passed. |
 | 7 | `python3 scripts/release/test_render_release_notes.py` | `0` | 10 release-note renderer tests passed. |
-| 8 | `PURE_SIMDJSON_LIB_PATH="$LOCAL_LIBRARY" go test . -run '^TestJSONTestSuiteOracle$' -count=1` | `0` | JSONTestSuite oracle passed (`ok`, 0.453s). |
+| 8 | `PURE_SIMDJSON_LIB_PATH="$LOCAL_LIBRARY" go test . -run '^TestJSONTestSuiteOracle$' -count=1` | `0` | JSONTestSuite oracle passed (`ok`, 0.376s). |
 | 9 | `PHASE11_BENCH_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pure-simdjson-phase11-13-bench.XXXXXX")"` | `0` | Created a new temporary benchmark directory. |
 | 10 | `PURE_SIMDJSON_LIB_PATH="$LOCAL_LIBRARY" bash scripts/bench/run_pr_benchmark.sh --no-baseline --out-dir "$PHASE11_BENCH_DIR"` | `0` | Representative Tier 1/2/3 signal captured. |
 | 11 | `bash scripts/release/check_readiness.sh` | `0` | Basic, non-strict release readiness passed. |
@@ -77,14 +78,14 @@ runtime command received the same freshly built library through
 The platform-correct library resolver selected:
 
 ```text
-LOCAL_LIBRARY=/tmp/pure-simdjson-recovery-host-target/release/libpure_simdjson.dylib
+LOCAL_LIBRARY=/tmp/pure-simdjson-recovery-017-host-target/release/libpure_simdjson.dylib
 ```
 
 ## Correctness and Benchmark Result
 
 - Correctness oracle: `PASS`.
 - Benchmark capture directory:
-  `/tmp/pure-simdjson-phase11-recovery-bench.3JkgNb`.
+  `/tmp/pure-simdjson-phase11-recovery-017-bench.M7C3tg`.
 - Capture: 60 result rows across 12 unique benchmark cases.
 - Bands: Tier 1 full parse on twitter/canada, Tier 2 typed extraction on
   twitter/canada, and Tier 3 selective traversal on twitter.
@@ -95,7 +96,7 @@ The bypass is the intended no-baseline source signal: it proves all selected
 benchmarks execute and records current measurements, but it makes no
 head-versus-baseline performance claim.
 
-## Failed Immutable Attempt
+## Failed Immutable Attempts
 
 - `v0.1.5` remains an immutable annotated tag on
   `e9f3cea2bbe3b827f8b950c0aacd19640068d05b`.
@@ -104,8 +105,15 @@ head-versus-baseline performance claim.
   because its package list omitted `git`.
 - The release publish job was skipped. No `v0.1.5` GitHub Release or public
   artifact was created.
-- Recovery advanced to the unused patch version `0.1.6`; the failed tag was
-  not moved, replaced, or reused.
+- `v0.1.6` remains an immutable annotated tag on
+  `436942ce0d26751227e433ad0f9b4da71268dd08`.
+- Release run `30029363518` also passed all five platform
+  build/native-smoke jobs. Its pinned Alpine smoke installed `git`, then
+  stopped at Git's safe-directory guard for the bind-mounted submodule.
+- The release publish job was skipped. No `v0.1.6` GitHub Release or public
+  artifact was created.
+- Recovery advanced to the unused patch version `0.1.7`; neither failed tag
+  was moved, replaced, or reused.
 
 ## Outstanding Hosted Operator Gate
 
@@ -114,7 +122,7 @@ Default-bootstrap/public proof is still pending and is owned by
 
 1. land the artifact-enabling source on `main` through the required squash
    merge;
-2. run `bash scripts/release/check_readiness.sh --strict --version 0.1.6`
+2. run `bash scripts/release/check_readiness.sh --strict --version 0.1.7`
    from the approved `origin/main`-anchored commit;
 3. create and push the annotated tag only after strict readiness succeeds;
 4. require tag-driven `release.yml` to build, smoke, sign, and publish all
@@ -126,12 +134,12 @@ Default-bootstrap/public proof is still pending and is owned by
 Strict readiness was intentionally not run here because this source commit is
 not yet that squash-merged commit.
 
-No `v0.1.6` tag was created or pushed. No recovery release workflow was
+No `v0.1.7` tag was created or pushed. No recovery release workflow was
 dispatched, and no artifact was uploaded or published. The real no-override
 default-bootstrap smoke has not been claimed.
 
 ## Readiness Boundary
 
 The artifact-enabling source is ready for squash merge and the Plan 11-14
-operator gate. Phase 11 is not complete, and `v0.1.6` is not a released
+operator gate. Phase 11 is not complete, and `v0.1.7` is not a released
 artifact.
