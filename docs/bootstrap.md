@@ -12,6 +12,20 @@ the CI-only publish sequence now live in [`docs/releases.md`](./releases.md).
 Use that runbook for the tag-driven release sequence instead of reconstructing
 the process from workflow YAML.
 
+## ABI 1.2 Source State
+
+Version `v0.1.5` is source-prepared for ABI `0x00010002`, but it is not a
+published release until the tag-driven `release.yml` run succeeds. The
+default bootstrap URL and real no-override smoke remain unproven until the
+Phase `06.1` hosted public validation passes for all five R2 targets and the
+documented GitHub fallback subset.
+
+Before that hosted proof, repository development and local source gates must
+set `PURE_SIMDJSON_LIB_PATH` to a freshly built ABI 1.2 library. An explicit
+path that still points to an ABI 1.1 artifact fails with
+`ErrABIVersionMismatch`; replace or rebuild that artifact instead of expecting
+a partial feature fallback.
+
 ## How It Works
 
 Resolution order on `NewParser()`:
@@ -60,8 +74,8 @@ pure-simdjson-bootstrap fetch --all-platforms --dest ./vendor-libs
 
 # (transport ./vendor-libs to the air-gapped host)
 
-# On the air-gapped host:
-export PURE_SIMDJSON_LIB_PATH=/path/to/vendor-libs/v0.1.4/linux-amd64/libpure_simdjson.so
+# On the air-gapped host, after the hosted v0.1.5 publication succeeds:
+export PURE_SIMDJSON_LIB_PATH=/path/to/vendor-libs/v0.1.5/linux-amd64/libpure_simdjson.so
 ```
 
 With `PURE_SIMDJSON_LIB_PATH` set, no network calls are made — ever.
@@ -164,7 +178,8 @@ layer is the SHA-256 check baked into the bootstrap library; cosign adds a
 provenance layer on top.
 
 ```bash
-TAG=v0.1.4
+# After the hosted v0.1.5 publication succeeds:
+TAG=v0.1.5
 OS=linux
 ARCH=amd64
 BASE_URL="https://releases.amikos.tech/pure-simdjson/${TAG}"

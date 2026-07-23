@@ -9,7 +9,28 @@
 // arrays and objects through scanner-style iterators plus direct field lookup
 // helpers.
 //
-// NewParserPool hands parsers across goroutines without weakening that
-// lifecycle rule. See docs/concurrency.md in the repository for the
-// concurrency and cleanup model.
+// Parser limits are immutable after construction:
+//
+//	parser, err := NewParser(
+//		WithMaxCapacity(8<<20),
+//		WithMaxDepth(128),
+//	)
+//
+// TypeBigInt values keep their exact decimal spelling. GetBigInt returns a
+// copied Go string, so the text remains owned by Go after the document closes:
+//
+//	digits, err := element.GetBigInt()
+//
+// Parse locations are not guessed. Check HasOffset before using Offset,
+// including when byte zero may be the known location:
+//
+//	if parseErr.HasOffset() {
+//		log.Printf("invalid JSON at byte %d", parseErr.Offset())
+//	}
+//
+// NewParserPool hands parsers across goroutines without weakening the
+// lifecycle rule. Kernel selection is process-global and diagnostic-only:
+// SetKernel must run before the first parser or parser pool is created, after
+// which it returns ErrKernelLocked. See docs/concurrency.md in the repository
+// for the concurrency and cleanup model.
 package purejson
