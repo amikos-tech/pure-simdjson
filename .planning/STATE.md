@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 11-10-PLAN.md
-last_updated: "2026-07-23T14:41:33.225Z"
+stopped_at: Completed 11-11-PLAN.md
+last_updated: "2026-07-23T14:58:33.987Z"
 last_activity: 2026-07-23
 progress:
   total_phases: 22
   completed_phases: 11
   total_plans: 64
-  completed_plans: 59
+  completed_plans: 60
   percent: 50
 ---
 
@@ -26,11 +26,11 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 ## Current Position
 
 Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — EXECUTING
-Plan: 11 of 14
+Plan: 12 of 14
 Status: Ready to execute
 Last activity: 2026-07-23
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
-Progress: [█████████░] 92%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [█████████░] 92%
 | Phase 11 P08 | 14min | 2 tasks | 7 files |
 | Phase 11 P09 | 13min | 2 tasks | 7 files |
 | Phase 11 P10 | 11min | 2 tasks | 5 files |
+| Phase 11 P11 | 13min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -161,6 +162,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 11]: ABI 1.2 is the strict minimum; later ABI 1.x artifacts require the complete wrapper symbol surface.
 - [Phase 11]: GetBigInt reuses the copied-string ownership path. — Native bytes are freed before returning exact Go-owned text.
 - [Phase 11]: Internal any materializers encode BigInt as exact Go string. — This avoids a public wrapper and preserves the existing frame layout.
+- [Phase 11]: Normalize omitted and explicit-zero parser limits to 0xFFFFFFFF/1024 before library resolution; later duplicate options win. — One comparable effective config keeps Go validation and configured native construction aligned.
+- [Phase 11]: Keep NewParserPool construction pure Go; the first Get miss is the first native-library touch. — The approved return-count break must not silently introduce construction-time bootstrap or network I/O.
+- [Phase 11]: Reject mismatched pool insertion under the parser mutex after preserving closed and busy error precedence. — A pool must never return parsers from different capacity or depth policies.
 
 ### Pending Todos
 
@@ -174,8 +178,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-23T14:41:33.217Z
-Stopped at: Completed 11-10-PLAN.md
+Last session: 2026-07-23T14:58:33.978Z
+Stopped at: Completed 11-11-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
