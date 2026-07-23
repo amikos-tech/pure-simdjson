@@ -38,6 +38,9 @@ func NewParser(opts ...ParserOption) (*Parser, error) {
 }
 
 func newParserWithConfig(config parserConfig) (*Parser, error) {
+	kernelMu.Lock()
+	defer kernelMu.Unlock()
+
 	library, err := activeLibrary()
 	if err != nil {
 		return nil, err
@@ -47,6 +50,7 @@ func newParserWithConfig(config parserConfig) (*Parser, error) {
 	if err := wrapStatus(rc); err != nil {
 		return nil, err
 	}
+	kernelSelectionLocked = true
 
 	parser := &Parser{
 		library: library,

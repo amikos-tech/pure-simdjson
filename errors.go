@@ -46,6 +46,8 @@ var (
 	ErrCapacityLimitExceeded = errors.New("capacity limit exceeded")
 	// ErrInvalidOption reports an invalid parser construction option.
 	ErrInvalidOption = errors.New("invalid option")
+	// ErrKernelLocked reports kernel selection after parser or pool creation.
+	ErrKernelLocked = errors.New("kernel selection locked")
 	// ErrInternal reports native panics, internal failures, and any status code
 	// not mapped to a dedicated sentinel.
 	ErrInternal = errors.New("internal error")
@@ -233,6 +235,8 @@ func sentinelForStatus(code int32) error {
 		return ErrDepthLimitExceeded
 	case ffi.ErrCapacityLimit:
 		return ErrCapacityLimitExceeded
+	case ffi.ErrKernelLocked:
+		return ErrKernelLocked
 	case ffi.ErrInvalidJSON:
 		return ErrInvalidJSON
 	case ffi.ErrNumberOutOfRange:

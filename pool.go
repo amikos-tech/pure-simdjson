@@ -22,6 +22,7 @@ func NewParserPool(opts ...ParserOption) (*ParserPool, error) {
 	if err != nil {
 		return nil, err
 	}
+	lockKernelSelection()
 	return &ParserPool{config: config}, nil
 }
 
