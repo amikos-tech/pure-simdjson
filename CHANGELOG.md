@@ -10,6 +10,19 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 - Advisory pull-request benchmark regression check (Tier 1/2/3 on twitter and canada fixtures, advisory-only). The future blocking-flip is gated by the `REQUIRE_NO_REGRESSION` env var in `.github/workflows/pr-benchmark.yml`.
 
+## [0.1.6] - 2026-07-23
+
+### Fixed
+- The pinned Alpine release smoke now installs `git`, which the audited
+  simdjson patch gate uses to verify the exact upstream submodule commit.
+
+### Changed
+- Bootstrap default-install recovery now pins `bootstrap.Version` to `0.1.6`
+  after the immutable `v0.1.5` tag failed before artifact publication.
+- This patch carries the ABI 1.2 BigInt, parser-limit, kernel-control, and
+  diagnostic-offset surface prepared under `v0.1.5`; it is not the final v0.2
+  release.
+
 ## [0.1.5] - 2026-07-23
 
 This source state prepares `0.1.5` as an intermediate Phase 11 compatibility
