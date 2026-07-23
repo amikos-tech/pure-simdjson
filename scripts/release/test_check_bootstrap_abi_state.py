@@ -85,6 +85,38 @@ class BootstrapABIStateTest(unittest.TestCase):
             result.stdout,
         )
 
+    def test_accepts_valid_0_1_5_abi_1_2_state(self) -> None:
+        result = self.run_checker(
+            requested_version="0.1.5",
+            bootstrap_version="0.1.5",
+            go_abi="0x00010002",
+            rust_abi="0x0001_0002",
+        )
+
+        self.assertEqual(result.returncode, 0, result)
+        self.assertIn(
+            "bootstrap ABI state ok: version 0.1.5, abi 0x00010002",
+            result.stdout,
+        )
+
+    def test_rejects_0_1_4_as_stale_for_abi_1_2(self) -> None:
+        result = self.run_checker(
+            requested_version="0.1.4",
+            bootstrap_version="0.1.4",
+            go_abi="0x00010002",
+            rust_abi="0x0001_0002",
+        )
+
+        self.assert_failed_with(result, "stale bootstrap.Version")
+
+    def test_rejects_abi_1_1_for_0_1_5_state(self) -> None:
+        result = self.run_checker(
+            requested_version="0.1.5",
+            bootstrap_version="0.1.5",
+        )
+
+        self.assert_failed_with(result, "stale ABI policy")
+
     def test_rejects_stale_bootstrap_version_for_current_abi(self) -> None:
         result = self.run_checker(bootstrap_version="0.1.0")
 
