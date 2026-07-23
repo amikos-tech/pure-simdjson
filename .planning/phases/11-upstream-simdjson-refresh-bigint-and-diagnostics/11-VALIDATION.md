@@ -77,7 +77,7 @@ created: 2026-07-22
 - [x] Go error-offset tests — `HasOffset`, known zero, unknown, formatting, and no stale details after a Rust-side capacity rejection.
 - [x] ABI binding fixtures — ABI 1.1, complete ABI 1.2, and ABI 1.2 missing one mandatory symbol.
 - [x] Extended `tests/abi/check_header.py`, `tests/abi/test_check_header.py`, `tests/abi/handle_layout.c`, and `tests/smoke/ffi_export_surface.c` for ABI `0x00010002`, appended kind, retained layouts, and mandatory exports.
-- [x] Extended release/bootstrap policy tests for recovery version `0.1.6` and ABI 1.2.
+- [x] Extended release/bootstrap policy tests for recovery version `0.1.7` and ABI 1.2.
 - [x] Updated every deliberate `NewParserPool` source-break call site, including tests, examples, and `docs/concurrency.md`.
 
 ---
@@ -86,9 +86,9 @@ created: 2026-07-22
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Select and approve the intermediate ABI 1.2 artifact semantic version | D-17 | Operator authority was required | Resolved by `11-01`: recovery version `0.1.6` supersedes the failed, unpublished `v0.1.5` attempt without consuming Phase 16's final v0.2 label. |
-| Publish matching ABI 1.2 artifacts through the supported path | UP-01, D-17, D-18 | Requires `origin/main`, an annotated tag, hosted runners, signing, and external publication | `11-14-T1` must run `bash scripts/release/check_readiness.sh --strict --version 0.1.6` on the approved `main` commit, create/push the annotated tag, and require `.github/workflows/release.yml` to pass. Never hand-upload artifacts. |
-| Prove fresh-runner default bootstrap after publication | D-17, D-18 | Requires live R2/GitHub release assets and hosted target runners | `11-14-T1` must dispatch `.github/workflows/public-bootstrap-validation.yml` for `0.1.6` and require the full R2 matrix plus documented GitHub fallback subset to pass. |
+| Select and approve the intermediate ABI 1.2 artifact semantic version | D-17 | Operator authority was required | Resolved by `11-01`: recovery version `0.1.7` supersedes the failed, unpublished `v0.1.5` and `v0.1.6` attempts without consuming Phase 16's final v0.2 label. |
+| Publish matching ABI 1.2 artifacts through the supported path | UP-01, D-17, D-18 | Requires `origin/main`, an annotated tag, hosted runners, signing, and external publication | `11-14-T1` must run `bash scripts/release/check_readiness.sh --strict --version 0.1.7` on the approved `main` commit, create/push the annotated tag, and require `.github/workflows/release.yml` to pass. Never hand-upload artifacts. |
+| Prove fresh-runner default bootstrap after publication | D-17, D-18 | Requires live R2/GitHub release assets and hosted target runners | `11-14-T1` must dispatch `.github/workflows/public-bootstrap-validation.yml` for `0.1.7` and require the full R2 matrix plus documented GitHub fallback subset to pass. |
 
 ---
 
