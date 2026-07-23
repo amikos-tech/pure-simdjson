@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 11-05-PLAN.md
-last_updated: "2026-07-23T13:13:55.996Z"
+stopped_at: Completed 11-06-PLAN.md
+last_updated: "2026-07-23T13:33:35.753Z"
 last_activity: 2026-07-23
 progress:
   total_phases: 22
   completed_phases: 11
   total_plans: 64
-  completed_plans: 54
+  completed_plans: 55
   percent: 50
 ---
 
@@ -22,24 +22,32 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 **Core value:** Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning: typed extraction and selective traversal are the primary story, while full `any` materialization is documented without overstating current wins.
 **Current focus:** Phase 11 — upstream-simdjson-refresh-bigint-and-diagnostics
+
 ## Current Position
+
 Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — EXECUTING
-Plan: 6 of 14
+Plan: 7 of 14
 Status: Ready to execute
 Last activity: 2026-07-23
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
-Progress: [████████░░] 84%
+Progress: [█████████░] 86%
+
 ## Performance Metrics
+
 **Velocity:**
+
 - Total plans completed: 35
 - Average duration: 11.1m
 - Total execution time: 1.4 hours
+
 **By Phase:**
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 **Recent Trend:**
+
 - Last 5 plans: 08-03, 08-04, 08-05, 09-01, 09.1-01
 - Trend: Stable
+
 | Phase Phase 05 PP05 | 5min | 2 tasks | 7 files |
 | Phase Phase 05 PP06 | 9min | 2 tasks tasks | 5 files files |
 | Phase 09 P01 | 7min | 2 tasks | 7 files |
@@ -49,8 +57,12 @@ Progress: [████████░░] 84%
 | Phase 11 P03 | 20min | 2 tasks | 6 files |
 | Phase 11 P04 | 16min | 2 tasks | 6 files |
 | Phase 11 P05 | 26min | 2 tasks | 7 files |
+| Phase 11 P06 | 11min | 2 tasks | 6 files |
+
 ## Accumulated Context
+
 ## Quick Tasks Completed
+
 | Date | Slug | Summary |
 |------|------|---------|
 | 2026-04-24 | phase8-final-polish | Added executable depth-boundary fence, clarified ERR_INTERNAL split rationale at the ABI enum, expanded cross-ABI numeric comments, and rechecked benchmark gates. |
@@ -61,13 +73,17 @@ Progress: [████████░░] 84%
 | 2026-04-27 | apply-pr-22-feedback-items-2-4-6-8-and-9 | Applied 5 of 9 PR #22 review items: bidirectional ABI sync comments between `internal/bootstrap/abi_assertion.go` and `scripts/release/check_bootstrap_abi_state.py`, fixed `semver_tuple` return-type to honor `tuple[int, int, int]` annotation, added `0.1.1` stale-version boundary test, documented + tested pre-release semver acceptance (`0.1.2-dev`), and added a clarifying comment on the layered `bootstrap.Version` check in `scripts/release/check_readiness.sh`. Items #1/#3/#5/#7 explicitly skipped per prior `/pr-feedback` analysis. |
 | 2026-04-28 | pr-benchmark-review-feedback | Addressed Phase 10 PR benchmark feedback: empty benchmark captures now fail closed, parser metric-section handling is stricter, baseline cache save is success-only, workflow comments are clearer, asymmetric `NO_BASELINE=1` parsing was removed, and focused regression tests cover the new contracts. |
 | 2026-04-28 | pr-benchmark-nice-to-haves | Added follow-up Phase 10 PR benchmark nice-to-have coverage: pinned the current non-`vs base` metric-header limitation, required clean `yq` stderr for workflow YAML smoke checks, and made stale-output replacement a true two-run orchestrator test. |
+
 ### Learning Extractions
+
 | Date | Phase | Output |
 |------|-------|--------|
 | 2026-04-24 | 08 | `.planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-LEARNINGS.md` |
 | 2026-04-24 | 09 | `.planning/phases/09-benchmark-gate-recalibration-tier-1-2-3-positioning-and-post/09-LEARNINGS.md` |
 | 2026-07-22 | 10 | `.planning/phases/10-lightweight-pr-benchmark-regression-signal/10-LEARNINGS.md` |
+
 ### Roadmap Evolution
+
 - Phase 06.1 inserted after Phase 06: Fresh-machine end-to-end bootstrap UAT against live R2 + GitHub Releases (promoted from backlog item 999.4)
 - Phase 06.1 execution produced the public bootstrap wrapper, hosted-runner validation workflow, contract tests, and operator runbook updates, and was shipped in PR #17; hosted GitHub Actions execution remains pending
 - Phase 07 is now planned as six plans: corpus/oracle foundation, Tier 1 + cold/warm harness, allocator telemetry surface, Tier 2/Tier 3 benchmark consumers, public docs/legal artifacts with committed evidence, and a closeout handoff that defers public patch-release work until the later benchmark-positioning phases
@@ -127,6 +143,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 11]: Replay ordinary syntax failures through raw JSON first, then recursive public-accessor consumption only when the first pass is fully valid. — This preserves the validated v4.6.4 locations without parser reuse or an unbounded retry path.
 - [Phase 11]: Represent unknown as UINT64_MAX plus false and transport the known bit independently from the numeric offset. — A proven location at byte zero must remain distinguishable from no upstream location.
 - [Phase 11]: Allocate both fresh replay parsers with the exact stored effective capacity and depth, terminating on resource or limit errors. — Diagnostic work must not exceed the parser limits selected by the caller.
+- [Phase 11]: Use one native mutex/state for setter, explicit lock, and both parser constructors; a valid construction attempt sets locked before allocation.
+- [Phase 11]: Keep native state authoritative for production fallback policy while retaining the Rust forced-fallback seam only for isolated tests.
+- [Phase 11]: Compile upstream fallback on every supported architecture so explicit diagnostic fallback remains available on arm64 and x86-64.
 
 ### Pending Todos
 
@@ -140,8 +159,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-23T13:12:59.612Z
-Stopped at: Completed 11-05-PLAN.md
+Last session: 2026-07-23T13:33:34.858Z
+Stopped at: Completed 11-06-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
