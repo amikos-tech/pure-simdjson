@@ -133,9 +133,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - bootstrap.Version is pinned to 0.1.2 for ABI 0x00010001; internal/bootstrap/checksums.go remains empty in source and runtime digest verification still resolves published SHA256SUMS.
 - internal/bootstrap/abi_assertion.go provides a bidirectional compile-time array canary so go test ./internal/bootstrap fails if ffi.ABIVersion drifts from the ABI expected by bootstrap version 0.1.2.
 - docs/bootstrap.md now points operators at the release runbook and mirrors the exact xattr Gatekeeper workaround, while Phase 06.1 owns the fresh-runner public validation boundary.
-- [Phase 11]: approved_abi12_version: 0.1.5 — Operator-approved next patch for the intermediate ABI 1.2 compatibility artifact.
+- [Phase 11]: approved_abi12_version: 0.1.6 — Operator-approved recovery patch after the immutable v0.1.5 tag failed before publication.
 - [Phase 11]: artifact_role: intermediate Phase 11 ABI 1.2 compatibility artifact — Keeps the bootstrap compatibility artifact distinct from the final v0.2 release.
-- [Phase 11]: tag_preflight: refs/tags/v0.1.5 absent after fetching tags — Prevents reusing an existing immutable release identity.
+- [Phase 11]: tag_preflight: refs/tags/v0.1.6 absent after fetching tags — Prevents reusing an existing immutable release identity.
 - [Phase 11]: phase16_boundary: not the final v0.2 release unless the user explicitly changes Phase 16 scope — Preserves Phase 16 ownership of the final release.
 - [Phase 11]: publication_authorized: false — This checkpoint authorizes source preparation only, with CI remaining the sole publication path.
 - [Phase 11]: Keep official simdjson v4.6.4 as the audited base and apply exactly one provenance-recorded positive-overflow patch only to a verified build-output copy. — Preserves reproducible upstream identity while closing the confirmed BigInt gap without a fork, dirty submodule, second source tree, or dependency.
@@ -155,7 +155,7 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 11]: Compile upstream fallback on every supported architecture so explicit diagnostic fallback remains available on arm64 and x86-64.
 - [Phase 11]: Bootstrap 0.1.5 requires ABI 0x00010002; an older ABI cannot claim the newer source identity. — Enforces the version/ABI policy in both directions.
 - [Phase 11]: BigInt kind 9 and statuses 9/10 are append-only; all existing numeric values and layouts remain unchanged. — Preserves ABI compatibility while adding the Phase 11 surface.
-- [Phase 11]: The 0.1.5 pin is source preparation only; tag-driven CI and Phase 06.1 validation remain future gates. — Prevents source readiness from being mistaken for publication.
+- [Phase 11]: The 0.1.6 recovery pin is source preparation only; tag-driven CI and Phase 06.1 validation remain future gates. — Prevents source readiness from being mistaken for publication.
 - [Phase 11]: Accept ABI major 1 values at or above 0x00010002 only after the complete wrapper-required symbol surface binds.
 - [Phase 11]: Loader compatibility classification replaces parser-level ABI re-query and test override state.
 - [Phase 11]: Cache installation follows complete binding and successful implementation-name retrieval.
