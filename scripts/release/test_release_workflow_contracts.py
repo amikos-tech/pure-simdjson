@@ -82,6 +82,19 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         script_text = RUN_ALPINE_SMOKE.read_text(encoding="utf-8")
 
         self.assertRegex(script_text, r"apk add --no-cache [^\n]*\bgit\b")
+        self.assertIn(
+            "git config --global --add safe.directory /repo\n",
+            script_text,
+        )
+        self.assertIn(
+            "git config --global --add safe.directory /repo/third_party/simdjson",
+            script_text,
+        )
+        preflight_idx = script_text.index(
+            "git -C /repo/third_party/simdjson rev-parse --verify HEAD"
+        )
+        build_idx = script_text.index("cargo build --release")
+        self.assertLess(preflight_idx, build_idx)
         self.assertIn("cargo build --release", script_text)
 
     def test_build_shared_library_forwards_toolchain_file_input(self) -> None:

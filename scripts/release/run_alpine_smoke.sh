@@ -57,6 +57,9 @@ docker run --rm \
     export HOME=/tmp/pure-simdjson-home
     mkdir -p "$HOME"
     apk add --no-cache bash build-base clang git go cargo rust
+    git config --global --add safe.directory /repo
+    git config --global --add safe.directory /repo/third_party/simdjson
+    git -C /repo/third_party/simdjson rev-parse --verify HEAD >/dev/null
     cargo build --release
     export PURE_SIMDJSON_LIB_PATH=/repo/target/release/libpure_simdjson.so
     go run ./tests/smoke/go_bootstrap_smoke.go
