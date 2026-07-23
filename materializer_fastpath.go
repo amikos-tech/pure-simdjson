@@ -48,6 +48,9 @@ func fastMaterializeElement(element Element) (any, error) {
 	return buildAnyFromFrames(frames)
 }
 
+// BigInt deliberately materializes as an exact Go string in both internal
+// materializer paths. In the resulting unexported any tree it is therefore
+// indistinguishable from a JSON string.
 func materializeElementViaAccessors(element Element) (any, error) {
 	kind := ElementType(element.view.KindHint)
 	if kind == TypeInvalid {
@@ -78,6 +81,8 @@ func materializeElementViaAccessors(element Element) (any, error) {
 		return element.GetFloat64()
 	case TypeString:
 		return element.GetString()
+	case TypeBigInt:
+		return element.GetBigInt()
 	case TypeArray:
 		array, err := element.AsArray()
 		if err != nil {
@@ -153,6 +158,12 @@ func buildAnyFromFrame(frames []ffi.InternalFrame, index int) (any, int, error) 
 		return frame.Float64Value, index + 1, nil
 	case ffi.ValueKindString:
 		value, err := copyFrameString(frame.StringPtr, frame.StringLen, index, frame.Kind, "string")
+		if err != nil {
+			return nil, index, err
+		}
+		return value, index + 1, nil
+	case ffi.ValueKindBigInt:
+		value, err := copyFrameString(frame.StringPtr, frame.StringLen, index, frame.Kind, "bigint")
 		if err != nil {
 			return nil, index, err
 		}
