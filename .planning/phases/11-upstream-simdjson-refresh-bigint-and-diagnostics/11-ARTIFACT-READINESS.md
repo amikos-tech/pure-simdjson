@@ -14,13 +14,18 @@ or that any artifact was published.
 | Public ABI | `0x00010002` |
 | Audited upstream release | simdjson `v4.6.4` |
 | Audited upstream commit | `1bcf71bd85059ab6574ea1159de9298dcc1212c5` |
-| Tested source commit | `f7019bcf9262418bc96b70204fa893e8a7542d33` |
+| Tested source commit | `99f7937c78d739cc79299929fea62146a86a2f24` |
 | Host | `darwin/arm64` |
 | Fresh release library | `/Users/tazarov/experiments/amikos/pure-simdjson/target/release/libpure_simdjson.dylib` |
 
 The upstream commit equality check exited `0`. The tracked submodule remains
 the audited official commit; the repository-owned positive-overflow patch is
 applied only to the verified build-output copy by `build.rs`.
+
+The exact serial source gate was rerun in full after the build-only
+line-ending compatibility fix. All commands below exited `0` at
+`99f7937c78d739cc79299929fea62146a86a2f24`; the approved version, ABI, audited
+upstream commit, and patched native behavior are unchanged.
 
 ## Packaged Smoke Contract Feedback
 
@@ -59,7 +64,7 @@ runtime command received the same freshly built library through
 | 5 | `python3 scripts/release/test_release_workflow_contracts.py` | `0` | 12 release workflow contract tests passed. |
 | 6 | `python3 scripts/release/test_public_bootstrap_validation_contracts.py` | `0` | 11 public validation contract tests passed. |
 | 7 | `python3 scripts/release/test_render_release_notes.py` | `0` | 10 release-note renderer tests passed. |
-| 8 | `PURE_SIMDJSON_LIB_PATH="$LOCAL_LIBRARY" go test . -run '^TestJSONTestSuiteOracle$' -count=1` | `0` | JSONTestSuite oracle passed (`ok`, 0.462s). |
+| 8 | `PURE_SIMDJSON_LIB_PATH="$LOCAL_LIBRARY" go test . -run '^TestJSONTestSuiteOracle$' -count=1` | `0` | JSONTestSuite oracle passed (`ok`, 0.456s). |
 | 9 | `PHASE11_BENCH_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pure-simdjson-phase11-13-bench.XXXXXX")"` | `0` | Created a new temporary benchmark directory. |
 | 10 | `PURE_SIMDJSON_LIB_PATH="$LOCAL_LIBRARY" bash scripts/bench/run_pr_benchmark.sh --no-baseline --out-dir "$PHASE11_BENCH_DIR"` | `0` | Representative Tier 1/2/3 signal captured. |
 | 11 | `bash scripts/release/check_readiness.sh` | `0` | Basic, non-strict release readiness passed. |
@@ -77,7 +82,7 @@ LOCAL_LIBRARY=/Users/tazarov/experiments/amikos/pure-simdjson/target/release/lib
 
 - Correctness oracle: `PASS`.
 - Benchmark capture directory:
-  `/var/folders/hx/8xkrd64s4vg_m1sdl83bt9h40000gn/T//pure-simdjson-phase11-13-bench.4VSvWL`.
+  `/tmp/pure-simdjson-phase11-rerun.zSJbp6`.
 - Capture: 60 result rows across 12 unique benchmark cases.
 - Bands: Tier 1 full parse on twitter/canada, Tier 2 typed extraction on
   twitter/canada, and Tier 3 selective traversal on twitter.

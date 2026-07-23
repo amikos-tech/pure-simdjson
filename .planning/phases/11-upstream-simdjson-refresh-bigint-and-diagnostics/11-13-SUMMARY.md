@@ -108,9 +108,11 @@ Each task was committed atomically:
 - Preserved `release.yml -> run_go_packaged_smoke.sh -> go_bootstrap_smoke.go`
   and the corresponding public-validation wrapper path instead of adding a
   duplicate smoke mechanism.
-- Treated `f7019bcf9262418bc96b70204fa893e8a7542d33` as the tested
-  artifact-enabling source commit; the planning-only readiness commit does not
-  change the product source under test.
+- Initially treated `f7019bcf9262418bc96b70204fa893e8a7542d33` as the tested
+  artifact-enabling source commit. Before merge, the complete source gate was
+  rerun successfully at `99f7937c78d739cc79299929fea62146a86a2f24`
+  after the build-only line-ending compatibility fix. Planning-only readiness
+  commits do not change the product source under test.
 - Reserved strict readiness for the squash-merged `origin/main`-anchored
   commit in Plan 11-14. CI remains the only publisher, and Phase 06.1 remains
   the post-publish fresh-runner boundary.
