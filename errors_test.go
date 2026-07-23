@@ -158,6 +158,7 @@ func TestSentinelMapping(t *testing.T) {
 	}{
 		{name: "capacity limit", code: ffi.ErrCapacityLimit, want: ErrCapacityLimitExceeded},
 		{name: "depth limit", code: ffi.ErrDepthLimit, want: ErrDepthLimitExceeded},
+		{name: "kernel locked", code: ffi.ErrKernelLocked, want: ErrKernelLocked},
 		{name: "invalid argument remains internal", code: ffi.ErrInvalidArg, want: ErrInternal},
 	}
 
