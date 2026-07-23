@@ -1018,8 +1018,121 @@ mod tests {
         let rc = unsafe { pure_simdjson_get_abi_version(&mut abi_version) };
 
         assert_eq!(rc, err_ok());
-        assert_eq!(PURE_SIMDJSON_ABI_VERSION, 0x0001_0001);
-        assert_eq!(abi_version, 0x0001_0001);
+        assert_eq!(PURE_SIMDJSON_ABI_VERSION, 0x0001_0002);
+        assert_eq!(abi_version, 0x0001_0002);
+    }
+
+    #[test]
+    fn public_enum_values_are_append_only() {
+        let error_codes = [
+            (pure_simdjson_error_code_t::PURE_SIMDJSON_OK, 0),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INVALID_ARGUMENT,
+                1,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INVALID_HANDLE,
+                2,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PARSER_BUSY,
+                3,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_WRONG_TYPE,
+                4,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_ELEMENT_NOT_FOUND,
+                5,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL,
+                6,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_NOT_IMPLEMENTED,
+                7,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_DEPTH_LIMIT,
+                8,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_CAPACITY_LIMIT,
+                9,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_KERNEL_LOCKED,
+                10,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INVALID_JSON,
+                32,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE,
+                33,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PRECISION_LOSS,
+                34,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_CPU_UNSUPPORTED,
+                64,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_ABI_MISMATCH,
+                65,
+            ),
+            (pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_PANIC, 96),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_CPP_EXCEPTION,
+                97,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INTERNAL,
+                127,
+            ),
+        ];
+        for (code, expected) in error_codes {
+            assert_eq!(code as i32, expected);
+        }
+
+        let value_kinds = [
+            (pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_INVALID, 0),
+            (pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_NULL, 1),
+            (pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_BOOL, 2),
+            (
+                pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_INT64,
+                3,
+            ),
+            (
+                pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_UINT64,
+                4,
+            ),
+            (
+                pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_FLOAT64,
+                5,
+            ),
+            (
+                pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_STRING,
+                6,
+            ),
+            (pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_ARRAY, 7),
+            (
+                pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_OBJECT,
+                8,
+            ),
+            (
+                pure_simdjson_value_kind_t::PURE_SIMDJSON_VALUE_KIND_BIGINT,
+                9,
+            ),
+        ];
+        for (kind, expected) in value_kinds {
+            assert_eq!(kind as u32, expected);
+        }
     }
 
     #[test]
