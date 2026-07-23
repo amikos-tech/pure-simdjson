@@ -111,7 +111,7 @@ class RunPublicBootstrapSmokeBehaviorTests(unittest.TestCase):
 
                 url="${@: -1}"
                 if [[ "$*" == *"%{http_code}"* ]]; then
-                  if [[ "$url" == *"pure-simdjson-does-not-exist"* ]]; then
+                  if [[ "$url" == *"__pure_simdjson_missing_mirror__"* ]]; then
                     printf '%s' "${TEST_BROKEN_MIRROR_STATUS:-404}"
                     exit 0
                   fi
