@@ -69,6 +69,13 @@ func TestFuzzWalkElementBigIntSeeds(t *testing.T) {
 			if kind != TypeBigInt {
 				t.Fatalf("TypeErr() = %v, want TypeBigInt", kind)
 			}
+			value, err := root.GetBigInt()
+			if err != nil {
+				t.Fatalf("GetBigInt() error = %v", err)
+			}
+			if value != tc.json {
+				t.Fatalf("GetBigInt() = %q, want %q", value, tc.json)
+			}
 			fuzzWalkElement(t, root)
 		})
 	}
@@ -103,12 +110,12 @@ func fuzzWalkElement(t *testing.T, element Element) {
 			t.Fatalf("GetFloat64() on TypeUint64 error = %v, want nil or ErrPrecisionLoss", err)
 		}
 	case TypeBigInt:
-		kind, err := element.TypeErr()
+		value, err := element.GetBigInt()
 		if err != nil {
-			t.Fatalf("TypeErr() on TypeBigInt error = %v", err)
+			t.Fatalf("GetBigInt() error = %v", err)
 		}
-		if kind != TypeBigInt {
-			t.Fatalf("TypeErr() on TypeBigInt = %v, want TypeBigInt", kind)
+		if value == "" {
+			t.Fatal("GetBigInt() = empty string, want exact decimal text")
 		}
 	case TypeFloat64:
 		if _, err := element.GetFloat64(); err != nil {
