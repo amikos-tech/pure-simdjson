@@ -16,6 +16,7 @@ SETUP_RUST_ACTION = REPO_ROOT / ".github" / "actions" / "setup-rust" / "action.y
 RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 GO_BOOTSTRAP_SMOKE = REPO_ROOT / "tests" / "smoke" / "go_bootstrap_smoke.go"
 RUN_GO_PACKAGED_SMOKE = REPO_ROOT / "scripts" / "release" / "run_go_packaged_smoke.sh"
+RUN_ALPINE_SMOKE = REPO_ROOT / "scripts" / "release" / "run_alpine_smoke.sh"
 RUN_NATIVE_SMOKE = REPO_ROOT / "scripts" / "release" / "run_native_smoke.sh"
 VERIFY_GLIBC_FLOOR = REPO_ROOT / "scripts" / "release" / "verify_glibc_floor.sh"
 
@@ -76,6 +77,12 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             "Kernel()",
         ):
             self.assertIn(snippet, smoke_text)
+
+    def test_alpine_smoke_installs_git_for_audited_patch_verification(self) -> None:
+        script_text = RUN_ALPINE_SMOKE.read_text(encoding="utf-8")
+
+        self.assertRegex(script_text, r"apk add --no-cache [^\n]*\bgit\b")
+        self.assertIn("cargo build --release", script_text)
 
     def test_build_shared_library_forwards_toolchain_file_input(self) -> None:
         action_text = BUILD_SHARED_LIBRARY_ACTION.read_text(encoding="utf-8")
