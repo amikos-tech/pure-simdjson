@@ -1,7 +1,7 @@
 # Phase 11: Upstream simdjson refresh, exact big integers, and production diagnostics - Context
 
 **Gathered:** 2026-07-22
-**Updated:** 2026-07-23 — validated Spikes 001–003 folded into the locked decisions
+**Updated:** 2026-07-23 — validated Spikes 001–003 folded into the locked decisions; D-01 amended after execution-time v4.6.4 boundary evidence
 **Status:** Ready for planning
 
 <domain>
@@ -17,7 +17,7 @@ This phase does not add DOM navigation, On-Demand extraction, zero-copy views, o
 ## Implementation Decisions
 
 ### Upstream and BigInt Contract
-- **D-01:** Upgrade the reproducibly pinned simdjson source from v4.6.1 to the audited v4.6.4 patch release and rerun the existing Go, Rust, C++, correctness, benchmark, contract, and five-target build gates.
+- **D-01 (execution-time amendment, user-approved 2026-07-23):** Keep official simdjson v4.6.4 commit `1bcf71bd85059ab6574ea1159de9298dcc1212c5` as the audited gitlink base. Permit exactly one downstream patch: change the positive 20-digit unsigned-overflow branch in upstream `parse_number` from `NUMBER_ERROR` to the existing `BIGINT_ERROR` path, so `18446744073709551616` and larger exact integer syntax reach the existing `number_as_string(true)` BigInt tape path. Store the patch and its base provenance in this repository; apply it only to a build-output copy of the v4.6.4 singleheader source after verifying the exact base commit and a clean tracked submodule, and fail the build on base drift or patch mismatch. Do not create a fork abstraction, a custom decimal parser, a second vendored source tree, a dirty submodule, or an unpublished submodule commit. The existing `cc`/singleheader/C++17 compile path remains authoritative after this one pre-compile patch step. Rerun the existing Go, Rust, C++, correctness, benchmark, contract, and five-target build gates.
 - **D-02:** Enable upstream DOM BigInt preservation. Only integer-syntax literals below `-9223372036854775808` or above `18446744073709551615` become BigInt. The two boundary values remain `TypeInt64` and `TypeUint64`; decimal/exponent forms such as `1.0` and `1e20` remain `TypeFloat64`.
 - **D-03:** Append `TypeBigInt` / native `ValueKindBigInt` after the existing kinds (expected numeric value `9`). Do not renumber kinds `0` through `8`, change an existing layout, or change behavior for JSON values the current parser already accepts.
 - **D-04:** `Element.GetBigInt() (string, error)` is strict: it accepts only `TypeBigInt` and returns the exact decimal spelling as copied Go text. It does not accept `TypeInt64` or `TypeUint64`, and the package does not acquire an automatic `math/big` dependency.
@@ -107,6 +107,7 @@ This phase does not add DOM navigation, On-Demand extraction, zero-copy views, o
 - `https://github.com/simdjson/simdjson/blob/v4.6.4/tests/dom/big_integer_tests.cpp` — upstream DOM BigInt classification and strict accessor behavior.
 - `https://github.com/simdjson/simdjson/blob/v4.6.4/doc/dom.md` — upstream DOM BigInt exact-text contract.
 - `https://simdjson.github.io/simdjson/md_doc_2basics.html` — upstream error-location guarantees and cases where `current_location()` is unavailable.
+- Plan `11-02` execution evidence — official v4.6.4 and upstream HEAD return `NUMBER_ERROR` for positive 20-digit unsigned overflow such as `18446744073709551616`; the D-01 patch is the approved narrow correction that routes only that already-detected overflow to `BIGINT_ERROR`.
 
 </canonical_refs>
 

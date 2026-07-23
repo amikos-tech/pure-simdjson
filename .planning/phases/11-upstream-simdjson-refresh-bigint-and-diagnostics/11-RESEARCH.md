@@ -1,6 +1,7 @@
 # Phase 11: Upstream simdjson refresh, exact big integers, and production diagnostics - Research
 
 **Researched:** 2026-07-22
+**Execution amendment:** 2026-07-23 — official v4.6.4 boundary behavior rechecked during Plan 11-02; D-01 now permits one pinned positive-overflow patch
 **Domain:** Go/Rust/C++ DOM ABI evolution, parser controls, diagnostics, and bootstrap distribution
 **Confidence:** HIGH overall and for the selected v4.6.4 malformed-input corpus after Spike 001; MEDIUM for broader malformed inputs not characterized there
 
@@ -10,7 +11,7 @@
 ### Locked Decisions
 
 #### Upstream and BigInt Contract
-- **D-01:** Upgrade the reproducibly pinned simdjson source from v4.6.1 to the audited v4.6.4 patch release and rerun the existing Go, Rust, C++, correctness, benchmark, contract, and five-target build gates.
+- **D-01 (amended):** Keep official v4.6.4 commit `1bcf71bd85059ab6574ea1159de9298dcc1212c5` as the audited base and permit exactly one repository-owned patch that changes positive 20-digit unsigned overflow from `NUMBER_ERROR` to the existing `BIGINT_ERROR` path. Apply it reproducibly to a build-output copy only after exact-base and clean-submodule checks; fail closed on drift. No fork abstraction, custom decimal parser, second vendored tree, dirty submodule, or unpublished submodule commit is permitted.
 - **D-02:** Enable upstream DOM BigInt preservation. Only integer-syntax literals below `-9223372036854775808` or above `18446744073709551615` become BigInt. The two boundary values remain `TypeInt64` and `TypeUint64`; decimal/exponent forms such as `1.0` and `1e20` remain `TypeFloat64`.
 - **D-03:** Append `TypeBigInt` / native `ValueKindBigInt` after the existing kinds (expected numeric value `9`). Do not renumber kinds `0` through `8`, change an existing layout, or change behavior for JSON values the current parser already accepts.
 - **D-04:** `Element.GetBigInt() (string, error)` is strict: it accepts only `TypeBigInt` and returns the exact decimal spelling as copied Go text. It does not accept `TypeInt64` or `TypeUint64`, and the package does not acquire an automatic `math/big` dependency.
@@ -52,8 +53,8 @@ None — discussion stayed within phase scope.
 
 | ID | Description | Research Support |
 |----|-------------|------------------|
-| UP-01 | Upgrade vendored simdjson v4.6.1 to audited v4.6.4 without losing existing gates. | Pin tag `v4.6.4` at commit `1bcf71bd85059ab6574ea1159de9298dcc1212c5`, retain the single-header `build.rs` path, and run the contract/correctness/benchmark/five-target matrix. [VERIFIED: official git tag] [CITED: https://github.com/simdjson/simdjson/releases/tag/v4.6.4] |
-| NUM-01 | Preserve oversized integer literals as exact text. | Set DOM `number_as_string(true)` for the Phase 11 constructor path and carry `BIGINT` through the bridge, Rust registry, and fast materializer. [CITED: https://github.com/simdjson/simdjson/blob/v4.6.4/doc/dom.md] |
+| UP-01 | Upgrade vendored simdjson v4.6.1 to audited v4.6.4 without losing existing gates. | Pin tag `v4.6.4` at commit `1bcf71bd85059ab6574ea1159de9298dcc1212c5`, retain the single-header `build.rs` path with the one approved fail-closed patch step, and run the contract/correctness/benchmark/five-target matrix. [VERIFIED: official git tag and Plan 11-02 boundary test] [CITED: https://github.com/simdjson/simdjson/releases/tag/v4.6.4] |
+| NUM-01 | Preserve oversized integer literals as exact text. | Apply the approved positive-overflow classification patch, set DOM `number_as_string(true)` for the Phase 11 constructor path, and carry `BIGINT` through the bridge, Rust registry, and fast materializer. [VERIFIED: Plan 11-02 RED boundary test] [CITED: https://github.com/simdjson/simdjson/blob/v4.6.4/doc/dom.md] |
 | NUM-02 | Expose strict `TypeBigInt` and `GetBigInt`. | Append kind `9`; use upstream `get_bigint()` borrowed text and the repository's existing copy-out/free pattern to return an owned Go string. [CITED: https://github.com/simdjson/simdjson/blob/v4.6.4/include/simdjson/dom/element.h] |
 | DIAG-01 | Expose active/forced kernel diagnostics. | Reuse the implementation-name read API; add a process-global setter that checks the compiled implementation list and runtime support, with a creation-time lock. [CITED: https://github.com/simdjson/simdjson/blob/v4.6.4/doc/implementation-selection.md] |
 | DIAG-02 | Expose truthful known/unknown byte offsets. | Preserve the native `UINT64_MAX` unknown sentinel, retain known zero with a separate Go boolean, and only accept an in-range pointer returned by upstream `current_location()`. [CITED: https://github.com/simdjson/simdjson/blob/v4.6.4/doc/basics.md] |
@@ -62,7 +63,7 @@ None — discussion stayed within phase scope.
 
 ## Summary
 
-The native update itself is narrow: the repository is pinned to simdjson `v4.6.1`, while official `v4.6.4` is commit `1bcf71bd85059ab6574ea1159de9298dcc1212c5`, published 2026-05-06. The v4.6.4 release is a patch protecting a 32-bit string-builder overflow; the official v4.6.1...v4.6.4 comparison does not change the DOM BigInt API used here. [VERIFIED: codebase git submodule status and official git tag] [CITED: https://github.com/simdjson/simdjson/releases/tag/v4.6.4] [CITED: https://github.com/simdjson/simdjson/compare/v4.6.1...v4.6.4]
+The native update itself is narrow: the repository is pinned to official simdjson `v4.6.4` commit `1bcf71bd85059ab6574ea1159de9298dcc1212c5`, published 2026-05-06. The v4.6.4 release is a patch protecting a 32-bit string-builder overflow; the official v4.6.1...v4.6.4 comparison does not change the DOM BigInt API used here. Plan 11-02 execution found one boundary gap not covered by the upstream BigInt tests: official v4.6.4 and upstream HEAD return `NUMBER_ERROR` for positive 20-digit unsigned overflow such as `18446744073709551616`, so that value cannot reach the opt-in BigInt tape path. The user approved one reproducibly pinned patch that changes only that overflow classification to `BIGINT_ERROR`; official v4.6.4 remains the audited base. [VERIFIED: codebase git submodule status, official git tag, and Plan 11-02 RED boundary test] [CITED: https://github.com/simdjson/simdjson/releases/tag/v4.6.4] [CITED: https://github.com/simdjson/simdjson/compare/v4.6.1...v4.6.4]
 
 The largest implementation risks are in this repository's glue, not in the upstream patch. Today the Rust registry resizes and copies into its padded `Vec` before simdjson can return `CAPACITY`; the loader binds every required symbol before it reads the ABI; known byte zero is collapsed to unknown; and BigInt is explicitly converted to precision loss or invalid kind in the bridge, registry, comments, and frame materializer. Each of those paths must change together. [VERIFIED: codebase grep]
 
@@ -107,7 +108,7 @@ Each spike has a self-contained verifier under `.planning/spikes/`; these probes
 
 | Component | Version / Pin | Purpose | Why Standard |
 |-----------|---------------|---------|--------------|
-| simdjson | `v4.6.4`, `1bcf71bd85059ab6574ea1159de9298dcc1212c5` | DOM parse, BigInt text, kernel dispatch, depth/capacity, diagnostic replay | Locked audited upstream; the project already builds its release single-header through `build.rs`. [CITED: https://github.com/simdjson/simdjson/releases/tag/v4.6.4] |
+| simdjson | Official `v4.6.4`, `1bcf71bd85059ab6574ea1159de9298dcc1212c5`, plus the one D-01 positive-overflow patch | DOM parse, BigInt text, kernel dispatch, depth/capacity, diagnostic replay | Locked audited upstream base; the project builds a verified build-output copy of its release single-header through `build.rs`. [VERIFIED: Plan 11-02 execution amendment] [CITED: https://github.com/simdjson/simdjson/releases/tag/v4.6.4] |
 | Go | module baseline `1.24` | Public API, lifecycle, options, error semantics | Existing project constraint and public surface. [VERIFIED: go.mod] |
 | Rust | stable `1.85+` project baseline | Handle registry, padded owned input, panic-safe C exports | Existing safety and ownership boundary. [VERIFIED: PROJECT.md and Cargo.toml] |
 | C++ | C++17 | Thin simdjson bridge | Existing `cc`-driven amalgamation build; no CMake dependency is needed for the library. [VERIFIED: build.rs] |
@@ -125,11 +126,11 @@ Each spike has a self-contained verifier under `.planning/spikes/`; these probes
 
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
-| Upstream BigInt tape text | Parse decimal digits in Go/Rust | Rejected: duplicates validated upstream behavior and creates more code and failure modes. [CITED: https://github.com/simdjson/simdjson/blob/v4.6.4/doc/dom.md] |
+| Upstream BigInt tape text plus the one D-01 classification patch | Parse decimal digits in Go/Rust | Rejected: duplicates upstream tape behavior and creates more code and failure modes. The approved patch only routes an already-detected overflow into that existing tape path. [VERIFIED: Plan 11-02 boundary test] [CITED: https://github.com/simdjson/simdjson/blob/v4.6.4/doc/dom.md] |
 | Upstream `current_location()` proof | A Go scanner or `encoding/json` replay | Prohibited: a second parser would estimate a location rather than report simdjson's own state. |
 | Existing tag-driven CI | Manual or branch artifact upload | Prohibited by the repository release runbook. [VERIFIED: docs/releases.md] |
 
-**Installation:** No new external package is required. Update the existing simdjson gitlink and keep all current Go/Rust dependencies locked. [VERIFIED: codebase dependency manifests]
+**Installation:** No new external package is required. Keep the existing simdjson gitlink and all current Go/Rust dependencies locked; the build uses the repository-owned D-01 patch and the already-required Git checkout tooling. [VERIFIED: codebase dependency manifests]
 
 ## Package Legitimacy Audit
 
@@ -197,7 +198,7 @@ This split follows existing files; only `parser_options.go` and `kernel.go` are 
 
 | File / boundary | Required Phase 11 change | Planning dependency |
 |-----------------|--------------------------|---------------------|
-| `third_party/simdjson` + `build.rs` | Move the gitlink from v4.6.1 to the official v4.6.4 commit while retaining the existing single-header, `cc`, and C++17 build path. [VERIFIED: codebase gitlink/build.rs] [CITED: https://github.com/simdjson/simdjson/releases/tag/v4.6.4] | Pin first, then make all native behavior and characterization tests run against the new source. |
+| `third_party/simdjson` + D-01 patch + `build.rs` | Keep the gitlink at official v4.6.4, verify the exact commit and clean tracked submodule, apply the one positive-overflow patch to a build-output copy, and retain the existing single-header, `cc`, and C++17 compile path. [VERIFIED: Plan 11-02 execution evidence] [CITED: https://github.com/simdjson/simdjson/releases/tag/v4.6.4] | Pin first, then make all native behavior and characterization tests run against the verified patched copy. |
 | `src/native/simdjson_bridge.{h,cpp}` | Add a configured parser constructor path, call `number_as_string(true)`, establish max capacity/depth before first parse, map `BIGINT` to kind `9`, expose BigInt text views, write BigInt frame text into the existing `string_ptr/string_len` fields, add synchronized implementation selection, and capture only proven error locations. Retain every existing bridge signature. [VERIFIED: codebase bridge] [CITED: https://github.com/simdjson/simdjson/blob/v4.6.4/doc/dom.md] | Native characterization must precede the Rust/Go contract work for offsets and depth boundaries. |
 | `src/runtime/mod.rs` + `src/runtime/registry.rs` | Thread one normalized `{max_capacity,max_depth}` configuration into parser creation; store it on `ParserEntry`; reject `input.len() > max_capacity` before `Vec::resize` or `copy_from_slice`; copy BigInt bytes through the existing registered allocation/free mechanism; and reset stale native diagnostic state on every pre-copy rejection. [VERIFIED: codebase registry/copy-out paths] | The pre-copy gate and diagnostic reset must land together or a capacity failure can inherit the prior parse's message/offset. |
 | `src/lib.rs` | Bump ABI to `0x00010002`, append `PURE_SIMDJSON_VALUE_KIND_BIGINT = 9`, retain `pure_simdjson_parser_new`, and add mandatory additive exports equivalent to `pure_simdjson_parser_new_with_limits`, `pure_simdjson_element_get_bigint`, and `pure_simdjson_set_implementation_name`; every export stays inside `ffi_wrap`. [VERIFIED: existing export pattern and FFI contract] | Generate the header only after Rust signatures and numeric values are final. Names may follow the repository prefix exactly, but the three capabilities must be mandatory for an ABI 1.2 artifact. |
@@ -272,7 +273,7 @@ This staged integration is logically necessary because the supported workflow re
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| Big integer recognition | Decimal parser/range classifier | `number_as_string(true)`, `element_type::BIGINT`, `get_bigint()` | Upstream already preserves raw digits and enforces strict typed accessors. [CITED: https://github.com/simdjson/simdjson/blob/v4.6.4/tests/dom/big_integer_tests.cpp] |
+| Big integer recognition | Decimal parser/range classifier | The one D-01 overflow-classification patch plus `number_as_string(true)`, `element_type::BIGINT`, and `get_bigint()` | The patch changes no digits or ranges; it routes upstream's existing positive-overflow result into the existing raw-digit tape path and strict typed accessors. [VERIFIED: Plan 11-02 boundary test] [CITED: https://github.com/simdjson/simdjson/blob/v4.6.4/tests/dom/big_integer_tests.cpp] |
 | Kernel registry/CPU detection | CPUID tables in Go/Rust | `get_available_implementations()` and `supported_by_runtime_system()` | Matches the exact implementations compiled into the artifact. [CITED: https://github.com/simdjson/simdjson/blob/v4.6.4/doc/implementation-selection.md] |
 | Error offset estimator | Go scanner or `encoding/json` replay | Upstream `current_location()` when it returns a valid pointer; otherwise unknown | Different parsers can disagree, so estimates would violate the truthfulness contract. [CITED: https://github.com/simdjson/simdjson/blob/v4.6.4/doc/basics.md] |
 | BigInt memory ownership | New allocator/free family | Existing Rust byte-copy registry and `pure_simdjson_bytes_free` | It already handles copied strings across the ABI. [VERIFIED: codebase grep] |
