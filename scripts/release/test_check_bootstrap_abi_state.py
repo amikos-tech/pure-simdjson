@@ -135,7 +135,7 @@ class BootstrapABIStateTest(unittest.TestCase):
         self.assert_failed_with(result, "Go/Rust ABI mismatch")
 
     def test_rejects_unknown_abi_policy(self) -> None:
-        result = self.run_checker(go_abi="0x00010002", rust_abi="0x0001_0002")
+        result = self.run_checker(go_abi="0x00010003", rust_abi="0x0001_0003")
 
         self.assert_failed_with(result, "unknown ABI policy")
 
