@@ -16,7 +16,7 @@ PROTO_RE = re.compile(
 )
 COMMENT_RE = re.compile(r"(?s)/\*.*?\*/|//[^\n]*")
 ABI_VERSION_DEFINE_RE = re.compile(
-    r"(?m)^#define\s+PURE_SIMDJSON_ABI_VERSION\s+0x00010001\s*$"
+    r"(?m)^#define\s+PURE_SIMDJSON_ABI_VERSION\s+0x00010002\s*$"
 )
 FORBIDDEN_INTERNAL_SYMBOL_PREFIXES = ("psdj_internal_", "psimdjson_")
 HEADER_SYMBOL_PREFIXES = ("pure_simdjson_",) + FORBIDDEN_INTERNAL_SYMBOL_PREFIXES
@@ -47,16 +47,20 @@ NATIVE_ALLOC_STATS_STRUCT_RE = re.compile(
 
 REQUIRED_SYMBOLS = (
     "pure_simdjson_get_abi_version",
+    "pure_simdjson_set_implementation",
+    "pure_simdjson_lock_implementation_selection",
     "pure_simdjson_get_implementation_name_len",
     "pure_simdjson_copy_implementation_name",
     "pure_simdjson_native_alloc_stats_reset",
     "pure_simdjson_native_alloc_stats_snapshot",
     "pure_simdjson_parser_new",
+    "pure_simdjson_parser_new_configured",
     "pure_simdjson_parser_free",
     "pure_simdjson_parser_parse",
     "pure_simdjson_parser_get_last_error_len",
     "pure_simdjson_parser_copy_last_error",
     "pure_simdjson_parser_get_last_error_offset",
+    "pure_simdjson_parser_get_last_error_has_offset",
     "pure_simdjson_doc_free",
     "pure_simdjson_doc_root",
     "pure_simdjson_element_type",
@@ -64,6 +68,7 @@ REQUIRED_SYMBOLS = (
     "pure_simdjson_element_get_uint64",
     "pure_simdjson_element_get_float64",
     "pure_simdjson_element_get_string",
+    "pure_simdjson_element_get_bigint",
     "pure_simdjson_bytes_free",
     "pure_simdjson_element_get_bool",
     "pure_simdjson_element_is_null",
@@ -142,6 +147,21 @@ def require_symbol(
     return prototypes[symbol]
 
 
+def require_doc_comment(header_text: str, symbol: str) -> str:
+    pattern = re.compile(
+        r"/\*\*(?P<comment>(?:(?!/\*\*).)*?)\*/\s*"
+        r"(?:enum\s+)?pure_simdjson_error_code_t\s+"
+        + re.escape(symbol)
+        + r"\s*\(",
+        re.S,
+    )
+    match = pattern.search(header_text)
+    if match is None:
+        fail(f"{symbol}: missing generated documentation comment")
+    comment = re.sub(r"(?m)^\s*\*\s?", "", match.group("comment"))
+    return normalize_space(comment)
+
+
 def rule_error_code_outparams(
     prototypes: dict[str, tuple[str, list[str]]], _: str
 ) -> None:
@@ -194,7 +214,9 @@ def rule_no_internal_symbols(
         )
 
 
-def rule_string_copy_ownership(prototypes: dict[str, tuple[str, list[str]]], _: str) -> None:
+def rule_string_copy_ownership(
+    prototypes: dict[str, tuple[str, list[str]]], header_text: str
+) -> None:
     _, params = require_symbol(prototypes, "pure_simdjson_element_get_string")
     expected = [
         "const struct pure_simdjson_value_view_t *view",
@@ -207,6 +229,15 @@ def rule_string_copy_ownership(prototypes: dict[str, tuple[str, list[str]]], _: 
             f"{expected}, found {params}"
         )
 
+    _, bigint_params = require_symbol(
+        prototypes, "pure_simdjson_element_get_bigint"
+    )
+    if bigint_params != expected:
+        fail(
+            "pure_simdjson_element_get_bigint: expected "
+            f"{expected}, found {bigint_params}"
+        )
+
     _, free_params = require_symbol(prototypes, "pure_simdjson_bytes_free")
     expected_free = ["uint8_t *ptr", "size_t len"]
     if free_params != expected_free:
@@ -215,15 +246,29 @@ def rule_string_copy_ownership(prototypes: dict[str, tuple[str, list[str]]], _: 
             f"{expected_free}, found {free_params}"
         )
 
+    bigint_comment = require_doc_comment(
+        header_text, "pure_simdjson_element_get_bigint"
+    )
+    if "pure_simdjson_bytes_free" not in bigint_comment:
+        fail(
+            "BigInt ownership comment must require "
+            "pure_simdjson_bytes_free"
+        )
+
 
 def rule_diag_surface(
     prototypes: dict[str, tuple[str, list[str]]], header_text: str
 ) -> None:
     if not ABI_VERSION_DEFINE_RE.search(header_text):
-        fail("missing ABI version macro: #define PURE_SIMDJSON_ABI_VERSION 0x00010001")
+        fail("missing ABI version macro: #define PURE_SIMDJSON_ABI_VERSION 0x00010002")
 
     expected_signatures = {
         "pure_simdjson_get_abi_version": ["uint32_t *out_version"],
+        "pure_simdjson_set_implementation": [
+            "const uint8_t *name",
+            "size_t name_len",
+        ],
+        "pure_simdjson_lock_implementation_selection": [],
         "pure_simdjson_get_implementation_name_len": ["size_t *out_len"],
         "pure_simdjson_copy_implementation_name": [
             "uint8_t *dst",
@@ -231,6 +276,11 @@ def rule_diag_surface(
             "size_t *out_written",
         ],
         "pure_simdjson_parser_new": ["pure_simdjson_parser_t *out_parser"],
+        "pure_simdjson_parser_new_configured": [
+            "uint64_t max_capacity",
+            "uint32_t max_depth",
+            "pure_simdjson_parser_t *out_parser",
+        ],
         "pure_simdjson_parser_free": ["pure_simdjson_parser_t parser"],
         "pure_simdjson_parser_parse": [
             "pure_simdjson_parser_t parser",
@@ -252,10 +302,19 @@ def rule_diag_surface(
             "pure_simdjson_parser_t parser",
             "uint64_t *out_offset",
         ],
+        "pure_simdjson_parser_get_last_error_has_offset": [
+            "pure_simdjson_parser_t parser",
+            "uint8_t *out_has_offset",
+        ],
         "pure_simdjson_doc_free": ["pure_simdjson_doc_t doc"],
         "pure_simdjson_doc_root": [
             "pure_simdjson_doc_t doc",
             "struct pure_simdjson_value_view_t *out_root",
+        ],
+        "pure_simdjson_element_get_bigint": [
+            "const struct pure_simdjson_value_view_t *view",
+            "uint8_t **out_ptr",
+            "size_t *out_len",
         ],
     }
 
@@ -265,6 +324,34 @@ def rule_diag_surface(
             fail(f"{symbol}: expected {expected_params}, found {params}")
 
     require_symbol(prototypes, "pure_simdjson_bytes_free")
+
+    stale_bigint_contracts = (
+        r"kind\s+cannot\s+be\s+classified\s*\(\s*for\s+example,\s*BIGINT\s*\)",
+        r"canonical\s+precision-loss\s+error\s+surfaces",
+        r"PRECISION_LOSS\s+(?:is\s+)?returned\s+for\s+BigInt",
+        r"BigInt[^\n.]{0,80}precision[- ]loss",
+    )
+    for pattern in stale_bigint_contracts:
+        if re.search(pattern, header_text, re.IGNORECASE):
+            fail(f"stale BigInt contract matches forbidden pattern: {pattern}")
+
+    expected_docs = {
+        "pure_simdjson_doc_root": r"kind\s+`?9`?.*BigInt\s+roots",
+        "pure_simdjson_element_type": r"BigInt.*kind\s+`?9`?",
+        "pure_simdjson_element_get_int64": (
+            r"BigInt.*PURE_SIMDJSON_ERR_WRONG_TYPE"
+        ),
+        "pure_simdjson_element_get_uint64": (
+            r"BigInt.*PURE_SIMDJSON_ERR_WRONG_TYPE"
+        ),
+        "pure_simdjson_element_get_float64": (
+            r"BigInt.*PURE_SIMDJSON_ERR_WRONG_TYPE"
+        ),
+    }
+    for symbol, pattern in expected_docs.items():
+        comment = require_doc_comment(header_text, symbol)
+        if re.search(pattern, comment, re.IGNORECASE) is None:
+            fail(f"{symbol}: generated BigInt documentation is incomplete")
 
 
 def rule_native_alloc_surface(

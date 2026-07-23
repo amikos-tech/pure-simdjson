@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#define PURE_SIMDJSON_ABI_VERSION 0x00010001
+#define PURE_SIMDJSON_ABI_VERSION 0x00010002
 
 /**
  * Public error codes for the stable ABI v0.1 surface.
@@ -36,6 +36,16 @@ enum pure_simdjson_error_code_t
    * adversarial-input/user-actionable, not an internal native failure.
    */
   PURE_SIMDJSON_ERR_DEPTH_LIMIT = 8,
+  /**
+   * Input exceeds the parser's immutable maximum capacity. Rust rejects
+   * this before padding arithmetic, arena growth, or input copying.
+   */
+  PURE_SIMDJSON_ERR_CAPACITY_LIMIT = 9,
+  /**
+   * Process-global implementation selection is permanently locked after
+   * explicit locking or the first valid parser construction attempt.
+   */
+  PURE_SIMDJSON_ERR_KERNEL_LOCKED = 10,
   PURE_SIMDJSON_ERR_INVALID_JSON = 32,
   PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE = 33,
   PURE_SIMDJSON_ERR_PRECISION_LOSS = 34,
@@ -66,6 +76,7 @@ enum pure_simdjson_value_kind_t
   PURE_SIMDJSON_VALUE_KIND_STRING = 6,
   PURE_SIMDJSON_VALUE_KIND_ARRAY = 7,
   PURE_SIMDJSON_VALUE_KIND_OBJECT = 8,
+  PURE_SIMDJSON_VALUE_KIND_BIGINT = 9,
 };
 #ifndef __cplusplus
 typedef uint32_t pure_simdjson_value_kind_t;
@@ -174,6 +185,27 @@ extern "C" {
 pure_simdjson_error_code_t pure_simdjson_get_abi_version(uint32_t *out_version);
 
 /**
+ * Select the process-global simdjson implementation by exact, case-sensitive name.
+ *
+ * An empty name restores upstream automatic detection. A nonempty name must identify a
+ * compiled implementation supported by the current CPU. Selection becomes permanently locked
+ * after the first valid parser construction attempt or an explicit lock call.
+ *
+ * # Safety
+ * When `name_len` is nonzero, `name` must point to readable storage for at least `name_len`
+ * bytes. A null pointer is accepted only when `name_len` is zero.
+ */
+pure_simdjson_error_code_t pure_simdjson_set_implementation(const uint8_t *name, size_t name_len);
+
+/**
+ * Permanently lock process-global implementation selection.
+ *
+ * Repeated lock calls succeed, while every later selection attempt returns
+ * `PURE_SIMDJSON_ERR_KERNEL_LOCKED`.
+ */
+pure_simdjson_error_code_t pure_simdjson_lock_implementation_selection(void);
+
+/**
  * Report the byte length of the active implementation name.
  *
  * # Safety
@@ -221,6 +253,19 @@ pure_simdjson_error_code_t pure_simdjson_native_alloc_stats_snapshot(struct pure
  * `out_parser` must be a valid writable pointer to a `pure_simdjson_parser_t`.
  */
 pure_simdjson_error_code_t pure_simdjson_parser_new(pure_simdjson_parser_t *out_parser);
+
+/**
+ * Allocate a parser handle with immutable capacity and depth bounds.
+ *
+ * `max_capacity == 0` uses `0xFFFFFFFF`; `max_depth == 0` uses `1024`.
+ * Positive capacities below `32` and capacities above `0xFFFFFFFF` are rejected.
+ *
+ * # Safety
+ * `out_parser` must be a valid writable pointer to a `pure_simdjson_parser_t`.
+ */
+pure_simdjson_error_code_t pure_simdjson_parser_new_configured(uint64_t max_capacity,
+                                                               uint32_t max_depth,
+                                                               pure_simdjson_parser_t *out_parser);
 
 /**
  * Release a parser handle after all associated documents have been freed.
@@ -288,6 +333,19 @@ pure_simdjson_error_code_t pure_simdjson_parser_get_last_error_offset(pure_simdj
                                                                       uint64_t *out_offset);
 
 /**
+ * Report whether the parser's last failure has a proven byte offset.
+ *
+ * A zero result is distinct from a known offset at byte zero. Call this alongside
+ * [`pure_simdjson_parser_get_last_error_offset`] instead of interpreting the offset sentinel.
+ *
+ * # Safety
+ * `parser` must be a live parser handle from this library. `out_has_offset` must be a valid
+ * writable pointer to a `u8`.
+ */
+pure_simdjson_error_code_t pure_simdjson_parser_get_last_error_has_offset(pure_simdjson_parser_t parser,
+                                                                          uint8_t *out_has_offset);
+
+/**
  * Release a live document handle.
  *
  * Contract:
@@ -305,9 +363,8 @@ pure_simdjson_error_code_t pure_simdjson_doc_free(pure_simdjson_doc_t doc);
 /**
  * Resolve the root value view for a live document handle.
  *
- * The returned view's `kind_hint` is `PURE_SIMDJSON_VALUE_KIND_INVALID` for roots whose value
- * kind cannot be classified (for example, BIGINT). The canonical precision-loss error surfaces
- * at `pure_simdjson_element_type`, not here.
+ * The returned view's `kind_hint` reports the native value kind directly, including kind `9` for
+ * BigInt roots.
  *
  * # Safety
  * `doc` must be a live document handle from this library. `out_root` must be a valid writable
@@ -319,8 +376,8 @@ pure_simdjson_error_code_t pure_simdjson_doc_root(pure_simdjson_doc_t doc,
 /**
  * Report the value kind for a document-tied view.
  *
- * Returns `PURE_SIMDJSON_ERR_PRECISION_LOSS` for BIGINT values and
- * `PURE_SIMDJSON_ERR_INVALID_HANDLE` when reserved bits are non-zero or the root tag is invalid.
+ * BigInt values report kind `9`. Returns `PURE_SIMDJSON_ERR_INVALID_HANDLE` when reserved bits
+ * are non-zero or the root tag is invalid.
  *
  * # Safety
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -332,6 +389,8 @@ pure_simdjson_error_code_t pure_simdjson_element_type(const struct pure_simdjson
 /**
  * Decode the referenced value as `int64_t`.
  *
+ * BigInt and other non-int64 kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
+ *
  * # Safety
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
  * `out_value` must point to writable `i64` storage.
@@ -342,8 +401,8 @@ pure_simdjson_error_code_t pure_simdjson_element_get_int64(const struct pure_sim
 /**
  * Decode the referenced value as `uint64_t`.
  *
- * Negative integers return `PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE`; non-uint64 kinds return
- * `PURE_SIMDJSON_ERR_WRONG_TYPE`.
+ * Negative integers return `PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE`; BigInt and other non-uint64
+ * kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
  *
  * # Safety
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -355,8 +414,9 @@ pure_simdjson_error_code_t pure_simdjson_element_get_uint64(const struct pure_si
 /**
  * Decode the referenced value as `double`.
  *
- * Integral values that cannot be represented exactly as `double` return
- * `PURE_SIMDJSON_ERR_PRECISION_LOSS`; non-numeric kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
+ * Int64 and uint64 values that cannot be represented exactly as `double` return
+ * `PURE_SIMDJSON_ERR_PRECISION_LOSS`.
+ * BigInt and non-numeric kinds return `PURE_SIMDJSON_ERR_WRONG_TYPE`.
  *
  * # Safety
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document and
@@ -380,12 +440,27 @@ pure_simdjson_error_code_t pure_simdjson_element_get_string(const struct pure_si
                                                             size_t *out_len);
 
 /**
- * Release memory previously returned by `pure_simdjson_element_get_string`.
+ * Copy the referenced BigInt value into a newly allocated byte buffer.
+ *
+ * Only kind `9` is accepted. The caller receives the exact decimal spelling through `*out_ptr`
+ * plus `*out_len` and must release that allocation with `pure_simdjson_bytes_free`.
+ *
+ * # Safety
+ * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+ * `out_ptr` and `out_len` must point to writable storage owned by the caller.
+ */
+pure_simdjson_error_code_t pure_simdjson_element_get_bigint(const struct pure_simdjson_value_view_t *view,
+                                                            uint8_t **out_ptr,
+                                                            size_t *out_len);
+
+/**
+ * Release memory previously returned by `pure_simdjson_element_get_string` or
+ * `pure_simdjson_element_get_bigint`.
  * The empty-string sentinel is `ptr == NULL && len == 0`.
  *
  * # Safety
  * `ptr` and `len` must describe an allocation previously returned by
- * `pure_simdjson_element_get_string`.
+ * `pure_simdjson_element_get_string` or `pure_simdjson_element_get_bigint`.
  */
 pure_simdjson_error_code_t pure_simdjson_bytes_free(uint8_t *ptr, size_t len);
 

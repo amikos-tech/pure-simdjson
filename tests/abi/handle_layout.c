@@ -19,8 +19,8 @@ static_assert(PURE_SIMDJSON_ERR_ELEMENT_NOT_FOUND == 5,
               "PURE_SIMDJSON_ERR_ELEMENT_NOT_FOUND must stay pinned");
 static_assert(PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL == 6,
               "PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL must stay pinned");
-static_assert(PURE_SIMDJSON_ERR_INVALID_OPTION == 7,
-              "PURE_SIMDJSON_ERR_INVALID_OPTION must stay pinned");
+static_assert(PURE_SIMDJSON_ERR_NOT_IMPLEMENTED == 7,
+              "PURE_SIMDJSON_ERR_NOT_IMPLEMENTED must stay pinned");
 static_assert(PURE_SIMDJSON_ERR_DEPTH_LIMIT == 8,
               "PURE_SIMDJSON_ERR_DEPTH_LIMIT must stay pinned");
 static_assert(PURE_SIMDJSON_ERR_CAPACITY_LIMIT == 9,
