@@ -4,8 +4,9 @@
 > Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
 
 **Date:** 2026-07-22
+**Evidence follow-up:** 2026-07-23
 **Phase:** 11-upstream-simdjson-refresh-bigint-and-diagnostics
-**Areas discussed:** BigInt public contract, truthful error locations, parser controls and lifecycle, ABI and old-library compatibility
+**Areas discussed:** BigInt public contract, truthful error locations, parser controls and lifecycle, ABI and old-library compatibility, validated spike resolutions
 
 ---
 
@@ -82,12 +83,55 @@
 
 ---
 
+## Validated Spike Follow-Up
+
+After approving Spikes 001, 002, and 003, the user asked to fold all validated findings into the context and decision log. The follow-up resolves implementation choices that were previously left to research or the agent's discretion.
+
+### Error-location replay
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| `raw_json()` replay only | Small first pass that preserves trailing-content location, but missed `[1,]`, a missing object key, and root token `x`. | |
+| Recursive On-Demand replay only | Validates every key/container/scalar, but reduced the useful trailing-content result to byte zero. | |
+| Two-fresh-parser hybrid | Use `raw_json()`/`at_end()` first; recursively traverse with a fresh parser only when the first pass reports valid. | ✓ |
+| Secondary parser/scanner | Estimate more locations with non-simdjson logic. | |
+
+**User's choice:** Fold the validated hybrid into the locked context.
+
+**Notes:** Exact v4.6.4 repeatability proved unknown for empty input, invalid UTF-8, and unclosed string; known offsets are 3 (`[1,]`), 8 (trailing content), 16 (missing object key), 0 (`x`), 15 (extra closing bracket), and 9 (mismatched container). Only a successful `current_location()` pointer inside `[input,input+len)` becomes known. The hybrid uses two instances of simdjson's own upstream API, not a secondary parser or estimator.
+
+### ABI binding order
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Bind every required symbol first | One pass, but collapses valid ABI 1.1 and corrupt ABI 1.2 into the same missing-symbol failure. | |
+| Infer ABI from available symbols | Avoids a call-first stage, but symbol presence is not a reliable version contract. | |
+| Probe ABI first, then bind the required surface | Resolve/call only the ABI getter, classify compatibility, then require every compatible ABI symbol before caching. | ✓ |
+
+**User's choice:** Fold ABI-first staged binding into the locked context.
+
+**Notes:** The purego spike proved ABI 1.1 reaches `ErrABIVersionMismatch` with zero ABI 1.2 lookups, complete ABI 1.2 succeeds, and incomplete ABI 1.2 fails as corrupt/load failure naming the omitted symbol.
+
+### Capacity-gate order
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Rely on the C++ capacity limit | Native rejects eventually, after Rust has already prepared and copied the arena. | |
+| Check after Rust resize/copy | Keeps the check near native parsing but does not bound wrapper-owned work. | |
+| Clear diagnostics and check while the arena remains attached | Reject before `mem::take`, padding arithmetic, resize, or copy; leave the reusable arena unchanged. | ✓ |
+
+**User's choice:** Fold the pre-copy, pre-detach capacity gate into the locked context.
+
+**Notes:** The Rust spike accepted the exact boundary, rejected limit+1 with zero padding checks/resizes/copies, cleared stale details, preserved arena bytes/length/capacity, and avoided an 8,388,609-byte rejected copy.
+
+---
+
 ## the agent's Discretion
 
 - Exact functional-option names and internal representation.
 - Duplicate-option handling, provided it is deterministic, documented, and tested.
 - Exact existing or new typed error used for locked kernel selection and invalid options.
-- Exact native technique for retrieving upstream-proven parse locations and the human-readable unknown-location wording.
+- Internal helper naming/decomposition and human-readable wording around the locked hybrid replay; replay order, pointer proof, and the selected corpus are no longer discretionary.
 - Internal file and test decomposition.
 
 ## Deferred Ideas

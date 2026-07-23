@@ -1,6 +1,7 @@
 # Phase 11: Upstream simdjson refresh, exact big integers, and production diagnostics - Context
 
 **Gathered:** 2026-07-22
+**Updated:** 2026-07-23 — validated Spikes 001–003 folded into the locked decisions
 **Status:** Ready for planning
 
 <domain>
@@ -41,11 +42,17 @@ This phase does not add DOM navigation, On-Demand extraction, zero-copy views, o
 - **D-17:** Coordinate the Go/Rust/header ABI constants, bootstrap version pin, compile-time ABI canary, release-readiness policy, and native artifacts. A matching ABI 1.2 artifact must be available through the default bootstrap path before the Phase 11 implementation is considered merge-ready.
 - **D-18:** Require the ABI 1.2 artifact/build contract to pass the existing five-platform matrix. Explicit-path users with ABI 1.1 binaries receive `ErrABIVersionMismatch`; they are not silently kept on the old feature set.
 
+### Validated Spike Resolutions
+- **D-19:** On primary DOM parse failure, use only simdjson's own On-Demand API in a two-fresh-parser hybrid. Pass 1 uses `raw_json()` plus `at_end()` to retain explicit upstream errors and trailing-content locations. Only when Pass 1 reports valid does Pass 2 recursively consume every object key, array element, and scalar. Neither pass may reuse a parser/document after an error.
+- **D-20:** Call `current_location()` only after that replay pass's `iterate()` succeeded and the pass found an error or trailing content. Accept a location only when its pointer lies in `[input,input+len)`; the end pointer remains unknown. The pinned v4.6.4 corpus must reproduce unknown for empty input, invalid UTF-8, and unclosed string, and known offsets `3`, `8`, `16`, `0`, `15`, and `9` for `[1,]`, trailing content, missing object key, unexpected root token `x`, extra closing bracket, and mismatched container respectively. Broader malformed inputs gain no promise without separate upstream characterization.
+- **D-21:** Native loading is staged. Resolve and call only `pure_simdjson_get_abi_version` before compatibility classification. ABI 1.1 returns `ErrABIVersionMismatch` without any ABI 1.2 symbol lookup. A compatible ABI then requires the complete mandatory surface; an ABI 1.2 artifact missing a required symbol fails as corrupt/load failure with that symbol named. Cache installation happens only after full binding and implementation-name read succeed.
+- **D-22:** After parser handle/busy validation, clear diagnostics and compare input length with the stored capacity while `reusable_input` is still attached to the parser entry. Oversized input returns capacity status `9` before `mem::take`, padding `checked_add`, `Vec::resize`, or `copy_from_slice`, without changing the reusable arena's bytes, length, or capacity. Exact-capacity input remains accepted.
+
 ### the agent's Discretion
 - Exact `ParserOption` type and option function names, provided the public semantics above remain immutable and validated.
 - Whether duplicate capacity/depth options are rejected or deterministically resolved, provided the behavior is documented and tested.
 - Exact typed error used when kernel selection is locked or an option/kernel name is invalid; reuse existing sentinels when they describe the condition honestly and add no sentinel without need.
-- Exact native diagnostic replay/current-location technique and error-message wording, provided only upstream-proven offsets set `HasOffset()`.
+- Internal helper naming/decomposition for the locked D-19/D-20 replay and the human-readable error wording; the replay order, pointer proof, known/unknown corpus, and no-estimator rule are not discretionary.
 - Internal file organization and test decomposition across Go, Rust, C++, ABI, release, and platform checks.
 
 </decisions>
@@ -62,6 +69,13 @@ This phase does not add DOM navigation, On-Demand extraction, zero-copy views, o
 - `.planning/phases/04-full-typed-accessor-surface/04-CONTEXT.md` — existing typed number boundaries, exact-float policy, and the prior oversized-integer rejection behavior that Phase 11 intentionally supersedes.
 - `.planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-CONTEXT.md` — current fast-materializer frame ABI and oversized-literal normalization that must be updated without reintroducing partial frame output.
 - `.planning/phases/09.1-bootstrap-artifact-and-abi-alignment-for-default-installs/09.1-CONTEXT.md` — bootstrap/ABI coordination rules, release-readiness guard, and the failure mode caused by a stale artifact pin.
+
+### Validated spike evidence
+- `.planning/spikes/MANIFEST.md` — Phase 11 spike contracts and validated verdicts.
+- `.planning/spikes/001-v464-error-location-replay/README.md` — exact v4.6.4 hybrid replay comparison, false-negative investigation, selected-corpus offsets, and pointer-range proof behind D-19/D-20.
+- `.planning/spikes/002-abi-first-staged-binding/README.md` — real purego lookup order and distinct ABI 1.1, complete ABI 1.2, and incomplete ABI 1.2 outcomes behind D-21.
+- `.planning/spikes/003-pre-copy-capacity-proof/README.md` — instrumented Rust boundary, unchanged-arena, stale-diagnostic, and avoided-copy evidence behind D-22.
+- `.planning/spikes/CONVENTIONS.md` — isolation, exact-pin, machine-readable evidence, repeatability, and promotion rules for these probes.
 
 ### Public Go and C contracts
 - `docs/ffi-contract.md` — normative FFI ownership, error, versioning, panic-safety, and compatibility rules.
@@ -105,19 +119,24 @@ This phase does not add DOM navigation, On-Demand extraction, zero-copy views, o
 - The existing copied-string ABI pattern used by `Element.GetString()` can guide exact copied BigInt text ownership without exposing borrowed memory.
 - `Parser`, `ParserPool`, and the native parser registry already enforce one live document per parser and provide the locks needed to freeze configuration at construction.
 - The ABI canary and release-readiness scripts from Phase 09.1 already encode the rule that wrapper and published native artifacts move together.
+- The three spike verifiers provide executable pre-implementation evidence for the exact replay, binding, and capacity-order contracts; production tests must reproduce them rather than copy spike code blindly.
 
 ### Established Patterns
 - Public `ElementType` values numerically mirror native `ffi.ValueKind`; append new kinds and keep all existing values stable.
 - Every C export returns an error code with out-parameters, passes through the panic/exception boundary, and is reflected in the generated header.
-- Input is copied into a Rust-owned padded arena before native parsing; a maximum-capacity policy must run before this allocation/copy to be a real safety bound.
+- Input is copied into a Rust-owned padded arena before native parsing; the maximum-capacity policy must run before detaching that arena or performing padding arithmetic, allocation, or copy.
 - The default path is safe copied DOM access. BigInt returns copied text, while zero-copy and borrowed views remain Phase 14 work.
 - Native frame layouts are pinned across C++, Rust, and Go. Adding BigInt to the internal materializer must preserve layout parity and exact-text lifetime/copy rules.
 - Existing platform, header-diff, correctness-oracle, and benchmark gates are regression fences for the upstream upgrade, not optional cleanup.
+- ABI classification precedes complete symbol binding: one getter establishes compatibility, then every Phase 11 symbol is mandatory.
+- Error-location replay stays entirely within upstream simdjson, uses fresh parser state after failures, and treats out-of-range/end pointers as unknown.
 
 ### Integration Points
 - Update the simdjson gitlink/amalgamation input and build integration, then propagate new behavior through C++ bridge -> Rust registry/exports -> generated C header -> Go FFI types/bindings -> public Go methods.
 - Extend parser construction across `parser.go`, `pool.go`, the Rust registry, and the C++ parser wrapper so one immutable option set reaches the native parser before its first parse.
-- Extend error detail capture at the native failure site and preserve the known/unknown bit through Rust and Go without changing the existing offset symbol's sentinel contract unnecessarily.
+- Extend error detail capture at the native failure site with the D-19 hybrid, then preserve the D-20 known/unknown bit through Rust and Go without changing the existing offset symbol's sentinel contract.
+- Split Go loading into the D-21 one-symbol ABI probe and complete required-surface bind before cache installation.
+- Place the D-22 capacity/diagnostic gate in the Rust registry before `reusable_input` is detached from its parser entry.
 - Update fast materialization, scalar tests, fuzz/oracle expectations, ABI/header audits, bootstrap compatibility checks, and the five-platform release/smoke workflows as one coordinated compatibility change.
 
 </code_context>
@@ -129,6 +148,8 @@ This phase does not add DOM navigation, On-Demand extraction, zero-copy views, o
 - “Without breaking existing contracts” means existing C symbols, layouts, kind numbers, accepted-value behavior, and `Error.Offset()` stay intact. The one deliberate exception is the Go pool constructor, whose return count changes so functional options can be validated immediately.
 - The user preferred uniform Phase 11 behavior over legacy native compatibility: ABI 1.1 is rejected rather than supported with feature probing.
 - Truthful diagnostics take priority over broad coverage: an explicit unknown is better than an offset inferred by a different parser.
+- The validated hybrid makes unexpected root token `x` the natural known-byte-zero proof; a test-only injection seam is unnecessary unless production characterization contradicts the spike, which is a blocking discrepancy.
+- Capacity rejection is a wrapper-owned work bound, not merely a native parser setting: rejected input must leave the reusable Rust arena untouched.
 
 </specifics>
 
@@ -143,3 +164,4 @@ None — discussion stayed within phase scope.
 
 *Phase: 11-upstream-simdjson-refresh-bigint-and-diagnostics*
 *Context gathered: 2026-07-22*
+*Spike evidence folded: 2026-07-23*
