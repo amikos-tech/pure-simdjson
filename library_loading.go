@@ -34,6 +34,15 @@ var (
 	cachedLibrary *loadedLibrary
 )
 
+type libraryLoadOps struct {
+	resolvePath        func() (string, []string, error)
+	load               func(string) (uintptr, error)
+	lookup             ffi.SymbolLookup
+	probeABI           func(uintptr, ffi.SymbolLookup) (uint32, error)
+	bind               func(uintptr, ffi.SymbolLookup) (*ffi.Bindings, error)
+	implementationName func(*ffi.Bindings) (string, int32)
+}
+
 // activeLibrary returns the process-wide loaded library, triggering the resolve
 // + dlopen + bind chain on first call. Concurrency model is double-checked
 // locking (M1): libraryMu guards only the cachedLibrary pointer. Path
@@ -46,6 +55,19 @@ var (
 // installed pointer. For v0.1 we accept the rare leak because purego does not
 // expose dlclose; the dlopen race happens at most once per process.
 func activeLibrary() (*loadedLibrary, error) {
+	return activeLibraryWithOps(libraryLoadOps{
+		resolvePath: resolveLibraryPath,
+		load:        loadLibrary,
+		lookup:      lookupSymbol,
+		probeABI:    ffi.ProbeABI,
+		bind:        ffi.Bind,
+		implementationName: func(bindings *ffi.Bindings) (string, int32) {
+			return bindings.ImplementationName()
+		},
+	})
+}
+
+func activeLibraryWithOps(ops libraryLoadOps) (*loadedLibrary, error) {
 	// Fast path: read the cached pointer under the lock, release immediately.
 	libraryMu.Lock()
 	cached := cachedLibrary
@@ -56,22 +78,30 @@ func activeLibrary() (*loadedLibrary, error) {
 
 	// Slow path: path resolution runs without libraryMu held (M1). This is the
 	// stage that may trigger a network download.
-	path, attempted, err := resolveLibraryPath()
+	path, attempted, err := ops.resolvePath()
 	if err != nil {
 		return nil, wrapLoadFailure(formatAttemptedPaths(attempted), err)
 	}
 
-	handle, err := loadLibrary(path)
+	handle, err := ops.load(path)
 	if err != nil {
 		return nil, wrapLoadFailure(formatAttemptedPaths([]string{path}), err)
 	}
 
-	bindings, err := ffi.Bind(handle, lookupSymbol)
+	actualABI, err := ops.probeABI(handle, ops.lookup)
+	if err != nil {
+		return nil, wrapLoadFailure(fmt.Sprintf("probe ABI from %s", path), err)
+	}
+	if !isCompatibleABI(actualABI) {
+		return nil, wrapABIMismatch(ffi.ABIVersion, actualABI, path)
+	}
+
+	bindings, err := ops.bind(handle, ops.lookup)
 	if err != nil {
 		return nil, wrapLoadFailure(fmt.Sprintf("bind symbols from %s", path), err)
 	}
 
-	implementationName, rc := bindings.ImplementationName()
+	implementationName, rc := ops.implementationName(bindings)
 	if rc != int32(ffi.OK) {
 		return nil, wrapStatus(rc)
 	}
@@ -94,6 +124,11 @@ func activeLibrary() (*loadedLibrary, error) {
 	}
 	cachedLibrary = library
 	return cachedLibrary, nil
+}
+
+func isCompatibleABI(actual uint32) bool {
+	const majorMask uint32 = 0xffff0000
+	return actual&majorMask == ffi.ABIVersion&majorMask && actual >= ffi.ABIVersion
 }
 
 // resolveLibraryPath implements the 4-stage resolution chain:

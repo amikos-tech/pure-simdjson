@@ -186,9 +186,9 @@ func TestActiveLibraryLockScope(t *testing.T) {
 	src := string(data)
 
 	// Extract the body of func activeLibrary() up to the matching closing brace.
-	start := strings.Index(src, "func activeLibrary(")
+	start := strings.Index(src, "func activeLibraryWithOps(")
 	if start < 0 {
-		t.Fatal("activeLibrary function not found in library_loading.go")
+		t.Fatal("activeLibraryWithOps function not found in library_loading.go")
 	}
 	// Find the end of the function: naive but sufficient — the next line that
 	// starts with a top-level '}' after a newline.
@@ -196,7 +196,7 @@ func TestActiveLibraryLockScope(t *testing.T) {
 	closingRe := regexp.MustCompile(`(?m)^}\s*$`)
 	loc := closingRe.FindStringIndex(rest)
 	if loc == nil {
-		t.Fatal("end of activeLibrary not found")
+		t.Fatal("end of activeLibraryWithOps not found")
 	}
 	body := rest[:loc[1]]
 
@@ -242,7 +242,7 @@ func TestActiveLibraryLockScope(t *testing.T) {
 	// Double-checked locking fingerprint: at least two Lock acquisitions
 	// (one for the fast-path read, one for the recheck-insert) must appear.
 	if got := strings.Count(body, "libraryMu.Lock"); got < 2 {
-		t.Fatalf("activeLibrary has %d libraryMu.Lock calls, want >=2 for double-checked locking", got)
+		t.Fatalf("activeLibraryWithOps has %d libraryMu.Lock calls, want >=2 for double-checked locking", got)
 	}
 }
 

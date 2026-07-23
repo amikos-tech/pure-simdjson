@@ -12,10 +12,8 @@ import (
 )
 
 var (
-	abiVersionOverride    atomic.Uint32
-	abiVersionOverrideSet atomic.Bool
-	parserFinalizerCount  atomic.Int64
-	docFinalizerCount     atomic.Int64
+	parserFinalizerCount atomic.Int64
+	docFinalizerCount    atomic.Int64
 )
 
 // Parser owns one live native parser handle and enforces a one-document-at-a-
@@ -28,22 +26,12 @@ type Parser struct {
 	liveDoc ffi.DocHandle
 }
 
-// NewParser resolves the local shared library, verifies the ABI, and allocates
-// a reusable native parser.
+// NewParser resolves an ABI-compatible local shared library and allocates a
+// reusable native parser.
 func NewParser() (*Parser, error) {
 	library, err := activeLibrary()
 	if err != nil {
 		return nil, err
-	}
-
-	actualABI, rc := library.bindings.ABI()
-	if err := wrapStatus(rc); err != nil {
-		return nil, err
-	}
-
-	expectedABI := expectedABIVersion()
-	if actualABI != expectedABI {
-		return nil, wrapABIMismatch(expectedABI, actualABI, library.path)
 	}
 
 	handle, rc := library.bindings.ParserNew()
@@ -198,11 +186,4 @@ func (p *Parser) finalizeLeaked() {
 		p.closed = true
 	}
 	p.mu.Unlock()
-}
-
-func expectedABIVersion() uint32 {
-	if abiVersionOverrideSet.Load() {
-		return abiVersionOverride.Load()
-	}
-	return ffi.ABIVersion
 }
