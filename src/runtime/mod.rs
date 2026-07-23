@@ -69,6 +69,9 @@ const _: () = assert!(
 );
 
 unsafe extern "C" {
+    fn psimdjson_set_implementation(name: *const u8, name_len: usize)
+        -> pure_simdjson_error_code_t;
+    fn psimdjson_lock_implementation_selection() -> pure_simdjson_error_code_t;
     fn psimdjson_get_implementation_name_len(out_len: *mut usize) -> pure_simdjson_error_code_t;
     fn psimdjson_copy_implementation_name(
         dst: *mut u8,
@@ -225,6 +228,16 @@ fn err_internal() -> pure_simdjson_error_code_t {
 #[inline]
 fn err_ok() -> pure_simdjson_error_code_t {
     pure_simdjson_error_code_t::PURE_SIMDJSON_OK
+}
+
+#[inline]
+pub(crate) fn set_implementation(name: &[u8]) -> pure_simdjson_error_code_t {
+    unsafe { psimdjson_set_implementation(name.as_ptr(), name.len()) }
+}
+
+#[inline]
+pub(crate) fn lock_implementation_selection() -> pure_simdjson_error_code_t {
+    unsafe { psimdjson_lock_implementation_selection() }
 }
 
 #[inline]

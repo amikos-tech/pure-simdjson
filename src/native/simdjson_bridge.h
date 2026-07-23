@@ -62,6 +62,11 @@ static_assert(
     "Rust (src/runtime/mod.rs), and Go (InternalFrame) together");
 #endif
 
+pure_simdjson_error_code_t psimdjson_set_implementation(
+    const uint8_t *name,
+    size_t name_len
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_lock_implementation_selection(void) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_get_implementation_name_len(size_t *out_len) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_copy_implementation_name(
     uint8_t *dst,

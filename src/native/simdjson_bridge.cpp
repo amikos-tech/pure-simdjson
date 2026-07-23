@@ -8,6 +8,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -102,6 +103,19 @@ constexpr uint32_t POINTER_ADDRESS_OVERFLOW = 4;
 
 constexpr auto PURE_SIMDJSON_VALUE_KIND_BIGINT =
     static_cast<pure_simdjson_value_kind_t>(9);
+constexpr auto KERNEL_LOCKED_ERROR =
+    static_cast<pure_simdjson_error_code_t>(10);
+
+struct ImplementationSelectionState {
+  std::mutex mutex{};
+  bool locked{false};
+  bool explicit_selection{false};
+};
+
+ImplementationSelectionState &implementation_selection_state() {
+  static ImplementationSelectionState state;
+  return state;
+}
 
 pure_simdjson_error_code_t invalid_argument() noexcept {
   return PURE_SIMDJSON_ERR_INVALID_ARGUMENT;
@@ -671,6 +685,47 @@ std::string implementation_name() {
   return simdjson::get_active_implementation()->name();
 }
 
+pure_simdjson_error_code_t parser_new_configured_with_selection_lock(
+    uint64_t max_capacity,
+    uint32_t max_depth,
+    psimdjson_parser **out_parser
+) {
+  if (out_parser == nullptr) {
+    return invalid_argument();
+  }
+  if (max_capacity != 0 &&
+      (max_capacity < MIN_MAX_CAPACITY || max_capacity > DEFAULT_MAX_CAPACITY)) {
+    return invalid_argument();
+  }
+
+  auto &selection = implementation_selection_state();
+  const std::lock_guard<std::mutex> lock(selection.mutex);
+  selection.locked = true;
+
+  const simdjson::implementation *implementation =
+      simdjson::get_active_implementation();
+  if (!selection.explicit_selection && implementation->name() == "fallback") {
+    return PURE_SIMDJSON_ERR_CPU_UNSUPPORTED;
+  }
+
+  const uint64_t effective_max_capacity =
+      max_capacity == 0 ? DEFAULT_MAX_CAPACITY : max_capacity;
+  const uint32_t effective_max_depth =
+      max_depth == 0 ? DEFAULT_MAX_DEPTH : max_depth;
+  auto parser = std::make_unique<psimdjson_parser>();
+  parser->max_capacity = effective_max_capacity;
+  parser->max_depth = effective_max_depth;
+  parser->parser.set_max_capacity(static_cast<size_t>(parser->max_capacity));
+  const auto allocate_error =
+      parser->parser.allocate(0, static_cast<size_t>(parser->max_depth));
+  if (allocate_error != simdjson::SUCCESS) {
+    return map_error(allocate_error);
+  }
+  parser->parser.number_as_string(true);
+  *out_parser = parser.release();
+  return PURE_SIMDJSON_OK;
+}
+
 simdjson::dom::element element_at(const psimdjson_doc *doc, uint64_t json_index) noexcept {
   static_assert(
       sizeof(simdjson::dom::element) == sizeof(simdjson::internal::tape_ref),
@@ -929,6 +984,55 @@ pure_simdjson_error_code_t append_materialize_frame(
 
 }  // namespace
 
+pure_simdjson_error_code_t psimdjson_set_implementation(
+    const uint8_t *name,
+    size_t name_len
+) noexcept {
+  try {
+    if (name_len != 0 && name == nullptr) {
+      return invalid_argument();
+    }
+
+    auto &selection = implementation_selection_state();
+    const std::lock_guard<std::mutex> lock(selection.mutex);
+    if (selection.locked) {
+      return KERNEL_LOCKED_ERROR;
+    }
+
+    const simdjson::implementation *implementation = nullptr;
+    if (name_len == 0) {
+      implementation =
+          simdjson::get_available_implementations().detect_best_supported();
+    } else {
+      const std::string_view implementation_name{
+          reinterpret_cast<const char *>(name),
+          name_len,
+      };
+      implementation =
+          simdjson::get_available_implementations()[implementation_name];
+      if (implementation == nullptr) {
+        return invalid_argument();
+      }
+      if (!implementation->supported_by_runtime_system()) {
+        return PURE_SIMDJSON_ERR_CPU_UNSUPPORTED;
+      }
+    }
+
+    simdjson::get_active_implementation() = implementation;
+    selection.explicit_selection = name_len != 0;
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_lock_implementation_selection(void) noexcept {
+  try {
+    auto &selection = implementation_selection_state();
+    const std::lock_guard<std::mutex> lock(selection.mutex);
+    selection.locked = true;
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
 pure_simdjson_error_code_t psimdjson_get_implementation_name_len(size_t *out_len) noexcept {
   try {
     if (out_len == nullptr) {
@@ -970,11 +1074,13 @@ size_t psimdjson_padding_bytes(void) noexcept {
 }
 
 pure_simdjson_error_code_t psimdjson_parser_new(psimdjson_parser **out_parser) noexcept {
-  return psimdjson_parser_new_configured(
-      DEFAULT_MAX_CAPACITY,
-      DEFAULT_MAX_DEPTH,
-      out_parser
-  );
+  try {
+    return parser_new_configured_with_selection_lock(
+        DEFAULT_MAX_CAPACITY,
+        DEFAULT_MAX_DEPTH,
+        out_parser
+    );
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
 pure_simdjson_error_code_t psimdjson_parser_new_configured(
@@ -983,30 +1089,7 @@ pure_simdjson_error_code_t psimdjson_parser_new_configured(
     psimdjson_parser **out_parser
 ) noexcept {
   try {
-    if (out_parser == nullptr) {
-      return invalid_argument();
-    }
-    if (max_capacity != 0 &&
-        (max_capacity < MIN_MAX_CAPACITY || max_capacity > DEFAULT_MAX_CAPACITY)) {
-      return invalid_argument();
-    }
-
-    const uint64_t effective_max_capacity =
-        max_capacity == 0 ? DEFAULT_MAX_CAPACITY : max_capacity;
-    const uint32_t effective_max_depth =
-        max_depth == 0 ? DEFAULT_MAX_DEPTH : max_depth;
-    auto parser = std::make_unique<psimdjson_parser>();
-    parser->max_capacity = effective_max_capacity;
-    parser->max_depth = effective_max_depth;
-    parser->parser.set_max_capacity(static_cast<size_t>(parser->max_capacity));
-    const auto allocate_error =
-        parser->parser.allocate(0, static_cast<size_t>(parser->max_depth));
-    if (allocate_error != simdjson::SUCCESS) {
-      return map_error(allocate_error);
-    }
-    parser->parser.number_as_string(true);
-    *out_parser = parser.release();
-    return PURE_SIMDJSON_OK;
+    return parser_new_configured_with_selection_lock(max_capacity, max_depth, out_parser);
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
