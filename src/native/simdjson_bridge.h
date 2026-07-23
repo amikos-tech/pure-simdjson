@@ -57,7 +57,15 @@ pure_simdjson_error_code_t psimdjson_native_alloc_stats_snapshot(
 size_t psimdjson_padding_bytes(void) PSIMDJSON_NOEXCEPT;
 
 pure_simdjson_error_code_t psimdjson_parser_new(psimdjson_parser **out_parser) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_parser_new_configured(
+    uint64_t max_capacity,
+    uint32_t max_depth,
+    psimdjson_parser **out_parser
+) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_parser_free(psimdjson_parser *parser) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_parser_reset_diagnostics(
+    psimdjson_parser *parser
+) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_parser_parse(
     psimdjson_parser *parser,
     const uint8_t *input_ptr,

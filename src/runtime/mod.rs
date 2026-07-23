@@ -82,7 +82,15 @@ unsafe extern "C" {
     fn psimdjson_padding_bytes() -> usize;
 
     fn psimdjson_parser_new(out_parser: *mut *mut psimdjson_parser) -> pure_simdjson_error_code_t;
+    fn psimdjson_parser_new_configured(
+        max_capacity: u64,
+        max_depth: u32,
+        out_parser: *mut *mut psimdjson_parser,
+    ) -> pure_simdjson_error_code_t;
     fn psimdjson_parser_free(parser: *mut psimdjson_parser) -> pure_simdjson_error_code_t;
+    fn psimdjson_parser_reset_diagnostics(
+        parser: *mut psimdjson_parser,
+    ) -> pure_simdjson_error_code_t;
     fn psimdjson_parser_parse(
         parser: *mut psimdjson_parser,
         input_ptr: *const u8,
@@ -290,8 +298,27 @@ pub(crate) fn native_parser_new() -> Result<usize, pure_simdjson_error_code_t> {
     Ok(parser as usize)
 }
 
+pub(crate) fn native_parser_new_configured(
+    max_capacity: u64,
+    max_depth: u32,
+) -> Result<usize, pure_simdjson_error_code_t> {
+    let mut parser = ptr::null_mut();
+    let rc = unsafe { psimdjson_parser_new_configured(max_capacity, max_depth, &mut parser) };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    if parser.is_null() {
+        return Err(err_internal());
+    }
+    Ok(parser as usize)
+}
+
 pub(crate) fn native_parser_free(parser_ptr: usize) -> pure_simdjson_error_code_t {
     unsafe { psimdjson_parser_free(parser_ptr as *mut psimdjson_parser) }
+}
+
+pub(crate) fn native_parser_reset_diagnostics(parser_ptr: usize) -> pure_simdjson_error_code_t {
+    unsafe { psimdjson_parser_reset_diagnostics(parser_ptr as *mut psimdjson_parser) }
 }
 
 pub(crate) fn native_parser_parse(

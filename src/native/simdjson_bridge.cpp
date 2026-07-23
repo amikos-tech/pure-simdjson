@@ -79,9 +79,16 @@ struct psimdjson_parser {
   simdjson::dom::parser parser{};
   LastErrorBuffer last_error{};
   uint64_t last_error_offset{UINT64_MAX};
+  // Plan 11-05 diagnostic replay consumes these exact normalized values.
+  uint64_t max_capacity{0};
+  uint32_t max_depth{0};
 };
 
 namespace {
+
+constexpr uint64_t DEFAULT_MAX_CAPACITY = UINT64_C(0xFFFFFFFF);
+constexpr uint32_t DEFAULT_MAX_DEPTH = UINT32_C(1024);
+constexpr uint64_t MIN_MAX_CAPACITY = UINT64_C(32);
 
 constexpr auto PURE_SIMDJSON_VALUE_KIND_BIGINT =
     static_cast<pure_simdjson_value_kind_t>(9);
@@ -577,12 +584,40 @@ size_t psimdjson_padding_bytes(void) noexcept {
 }
 
 pure_simdjson_error_code_t psimdjson_parser_new(psimdjson_parser **out_parser) noexcept {
+  return psimdjson_parser_new_configured(
+      DEFAULT_MAX_CAPACITY,
+      DEFAULT_MAX_DEPTH,
+      out_parser
+  );
+}
+
+pure_simdjson_error_code_t psimdjson_parser_new_configured(
+    uint64_t max_capacity,
+    uint32_t max_depth,
+    psimdjson_parser **out_parser
+) noexcept {
   try {
     if (out_parser == nullptr) {
       return invalid_argument();
     }
+    if (max_capacity != 0 &&
+        (max_capacity < MIN_MAX_CAPACITY || max_capacity > DEFAULT_MAX_CAPACITY)) {
+      return invalid_argument();
+    }
 
+    const uint64_t effective_max_capacity =
+        max_capacity == 0 ? DEFAULT_MAX_CAPACITY : max_capacity;
+    const uint32_t effective_max_depth =
+        max_depth == 0 ? DEFAULT_MAX_DEPTH : max_depth;
     auto parser = std::make_unique<psimdjson_parser>();
+    parser->max_capacity = effective_max_capacity;
+    parser->max_depth = effective_max_depth;
+    parser->parser.set_max_capacity(static_cast<size_t>(parser->max_capacity));
+    const auto allocate_error =
+        parser->parser.allocate(0, static_cast<size_t>(parser->max_depth));
+    if (allocate_error != simdjson::SUCCESS) {
+      return map_error(allocate_error);
+    }
     parser->parser.number_as_string(true);
     *out_parser = parser.release();
     return PURE_SIMDJSON_OK;
@@ -596,6 +631,19 @@ pure_simdjson_error_code_t psimdjson_parser_free(psimdjson_parser *parser) noexc
     }
 
     delete parser;
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_parser_reset_diagnostics(
+    psimdjson_parser *parser
+) noexcept {
+  try {
+    if (parser == nullptr) {
+      return invalid_argument();
+    }
+
+    clear_last_error(parser);
     return PURE_SIMDJSON_OK;
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
