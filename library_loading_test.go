@@ -2,14 +2,17 @@ package purejson
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/amikos-tech/pure-simdjson/internal/bootstrap"
+	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
 
 // The bootstrap package memoizes failures for 30s via a package-level cache.
@@ -266,6 +269,263 @@ func withLibraryCacheClearedForTest(t *testing.T) func() {
 		cachedLibrary = previous
 		libraryMu.Unlock()
 	}
+}
+
+var phase11MandatoryFixtureSymbols = []string{
+	"pure_simdjson_parser_new_configured",
+	"pure_simdjson_parser_get_last_error_has_offset",
+	"pure_simdjson_element_get_bigint",
+	"pure_simdjson_set_implementation",
+	"pure_simdjson_lock_implementation_selection",
+}
+
+type abiLoaderFixture struct {
+	reportedABI        uint32
+	missingSymbol      string
+	implementationName string
+	implementationRC   int32
+	events             []string
+	lookups            []string
+}
+
+func (f *abiLoaderFixture) ops(t *testing.T) libraryLoadOps {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "libpure_simdjson_fixture")
+	lookup := func(_ uintptr, name string) (uintptr, error) {
+		f.events = append(f.events, "lookup:"+name)
+		f.lookups = append(f.lookups, name)
+		if name == f.missingSymbol {
+			return 0, errors.New("symbol not found")
+		}
+		return 1, nil
+	}
+
+	return libraryLoadOps{
+		resolvePath: func() (string, []string, error) {
+			f.events = append(f.events, "resolve")
+			return path, []string{path}, nil
+		},
+		load: func(gotPath string) (uintptr, error) {
+			f.events = append(f.events, "load")
+			if gotPath != path {
+				t.Fatalf("load path = %q, want %q", gotPath, path)
+			}
+			return 7, nil
+		},
+		lookup: lookup,
+		probeABI: func(handle uintptr, gotLookup ffi.SymbolLookup) (uint32, error) {
+			f.events = append(f.events, "probe")
+			if handle != 7 {
+				t.Fatalf("probe handle = %d, want 7", handle)
+			}
+			if _, err := gotLookup(handle, "pure_simdjson_get_abi_version"); err != nil {
+				return 0, err
+			}
+			f.events = append(f.events, "probe-call")
+			return f.reportedABI, nil
+		},
+		bind: func(handle uintptr, gotLookup ffi.SymbolLookup) (*ffi.Bindings, error) {
+			f.events = append(f.events, "bind")
+			if handle != 7 {
+				t.Fatalf("bind handle = %d, want 7", handle)
+			}
+			for _, name := range phase11MandatoryFixtureSymbols {
+				if _, err := gotLookup(handle, name); err != nil {
+					return nil, fmt.Errorf("lookup %s: %w", name, err)
+				}
+			}
+			f.events = append(f.events, "bind-complete")
+			return &ffi.Bindings{}, nil
+		},
+		implementationName: func(*ffi.Bindings) (string, int32) {
+			f.events = append(f.events, "implementation-name")
+			if cachedLibrary != nil {
+				t.Fatal("cachedLibrary installed before implementation-name validation")
+			}
+			return f.implementationName, f.implementationRC
+		},
+	}
+}
+
+func TestABI11RejectedBeforePhase11Lookup(t *testing.T) {
+	restore := withLibraryCacheClearedForTest(t)
+	defer restore()
+
+	fixture := &abiLoaderFixture{
+		reportedABI:        0x00010001,
+		implementationName: "fallback",
+		implementationRC:   int32(ffi.OK),
+	}
+	_, err := activeLibraryWithOps(fixture.ops(t))
+	if !errors.Is(err, ErrABIVersionMismatch) {
+		t.Fatalf("activeLibrary() error = %v, want ErrABIVersionMismatch", err)
+	}
+
+	var nativeErr *Error
+	if !errors.As(err, &nativeErr) {
+		t.Fatalf("activeLibrary() error = %v, want *Error", err)
+	}
+	if nativeErr.Code() != int32(ffi.ErrABIMismatch) {
+		t.Fatalf("ABI mismatch code = %d, want %d", nativeErr.Code(), ffi.ErrABIMismatch)
+	}
+	if nativeErr.Message() == "" {
+		t.Fatal("ABI mismatch message is empty")
+	}
+	if want := []string{"pure_simdjson_get_abi_version"}; !reflect.DeepEqual(fixture.lookups, want) {
+		t.Fatalf("ABI 1.1 lookups = %v, want %v", fixture.lookups, want)
+	}
+	if cachedLibrary != nil {
+		t.Fatal("cachedLibrary != nil after ABI 1.1 mismatch")
+	}
+}
+
+func TestABI12CompleteBindsAndCaches(t *testing.T) {
+	restore := withLibraryCacheClearedForTest(t)
+	defer restore()
+
+	fixture := &abiLoaderFixture{
+		reportedABI:        ffi.ABIVersion,
+		implementationName: "fallback",
+		implementationRC:   int32(ffi.OK),
+	}
+	library, err := activeLibraryWithOps(fixture.ops(t))
+	if err != nil {
+		t.Fatalf("activeLibrary() error = %v", err)
+	}
+	if library == nil || cachedLibrary != library {
+		t.Fatalf("cachedLibrary = %#v, loaded library = %#v; want identical non-nil pointers", cachedLibrary, library)
+	}
+	if library.implementationName != "fallback" {
+		t.Fatalf("implementation name = %q, want fallback", library.implementationName)
+	}
+	assertEventBefore(t, fixture.events, "probe-call", "bind")
+	assertEventBefore(t, fixture.events, "bind-complete", "implementation-name")
+	for _, name := range phase11MandatoryFixtureSymbols {
+		if !containsLookup(fixture.lookups, name) {
+			t.Errorf("complete ABI 1.2 lookups = %v, missing %q", fixture.lookups, name)
+		}
+	}
+}
+
+func TestABI12IncompleteFailsClosedWithoutCache(t *testing.T) {
+	restore := withLibraryCacheClearedForTest(t)
+	defer restore()
+
+	const missing = "pure_simdjson_element_get_bigint"
+	fixture := &abiLoaderFixture{
+		reportedABI:        ffi.ABIVersion,
+		missingSymbol:      missing,
+		implementationName: "fallback",
+		implementationRC:   int32(ffi.OK),
+	}
+	_, err := activeLibraryWithOps(fixture.ops(t))
+	if err == nil {
+		t.Fatal("activeLibrary() error = nil, want incomplete ABI 1.2 failure")
+	}
+	if errors.Is(err, ErrABIVersionMismatch) {
+		t.Fatalf("activeLibrary() error = %v, want load failure rather than ABI mismatch", err)
+	}
+	if !errors.Is(err, errLoadLibrary) {
+		t.Fatalf("activeLibrary() error = %v, want errLoadLibrary", err)
+	}
+	if !strings.Contains(err.Error(), missing) {
+		t.Fatalf("activeLibrary() error = %q, want missing symbol %q", err, missing)
+	}
+	if cachedLibrary != nil {
+		t.Fatal("cachedLibrary != nil after incomplete ABI 1.2 bind")
+	}
+	if containsLookup(fixture.events, "implementation-name") {
+		t.Fatal("implementation name read after incomplete binding")
+	}
+}
+
+func TestABILaterAdditiveMinorBindsAndCaches(t *testing.T) {
+	restore := withLibraryCacheClearedForTest(t)
+	defer restore()
+
+	fixture := &abiLoaderFixture{
+		reportedABI:        0x00010003,
+		implementationName: "fallback",
+		implementationRC:   int32(ffi.OK),
+	}
+	library, err := activeLibraryWithOps(fixture.ops(t))
+	if err != nil {
+		t.Fatalf("activeLibrary() later additive ABI error = %v", err)
+	}
+	if library == nil || cachedLibrary != library {
+		t.Fatal("later additive ABI did not install the complete library")
+	}
+	if !containsLookup(fixture.events, "bind-complete") {
+		t.Fatalf("later additive ABI events = %v, want complete bind", fixture.events)
+	}
+}
+
+func TestABIWrongMajorRejectedBeforeFullBind(t *testing.T) {
+	restore := withLibraryCacheClearedForTest(t)
+	defer restore()
+
+	fixture := &abiLoaderFixture{
+		reportedABI:        0x00020000,
+		implementationName: "fallback",
+		implementationRC:   int32(ffi.OK),
+	}
+	_, err := activeLibraryWithOps(fixture.ops(t))
+	if !errors.Is(err, ErrABIVersionMismatch) {
+		t.Fatalf("activeLibrary() error = %v, want ErrABIVersionMismatch", err)
+	}
+	if want := []string{"pure_simdjson_get_abi_version"}; !reflect.DeepEqual(fixture.lookups, want) {
+		t.Fatalf("wrong-major lookups = %v, want %v", fixture.lookups, want)
+	}
+	if cachedLibrary != nil {
+		t.Fatal("cachedLibrary != nil after wrong-major mismatch")
+	}
+}
+
+func TestABIImplementationNameFailureDoesNotCache(t *testing.T) {
+	restore := withLibraryCacheClearedForTest(t)
+	defer restore()
+
+	fixture := &abiLoaderFixture{
+		reportedABI:        ffi.ABIVersion,
+		implementationName: "",
+		implementationRC:   int32(ffi.ErrInternal),
+	}
+	_, err := activeLibraryWithOps(fixture.ops(t))
+	if !errors.Is(err, ErrInternal) {
+		t.Fatalf("activeLibrary() error = %v, want ErrInternal", err)
+	}
+	if cachedLibrary != nil {
+		t.Fatal("cachedLibrary != nil after implementation-name failure")
+	}
+	assertEventBefore(t, fixture.events, "bind-complete", "implementation-name")
+}
+
+func assertEventBefore(t *testing.T, events []string, first, second string) {
+	t.Helper()
+
+	firstIndex := -1
+	secondIndex := -1
+	for i, event := range events {
+		switch event {
+		case first:
+			firstIndex = i
+		case second:
+			secondIndex = i
+		}
+	}
+	if firstIndex < 0 || secondIndex < 0 || firstIndex >= secondIndex {
+		t.Fatalf("events = %v, want %q before %q", events, first, second)
+	}
+}
+
+func containsLookup(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 // TestActiveLibraryEnvOverrideMissingWrapsLoadFailure exercises the env-path

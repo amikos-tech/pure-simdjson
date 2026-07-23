@@ -53,27 +53,6 @@ func TestHappyPathGetInt64(t *testing.T) {
 	}
 }
 
-func TestABIMismatchAtNewParser(t *testing.T) {
-	restore := setExpectedABIVersionForTest(0xDEADBEEF)
-	t.Cleanup(restore)
-
-	_, err := NewParser()
-	if !errors.Is(err, ErrABIVersionMismatch) {
-		t.Fatalf("NewParser() mismatch error = %v, want ErrABIVersionMismatch", err)
-	}
-
-	var nativeErr *Error
-	if !errors.As(err, &nativeErr) {
-		t.Fatalf("NewParser() mismatch error = %v, want *Error", err)
-	}
-	if nativeErr.Code() != int32(ffi.ErrABIMismatch) {
-		t.Fatalf("native error code = %d, want %d", nativeErr.Code(), ffi.ErrABIMismatch)
-	}
-	if nativeErr.Message() == "" {
-		t.Fatal("native error message is empty")
-	}
-}
-
 func TestParserDoubleClose(t *testing.T) {
 	parser := mustNewParser(t)
 
