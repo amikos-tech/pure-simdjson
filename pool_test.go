@@ -3,13 +3,137 @@ package purejson
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"testing"
 )
 
-func TestParserPoolRoundTrip(t *testing.T) {
-	pool := NewParserPool()
+func mustNewParserPool(t *testing.T, opts ...ParserOption) *ParserPool {
+	t.Helper()
+
+	pool, err := NewParserPool(opts...)
+	if err != nil {
+		t.Fatalf("NewParserPool() error = %v", err)
+	}
+	return pool
+}
+
+func TestParserPoolOptionConstructorSignature(t *testing.T) {
+	var constructor func(...ParserOption) (*ParserPool, error) = NewParserPool
+	_ = constructor
+}
+
+func TestParserPoolOptionValidation(t *testing.T) {
+	restore := withLibraryCacheClearedForTest(t)
+	defer restore()
+
+	t.Setenv(libraryEnvPath, filepath.Join(t.TempDir(), "missing-native-library"))
+	pool, err := NewParserPool(ParserOption{})
+	if pool != nil {
+		t.Fatal("NewParserPool(ParserOption{}) returned a pool")
+	}
+	if !errors.Is(err, ErrInvalidOption) {
+		t.Fatalf("NewParserPool(ParserOption{}) error = %v, want ErrInvalidOption", err)
+	}
+	if cachedLibrary != nil {
+		t.Fatal("NewParserPool(ParserOption{}) loaded a native library")
+	}
+}
+
+func TestParserPoolConstructionDoesNotLoad(t *testing.T) {
+	restore := withLibraryCacheClearedForTest(t)
+	defer restore()
+
+	t.Setenv(libraryEnvPath, filepath.Join(t.TempDir(), "missing-native-library"))
+	pool, err := NewParserPool(WithMaxCapacity(32), WithMaxDepth(4))
+	if err != nil {
+		t.Fatalf("NewParserPool() error = %v", err)
+	}
+	if cachedLibrary != nil {
+		t.Fatal("NewParserPool() loaded a native library")
+	}
+
+	parser, err := pool.Get()
+	if parser != nil {
+		_ = parser.Close()
+		t.Fatal("pool.Get() with missing library returned a parser")
+	}
+	if !errors.Is(err, errLoadLibrary) {
+		t.Fatalf("pool.Get() error = %v, want library load failure on first miss", err)
+	}
+}
+
+func TestParserPoolConfigDefaultsEquivalent(t *testing.T) {
+	omitted := mustNewParserPool(t)
+	explicit := mustNewParserPool(t, WithMaxCapacity(0), WithMaxDepth(0))
+
+	if omitted.config != explicit.config {
+		t.Fatalf("omitted config = %+v, explicit config = %+v; want equal", omitted.config, explicit.config)
+	}
+	if omitted.config != defaultParserConfig {
+		t.Fatalf("pool default config = %+v, want %+v", omitted.config, defaultParserConfig)
+	}
+}
+
+func TestParserPoolConfigAppliedOnMiss(t *testing.T) {
+	pool := mustNewParserPool(t, WithMaxCapacity(32), WithMaxDepth(4))
+	parser, err := pool.Get()
+	if err != nil {
+		t.Fatalf("pool.Get() error = %v", err)
+	}
+	if parser.config != pool.config {
+		t.Fatalf("parser config = %+v, pool config = %+v; want equal", parser.config, pool.config)
+	}
+	if err := parser.Close(); err != nil {
+		t.Fatalf("parser.Close() error = %v", err)
+	}
+}
+
+func TestParserPoolConfigRejectsMismatchedPut(t *testing.T) {
+	testCases := []struct {
+		name string
+		opts []ParserOption
+	}{
+		{name: "capacity", opts: []ParserOption{WithMaxCapacity(96), WithMaxDepth(8)}},
+		{name: "depth", opts: []ParserOption{WithMaxCapacity(64), WithMaxDepth(9)}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			pool := mustNewParserPool(t, WithMaxCapacity(64), WithMaxDepth(8))
+			foreign, err := NewParser(tc.opts...)
+			if err != nil {
+				t.Fatalf("NewParser(foreign config) error = %v", err)
+			}
+
+			if err := pool.Put(foreign); !errors.Is(err, ErrInvalidOption) {
+				t.Fatalf("pool.Put(mismatched parser) error = %v, want ErrInvalidOption", err)
+			}
+
+			got, err := pool.Get()
+			if err != nil {
+				t.Fatalf("pool.Get() after rejected Put error = %v", err)
+			}
+			if got == foreign {
+				t.Fatal("pool.Get() returned the parser rejected by Put")
+			}
+			if got.config != pool.config {
+				t.Fatalf("pool.Get() config = %+v, pool config = %+v; want equal", got.config, pool.config)
+			}
+
+			if err := got.Close(); err != nil {
+				t.Fatalf("pooled parser Close() error = %v", err)
+			}
+			if err := foreign.Close(); err != nil {
+				t.Fatalf("foreign parser Close() error = %v", err)
+			}
+		})
+	}
+}
+
+func TestParserPoolReuseRoundTrip(t *testing.T) {
+	pool := mustNewParserPool(t)
 
 	firstDone := make(chan struct{})
 	errs := make(chan error, 2)
@@ -65,14 +189,14 @@ func TestParserPoolRoundTrip(t *testing.T) {
 }
 
 func TestParserPoolRejectsNil(t *testing.T) {
-	pool := NewParserPool()
+	pool := mustNewParserPool(t)
 	if err := pool.Put(nil); !errors.Is(err, ErrInvalidHandle) {
 		t.Fatalf("pool.Put(nil) error = %v, want ErrInvalidHandle", err)
 	}
 }
 
 func TestParserPoolRejectsBusy(t *testing.T) {
-	pool := NewParserPool()
+	pool := mustNewParserPool(t)
 	parser, err := pool.Get()
 	if err != nil {
 		t.Fatalf("pool.Get() error = %v", err)
@@ -96,7 +220,7 @@ func TestParserPoolRejectsBusy(t *testing.T) {
 }
 
 func TestParserPoolRejectsClosed(t *testing.T) {
-	pool := NewParserPool()
+	pool := mustNewParserPool(t)
 	parser, err := pool.Get()
 	if err != nil {
 		t.Fatalf("pool.Get() error = %v", err)
@@ -113,7 +237,7 @@ func TestParserPoolRejectsClosed(t *testing.T) {
 func TestPooledParserEvictionCleansUp(t *testing.T) {
 	resetFinalizerCountsForTest()
 
-	pool := NewParserPool()
+	pool := mustNewParserPool(t)
 	parser, err := pool.Get()
 	if err != nil {
 		t.Fatalf("pool.Get() error = %v", err)
@@ -130,7 +254,7 @@ func TestPooledParserEvictionCleansUp(t *testing.T) {
 }
 
 func TestParserPoolConcurrentGetParsePut(t *testing.T) {
-	pool := NewParserPool()
+	pool := mustNewParserPool(t)
 
 	const goroutines = 12
 	const iterations = 25
