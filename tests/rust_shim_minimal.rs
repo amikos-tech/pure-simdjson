@@ -1,5 +1,7 @@
 use std::{
     collections::HashSet,
+    env,
+    process::Command,
     ptr,
     sync::{Arc, Barrier, Mutex},
     thread,
@@ -30,6 +32,8 @@ use pure_simdjson::{
 };
 
 const EXPECTED_BIGINT_KIND: u32 = 9;
+const PARSER_BAD_ALLOC_CHILD_ENV: &str = "PURE_SIMDJSON_PARSER_BAD_ALLOC_CHILD";
+const PARSER_BAD_ALLOC_CHILD_SUCCESS: &str = "PARSER_BAD_ALLOC_CHILD_OK";
 
 fn parser_new() -> pure_simdjson_parser_t {
     let mut parser = 0_u64;
@@ -363,6 +367,46 @@ fn psimdjson_test_force_unsupported_selector_returns_invalid_argument() {
     assert_eq!(
         pure_simdjson_test_force_cpp_exception_for_tests(2),
         PURE_SIMDJSON_ERR_INVALID_ARGUMENT
+    );
+}
+
+#[test]
+fn psimdjson_test_force_parser_bad_alloc_is_process_safe() {
+    if env::var_os(PARSER_BAD_ALLOC_CHILD_ENV).is_some() {
+        assert_eq!(
+            pure_simdjson_test_force_cpp_exception_for_tests(3),
+            PURE_SIMDJSON_ERR_CPP_EXCEPTION
+        );
+        println!("{PARSER_BAD_ALLOC_CHILD_SUCCESS}");
+        return;
+    }
+
+    let output = Command::new(env::current_exe().expect("minimal shim test binary path"))
+        .env(PARSER_BAD_ALLOC_CHILD_ENV, "1")
+        .arg("--exact")
+        .arg("psimdjson_test_force_parser_bad_alloc_is_process_safe")
+        .arg("--nocapture")
+        .arg("--test-threads=1")
+        .output()
+        .expect("spawn parser bad_alloc child");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "parser bad_alloc child failed: status={:?}\nstdout={stdout}\nstderr={stderr}",
+        output.status.code(),
+    );
+    assert_eq!(
+        stdout
+            .matches("test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured;")
+            .count(),
+        1,
+        "parser bad_alloc child did not run exactly one successful test:\n{stdout}",
+    );
+    assert!(
+        stdout.contains(PARSER_BAD_ALLOC_CHILD_SUCCESS),
+        "parser bad_alloc child did not reach its post-assertion marker:\n{stdout}",
     );
 }
 
