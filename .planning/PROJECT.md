@@ -18,6 +18,7 @@ Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest ben
 - [x] Validated in Phase 3: Go consumers can load the shim through purego, manage `Parser`/`Doc` lifecycles safely, reuse parsers through `ParserPool`, and receive typed ABI/version errors instead of raw status codes
 - [x] Validated in Phase 4: the public DOM API now exposes typed scalar/string/bool/null accessors, cursor-pull array/object iteration, direct field lookup, executable examples, and package-wide DOC-03 coverage for the shipped v0.1 surface
 - [x] Validated in Phase 8: Tier 1 full `any` materialization now runs through an internal frame-stream ABI plus unexported Go fast materializer, and the repo contains same-host benchmark evidence proving the Phase 8 path improved the committed Phase 7 diagnostics without widening the public API
+- [x] Validated in Phase 11: the audited simdjson v4.6.4 base, exact `TypeBigInt`/`GetBigInt` flow, kernel controls, bounded parser limits, truthful diagnostic offsets, and allocation-safe C++ exception containment pass the full Go/Rust/C++ contract and correctness gates
 
 ### Active
 
@@ -33,9 +34,6 @@ Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest ben
 
 **v0.2 (next) — high-value simdjson API extension (Phases 11-16):**
 
-- [ ] Upgrade to the current audited simdjson 4.6 patch release and re-run the full contract/platform matrix
-- [ ] Preserve oversized integer literals exactly through `TypeBigInt` / `GetBigInt` instead of treating valid JSON as invalid
-- [ ] Expose production diagnostics and parser limits: kernel identity/override, truthful error offsets, maximum capacity, and maximum depth
 - [ ] Add safe DOM navigation and utilities: RFC 6901 pointer, documented path subset/wildcards, indexed/container helpers, minify, and standalone UTF-8 validation
 - [ ] Add batched On-Demand extraction for a pre-declared path set while guarding single-consumption semantics
 - [ ] Add borrowed string/raw JSON views and `ParsePinned` as explicit, benchmark-gated zero-copy options
@@ -85,7 +83,7 @@ Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest ben
 
 ## Current State
 
-The v0.1 implementation is functionally delivered through Phase 10: the DOM API, optimized internal materializer, public benchmark positioning, validated default-install artifacts, and PR benchmark signal are shipped. Planning closeout still needs to reconcile stale Phase 09.1/10 checkboxes and the missing Phase 10 Plan 03 summary. The next implementation cycle is the v0.2 extension in Phases 11-16, beginning with upstream compatibility, BigInt correctness, and diagnostics before any new lifetime-sensitive API lands.
+Phase 11 is complete: the v0.2 compatibility foundation now uses audited simdjson v4.6.4, preserves exact oversized integers, exposes kernel and bounded parser controls, reports truthful diagnostic offsets, and contains parser-side C++ allocation failures without crossing or terminating at the FFI boundary. Phase 12 is next and owns high-value DOM navigation and utility APIs.
 
 ## Key Decisions
 
@@ -126,4 +124,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-23 after Phase 8 completion*
+*Last updated: 2026-07-29 after Phase 11 completion*
