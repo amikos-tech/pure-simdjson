@@ -271,8 +271,8 @@ pure_simdjson_error_code_t map_cpp_exception(const char *function_name) noexcept
   return PURE_SIMDJSON_ERR_CPP_EXCEPTION;
 }
 
-void capture_parser_exception(psimdjson_parser *parser, const std::bad_alloc &error) noexcept {
-  try_set_last_error_message(parser, std::string("std::bad_alloc: ") + error.what());
+void capture_parser_exception(psimdjson_parser *parser, const std::bad_alloc &) noexcept {
+  try_set_last_error_message(parser, "std::bad_alloc");
 }
 
 void capture_parser_exception(psimdjson_parser *parser, const std::exception &error) noexcept {
@@ -307,6 +307,21 @@ void capture_parser_exception(psimdjson_parser *parser) noexcept {
     capture_parser_exception(parser_ptr);                                \
     return map_cpp_exception(function_name);                              \
   }
+
+pure_simdjson_error_code_t force_parser_bad_alloc_for_tests(
+    uint64_t *out_value
+) noexcept {
+  psimdjson_parser parser;
+  try {
+    if (out_value == nullptr) {
+      return invalid_argument();
+    }
+
+    throw std::bad_alloc();
+    *out_value = 0;
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_PARSER_CPP_EXCEPTIONS(__func__, &parser)
+}
 
 struct DiagnosticReplayLimits {
   uint64_t max_capacity;
@@ -1775,6 +1790,15 @@ pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(
         throw std::runtime_error("forced cpp exception");
       case 1:
         throw std::bad_alloc();
+      case 3: {
+        constexpr uint64_t OUTPUT_SENTINEL = UINT64_C(0xA5A5A5A5A5A5A5A5);
+        uint64_t output_value = OUTPUT_SENTINEL;
+        const auto status = force_parser_bad_alloc_for_tests(&output_value);
+        if (output_value != OUTPUT_SENTINEL) {
+          return PURE_SIMDJSON_ERR_INTERNAL;
+        }
+        return status;
+      }
       default:
         return invalid_argument();
     }
