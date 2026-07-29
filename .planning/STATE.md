@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 11-15-PLAN.md
-last_updated: "2026-07-29T15:07:49.915Z"
-last_activity: 2026-07-29 -- Phase 11 planning complete
+stopped_at: Completed 11-16-PLAN.md
+last_updated: "2026-07-29T15:24:21.932Z"
+last_activity: 2026-07-29
 progress:
   total_phases: 22
   completed_phases: 11
   total_plans: 67
-  completed_plans: 64
+  completed_plans: 65
   percent: 50
 ---
 
@@ -25,12 +25,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 ## Current Position
 
-Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — COMPLETE
-Plan: 15 of 15
+Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — EXECUTING
+Plan: 17 of 17
 Status: Ready to execute
-Last activity: 2026-07-29 -- Phase 11 planning complete
+Last activity: 2026-07-29
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
-Progress: [██████████] 98%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Progress: [██████████] 98%
 | Phase 11 P13 | 19min | 2 tasks | 7 files |
 | Phase 11 P14 | 9 min | 1 tasks | 3 files |
 | Phase 11 P15 | 14min | 2 tasks | 8 files |
+| Phase 11 P16 | 8min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -181,6 +182,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 11]: Phase 11 closes only after both release and public bootstrap workflows pass — CI-only five-platform publication and separate Phase 06.1 validation jointly satisfy D-17 and D-18.
 - [Phase 11]: Depth 1024 is both the default and the supported maximum across Go and native parser-owned traversal. — One enforced ceiling prevents malformed-input replay from exhausting the native stack.
 - [Phase 11]: Unsupported native depth is rejected before implementation-selection locking and parser allocation. — Invalid configuration must not change irreversible process state or output handles.
+- [Phase 11]: Validate delimiters inside all three BigInt early-return branches in the single audited output-copy patch. — Preserves valid exact text without adding a parser, source copy, dependency, or ABI change.
+- [Phase 11]: Treat nine guarded copies and zero unguarded copies as a build-time architecture-parity contract. — Makes architecture drift fail before C++ compilation.
+- [Phase 11]: Extend the existing manifest-driven JSONTestSuite oracle with project-owned malformed BigInt fixtures. — Keeps one completeness-checked correctness oracle and preserves existing expectations.
 
 ### Pending Todos
 
@@ -194,8 +198,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-29T13:32:34.332Z
-Stopped at: Completed 11-15-PLAN.md
+Last session: 2026-07-29T15:24:21.923Z
+Stopped at: Completed 11-16-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
