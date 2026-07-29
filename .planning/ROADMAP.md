@@ -547,13 +547,14 @@ Plans:
 
 **Scope boundary:** No ABI break is accepted accidentally. Any ABI version change, bootstrap artifact impact, and compatibility fallback must be explicit before implementation merges.
 
-**Plans:** 17/17 plans complete
+**Plans:** 17/18 plans complete
 
 Plans:
 - [x] Plans `11-01` through `11-14` completed; detailed plans and summaries are in the Phase 11 directory
 - [x] `11-15-PLAN.md` — Bound configured depth and prove maximum-depth malformed diagnostics are process-safe
-- [ ] `11-16-PLAN.md` — Restore BigInt token-boundary validation across all generated architecture paths
-- [ ] `11-17-PLAN.md` — Align trapped `std::bad_alloc` with the normative status-97 FFI contract
+- [x] `11-16-PLAN.md` — Restore BigInt token-boundary validation across all generated architecture paths
+- [x] `11-17-PLAN.md` — Align trapped `std::bad_alloc` with the normative status-97 FFI contract
+- [ ] `11-18-PLAN.md` — Make parser-aware bad-allocation capture allocation-safe and prove status-97 process survival
 
 ### Phase 12: High-value DOM navigation and SIMD utility APIs
 
