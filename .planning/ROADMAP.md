@@ -26,7 +26,7 @@ The v0.2 extension keeps the safe, re-readable DOM API as the default while addi
 - [x] **Phase 9: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh** — Reframe the benchmark story around measured Tier 1/Tier 2/Tier 3 strengths, then rerun and publish evidence after Phase 8 lands
 - [ ] **Phase 09.1: Bootstrap artifact and ABI alignment for default installs (INSERTED)** — Align the bootstrap-pinned public artifact/version/checksum state with the current ABI and validate the default-install path after Phase 9 locks the benchmark/release story
 - [ ] **Phase 10: Lightweight PR benchmark regression signal** — Add a cheap pull-request benchmark workflow covering Tier 1/2/3 so every PR gets a useful regression signal without waiting for the heavier release-grade benchmark capture path
-- [ ] **Phase 11: Upstream simdjson refresh, exact big integers, and production diagnostics** — Upgrade the audited upstream base, preserve oversized integers exactly, expose kernel/limit controls, and make parser diagnostics truthful
+- [x] **Phase 11: Upstream simdjson refresh, exact big integers, and production diagnostics** — Upgrade the audited upstream base, preserve oversized integers exactly, expose kernel/limit controls, and make parser diagnostics truthful (completed 2026-07-29)
 - [ ] **Phase 12: High-value DOM navigation and SIMD utility APIs** — Add JSON Pointer/path navigation, indexed/container helpers, wildcard path lookup, minification, and standalone UTF-8 validation without growing into a query or encoding engine
 - [ ] **Phase 13: Batched On-Demand path extraction** — Extract a typed, predeclared path set in one native traversal while guarding simdjson's single-consumption semantics
 - [ ] **Phase 14: Zero-copy pinned input and borrowed value views** — Add opt-in pinned input plus lifetime-bound string/raw JSON views while retaining copied values as the safe default
@@ -547,10 +547,10 @@ Plans:
 
 **Scope boundary:** No ABI break is accepted accidentally. Any ABI version change, bootstrap artifact impact, and compatibility fallback must be explicit before implementation merges.
 
-**Plans:** 13/14 plans executed
+**Plans:** 14/14 plans complete
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 11 to break down)
+- [x] Plans `11-01` through `11-14` completed; detailed plans and summaries are in the Phase 11 directory
 
 ### Phase 12: High-value DOM navigation and SIMD utility APIs
 

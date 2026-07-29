@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: executing
-stopped_at: Completed 11-13-PLAN.md
-last_updated: "2026-07-23T15:45:50.361Z"
-last_activity: 2026-07-23
+status: verifying
+stopped_at: Completed 11-14-PLAN.md
+last_updated: "2026-07-29T11:53:49.574Z"
+last_activity: 2026-07-29
 progress:
   total_phases: 22
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 64
-  completed_plans: 62
-  percent: 50
+  completed_plans: 63
+  percent: 55
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 ## Current Position
 
-Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — EXECUTING
+Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — COMPLETE
 Plan: 14 of 14
-Status: Ready to execute
-Last activity: 2026-07-23
-Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
-Progress: [██████████] 97%
+Status: Phase complete — ready for verification
+Last activity: 2026-07-29
+Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
+Progress: [██████████] 98%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [██████████] 97%
 | Phase 11 P11 | 13min | 2 tasks | 10 files |
 | Phase 11 P12 | 19min | 2 tasks | 8 files |
 | Phase 11 P13 | 19min | 2 tasks | 7 files |
+| Phase 11 P14 | 9 min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -173,6 +174,10 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 11]: Keep the existing release/public wrapper indirection and make the tag-owned Go smoke the configured ABI 1.2 behavior contract. — This strengthens the one shared smoke path without duplicating release machinery.
 - [Phase 11]: Plan 11-13 stops at SOURCE READY — NOT RELEASED; strict origin/main ancestry and hosted proof remain the 11-14-T1 operator gate. — Local source evidence cannot substitute for tag-driven publication and Phase 06.1 public validation.
 - [Phase 11]: Every pre-publication Go runtime gate uses the freshly built release library through PURE_SIMDJSON_LIB_PATH. — The unpublished bootstrap version must not supply local readiness evidence.
+- [Phase 11]: Final intermediate compatibility release is v0.1.7 with ABI 0x00010002 — It supersedes the plan-time v0.1.5 identity after immutable release recovery and is not the Phase 16 v0.2 release.
+- [Phase 11]: Release recovery used new patch versions for corrected source — Published tags remained immutable; no tag was moved or replaced.
+- [Phase 11]: Retain the operator strict-readiness transcript for the exact v0.1.7 tag target without rerunning it after main advanced — The script depth-1 fetch can false-negative for an older valid ancestor, while hosted verify-tag-source independently passed on the tag.
+- [Phase 11]: Phase 11 closes only after both release and public bootstrap workflows pass — CI-only five-platform publication and separate Phase 06.1 validation jointly satisfy D-17 and D-18.
 
 ### Pending Todos
 
@@ -186,8 +191,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-23T15:45:50.353Z
-Stopped at: Completed 11-13-PLAN.md
+Last session: 2026-07-29T11:53:49.567Z
+Stopped at: Completed 11-14-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
