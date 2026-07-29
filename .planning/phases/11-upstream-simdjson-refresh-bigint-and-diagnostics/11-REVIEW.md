@@ -1,6 +1,6 @@
 ---
 phase: 11-upstream-simdjson-refresh-bigint-and-diagnostics
-reviewed: 2026-07-29T15:53:33Z
+reviewed: 2026-07-29T17:58:19Z
 depth: standard
 files_reviewed: 37
 files_reviewed_list:
@@ -42,91 +42,56 @@ files_reviewed_list:
   - tests/smoke/ffi_export_surface.c
   - tests/smoke/go_bootstrap_smoke.go
 findings:
-  critical: 1
+  critical: 0
   warning: 2
   info: 0
-  total: 3
+  total: 2
 status: issues_found
 ---
 
 # Phase 11: Code Review Report
 
-**Reviewed:** 2026-07-29T15:53:33Z
+**Reviewed:** 2026-07-29T17:58:19Z
 **Depth:** standard
 **Files Reviewed:** 37
 **Status:** issues_found
 
 ## Summary
 
-The BigInt delimiter fix is present in all nine generated architecture
-implementations, and the root, nested, malformed-suffix, and exact-text
-regressions pass. The `std::bad_alloc` mapper now returns status `97` through
-the generic test seam. However, the production parser-aware exception path can
-still terminate the process while trying to record that same allocation
-failure, so the normative exception contract is not closed. Two existing
-fail-closed boundary defects also remain in the Go copy-out and release-version
-validation paths.
+The prior parser-side `std::bad_alloc` blocker is closed. The parser-aware
+handler no longer allocates before its catch-all guard
+(`src/native/simdjson_bridge.cpp:242-276`), selector `3` now executes that
+production handler while checking an output sentinel
+(`src/native/simdjson_bridge.cpp:311-323,1793-1800`), and the subprocess test
+requires exact status `97`, one successful child test, and a post-assertion
+marker (`tests/rust_shim_minimal.rs:373-410`). The focused four-test exception
+suite and all 47 reviewed Rust contract tests passed independently.
+
+The BigInt delimiter, exact-text, ownership, diagnostics, and configured-limit
+contracts remain green. No new blocker was found. Two previously reported
+fail-closed boundary defects remain: malformed native byte spans can panic or
+leak in the Go wrapper, and the release readiness gate does not implement the
+SemVer grammar it claims to validate.
 
 ## Narrative Findings (AI reviewer)
-
-## Critical Issues
-
-### CR-01 [BLOCKER]: Parser-side `bad_alloc` handling can call `std::terminate` instead of returning status 97
-
-**File:** `src/native/simdjson_bridge.cpp:274-300`,
-`tests/rust_shim_minimal.rs:346-358`
-
-**Issue:** `capture_parser_exception` is declared `noexcept`, but its
-`std::string("std::bad_alloc: ") + error.what()` argument is constructed before
-control enters `try_set_last_error_message` and its catch-all guard. That
-construction can allocate and throw another `std::bad_alloc`; because it escapes
-the `noexcept` function, C++ invokes `std::terminate`. This is particularly
-likely while already handling allocation exhaustion from the real parser path.
-The parser catch macro calls this diagnostic helper before `map_cpp_exception`,
-so status `PURE_SIMDJSON_ERR_CPP_EXCEPTION` (`97`) is never returned in that
-case.
-
-The new forced-exception tests do not cover this path. They call
-`psimdjson_test_force_cpp_exception`, which uses
-`PSIMDJSON_CATCH_CPP_EXCEPTIONS`; production parsing uses the distinct
-`PSIMDJSON_CATCH_PARSER_CPP_EXCEPTIONS` macro containing the unsafe diagnostic
-capture.
-
-**Fix:**
-
-```cpp
-void capture_parser_exception(
-    psimdjson_parser *parser,
-    const std::bad_alloc &
-) noexcept {
-  // Any allocation performed by LastErrorBuffer::assign is now inside the
-  // catch-all guard; do not allocate while forming this argument.
-  try_set_last_error_message(parser, "std::bad_alloc");
-}
-```
-
-Alternatively, wrap the entire string construction and assignment in a local
-`try`/`catch (...)`. Add a fault-injection test that throws `std::bad_alloc`
-inside an entry point using `PSIMDJSON_CATCH_PARSER_CPP_EXCEPTIONS`, and assert
-that the process stays alive, the output sentinel is preserved, and status
-`97` reaches the Rust ABI.
 
 ## Warnings
 
 ### WR-01 [WARNING]: Go copy-out trusts inconsistent native spans and can panic or leak
 
-**File:** `internal/ffi/bindings.go:385-408`
+**File:** `internal/ffi/bindings.go:385-408`,
+`internal/ffi/bindings_test.go:213-240,348-372`
 
-**Issue:** `copyElementBytes` accepts every successful pointer/length pair
-except the valid empty sentinel as input to `unsafe.Slice`. If a compatible but
-faulty native artifact returns `ptr == nil && length > 0`, this panics inside
-the Go process. If it returns a non-null pointer with zero length, the method
-reports success but its deferred `BytesFree(ptr, 0)` is rejected, leaking the
-allocation. An unrepresentable length can likewise panic during slice
-construction. The FFI boundary should reject inconsistent spans rather than
-turning a native contract violation into a Go crash or silent leak.
+**Issue:** After a successful native getter call, `copyElementBytes` passes
+every pointer/length pair except `nil, 0` directly to `unsafe.Slice`. A
+compatible but faulty native artifact can therefore crash the Go process by
+returning `nil` with a non-zero length or a length that cannot be represented
+by a Go slice. A non-null pointer with zero length is reported as a successful
+empty value, but the deferred `BytesFree(ptr, 0)` is rejected by the ABI and
+leaks the issued allocation. Current injected-binding tests cover only valid
+non-empty and `nil, 0` spans, so these failure paths remain unguarded.
 
-**Fix:**
+**Fix:** Validate the complete span before constructing the slice:
 
 ```go
 if ptr == nil {
@@ -135,38 +100,49 @@ if ptr == nil {
 	}
 	return "", int32(ErrInternal)
 }
+
+maxInt := uintptr(^uint(0) >> 1)
+if length == 0 || length > maxInt {
+	emitInvalidNativeSpanWarning(ptr, length)
+	return "", int32(ErrInternal)
+}
+
 defer func() {
 	if freeRC := b.BytesFree(ptr, length); freeRC != int32(OK) {
 		emitBytesFreeFailureWarning(freeRC, length)
 	}
 }()
-maxInt := int(^uint(0) >> 1)
-if length == 0 || length > uintptr(maxInt) {
-	return "", int32(ErrInternal)
-}
 return string(unsafe.Slice(ptr, int(length))), int32(OK)
 ```
 
-Add injected-binding tests for nil/nonzero, nonnil/zero, and oversized spans,
-asserting an internal error without a panic.
+For malformed non-null/zero allocations, add a pointer-validated recovery path
+to the allocation registry (or an opaque allocation handle) so the wrapper can
+release the real allocation without trusting the bad length. Add injected
+tests for nil/non-zero, non-null/zero, and oversized spans; each must return an
+internal error without panicking, and recoverable allocations must be freed.
 
 ### WR-02 [WARNING]: The release gate accepts malformed versions as SemVer
 
-**File:** `scripts/release/check_bootstrap_abi_state.py:23-27`
+**File:** `scripts/release/check_bootstrap_abi_state.py:23-27`,
+`scripts/release/test_check_bootstrap_abi_state.py:147-156`
 
-**Issue:** `SEMVER_RE` accepts invalid semantic versions such as `0.1.5..`,
-`0.1.5.foo`, and `01.01.005`, while rejecting valid build metadata such as
-`0.1.5+build.1`. A malformed bootstrap version can therefore pass the ABI
-readiness check even though the command and diagnostics promise semantic
-version validation, while a valid SemVer identifier can be rejected.
+**Issue:** `SEMVER_RE` accepts invalid versions such as `0.1.5..`,
+`0.1.5.foo`, and `01.01.005`, then reduces them to the same numeric tuple as a
+valid release. It also rejects valid build metadata such as
+`0.1.5+build.1`. Consequently, the release readiness gate can approve malformed
+bootstrap versions and reject legitimate SemVer versions despite reporting
+semantic-version validation. The test suite exercises only one valid
+prerelease and does not protect either edge.
 
-**Fix:** Use a strict SemVer 2.0 parser or a fully anchored grammar that rejects
-leading zeroes, validates prerelease identifiers, and accepts build metadata
-when the release policy allows it. Add positive and negative table-driven tests
-and use the same parser for tag/readiness validation.
+**Fix:** Replace the permissive expression with a strict SemVer 2.0 parser (or
+a fully anchored grammar that rejects leading zeroes and empty identifiers and
+accepts valid `+` build metadata). Add table-driven tests containing stable,
+prerelease, and build-metadata positives plus the malformed examples above,
+then use the same parser wherever release tags and bootstrap versions are
+validated.
 
 ---
 
-_Reviewed: 2026-07-29T15:53:33Z_
+_Reviewed: 2026-07-29T17:58:19Z_
 _Reviewer: the agent (gsd-code-reviewer)_
 _Depth: standard_
