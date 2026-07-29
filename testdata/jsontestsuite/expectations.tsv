@@ -36,6 +36,7 @@ i_structure_500_nested_arrays.json	accept	simdjson v4.6.1 observed accept
 i_structure_UTF-8_BOM_empty_object.json	accept	simdjson v4.6.1 observed accept
 n_array_1_true_without_comma.json	reject	upstream n_* fixture
 n_array_a_invalid_utf8.json	reject	upstream n_* fixture
+n_array_bigint_suffix_plus.json	reject	Phase 11 BigInt token-boundary regression
 n_array_colon_instead_of_comma.json	reject	upstream n_* fixture
 n_array_comma_after_close.json	reject	upstream n_* fixture
 n_array_comma_and_number.json	reject	upstream n_* fixture
@@ -93,6 +94,8 @@ n_number_9.e+.json	reject	upstream n_* fixture
 n_number_Inf.json	reject	upstream n_* fixture
 n_number_NaN.json	reject	upstream n_* fixture
 n_number_U+FF11_fullwidth_digit_one.json	reject	upstream n_* fixture
+n_number_bigint_negative_suffix_underscore.json	reject	Phase 11 BigInt token-boundary regression
+n_number_bigint_positive_suffix_x.json	reject	Phase 11 BigInt token-boundary regression
 n_number_expression.json	reject	upstream n_* fixture
 n_number_hex_1_digit.json	reject	upstream n_* fixture
 n_number_hex_2_digits.json	reject	upstream n_* fixture
@@ -116,6 +119,7 @@ n_number_with_alpha.json	reject	upstream n_* fixture
 n_number_with_alpha_char.json	reject	upstream n_* fixture
 n_number_with_leading_zero.json	reject	upstream n_* fixture
 n_object_bad_value.json	reject	upstream n_* fixture
+n_object_bigint_suffix_slash.json	reject	Phase 11 BigInt token-boundary regression
 n_object_bracket_key.json	reject	upstream n_* fixture
 n_object_comma_instead_of_colon.json	reject	upstream n_* fixture
 n_object_double_colon.json	reject	upstream n_* fixture
