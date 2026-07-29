@@ -343,10 +343,26 @@ fn double_free_returns_invalid_handle() {
 }
 
 #[test]
-fn psimdjson_test_force_cpp_exception_returns_err_cpp_exception() {
+fn psimdjson_test_force_runtime_error_returns_err_cpp_exception() {
     assert_eq!(
-        pure_simdjson_test_force_cpp_exception_for_tests(),
+        pure_simdjson_test_force_cpp_exception_for_tests(0),
         PURE_SIMDJSON_ERR_CPP_EXCEPTION
+    );
+}
+
+#[test]
+fn psimdjson_test_force_bad_alloc_returns_err_cpp_exception() {
+    assert_eq!(
+        pure_simdjson_test_force_cpp_exception_for_tests(1),
+        PURE_SIMDJSON_ERR_CPP_EXCEPTION
+    );
+}
+
+#[test]
+fn psimdjson_test_force_unsupported_selector_returns_invalid_argument() {
+    assert_eq!(
+        pure_simdjson_test_force_cpp_exception_for_tests(2),
+        PURE_SIMDJSON_ERR_INVALID_ARGUMENT
     );
 }
 

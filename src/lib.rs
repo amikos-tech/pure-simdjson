@@ -265,8 +265,10 @@ fn reject_fallback_implementation() -> Result<(), pure_simdjson_error_code_t> {
 }
 
 #[doc(hidden)]
-pub fn pure_simdjson_test_force_cpp_exception_for_tests() -> pure_simdjson_error_code_t {
-    runtime::test_force_cpp_exception_for_tests()
+pub fn pure_simdjson_test_force_cpp_exception_for_tests(
+    exception_kind: u32,
+) -> pure_simdjson_error_code_t {
+    runtime::test_force_cpp_exception_for_tests(exception_kind)
 }
 
 #[doc(hidden)]

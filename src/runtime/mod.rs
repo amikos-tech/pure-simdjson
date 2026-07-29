@@ -205,7 +205,7 @@ unsafe extern "C" {
         json_index: u64,
     ) -> pure_simdjson_error_code_t;
 
-    fn psimdjson_test_force_cpp_exception() -> pure_simdjson_error_code_t;
+    fn psimdjson_test_force_cpp_exception(exception_kind: u32) -> pure_simdjson_error_code_t;
 }
 
 pub(crate) struct NativeParsedDoc {
@@ -771,6 +771,6 @@ pub fn test_set_fallback_allowed_override(value: Option<bool>) {
 }
 
 #[doc(hidden)]
-pub fn test_force_cpp_exception_for_tests() -> pure_simdjson_error_code_t {
-    unsafe { psimdjson_test_force_cpp_exception() }
+pub fn test_force_cpp_exception_for_tests(exception_kind: u32) -> pure_simdjson_error_code_t {
+    unsafe { psimdjson_test_force_cpp_exception(exception_kind) }
 }

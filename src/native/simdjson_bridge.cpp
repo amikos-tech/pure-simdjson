@@ -1766,8 +1766,17 @@ pure_simdjson_error_code_t psimdjson_test_checked_diagnostic_offset(
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
-pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(void) noexcept {
+pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(
+    uint32_t exception_kind
+) noexcept {
   try {
-    throw std::runtime_error("forced cpp exception");
+    switch (exception_kind) {
+      case 0:
+        throw std::runtime_error("forced cpp exception");
+      case 1:
+        throw std::bad_alloc();
+      default:
+        return invalid_argument();
+    }
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
