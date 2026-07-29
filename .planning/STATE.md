@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: executing
-stopped_at: Completed 11-16-PLAN.md
-last_updated: "2026-07-29T15:24:21.932Z"
+status: verifying
+stopped_at: Completed 11-17-PLAN.md
+last_updated: "2026-07-29T15:36:59.130Z"
 last_activity: 2026-07-29
 progress:
   total_phases: 22
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 67
-  completed_plans: 65
-  percent: 50
+  completed_plans: 66
+  percent: 55
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — EXECUTING
 Plan: 17 of 17
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-29
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
-Progress: [██████████] 97%
+Progress: [██████████] 99%
 
 ## Performance Metrics
 
@@ -68,6 +68,7 @@ Progress: [██████████] 97%
 | Phase 11 P14 | 9 min | 1 tasks | 3 files |
 | Phase 11 P15 | 14min | 2 tasks | 8 files |
 | Phase 11 P16 | 8min | 2 tasks | 8 files |
+| Phase 11 P17 | 8min | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -185,6 +186,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 11]: Validate delimiters inside all three BigInt early-return branches in the single audited output-copy patch. — Preserves valid exact text without adding a parser, source copy, dependency, or ABI change.
 - [Phase 11]: Treat nine guarded copies and zero unguarded copies as a build-time architecture-parity contract. — Makes architecture drift fail before C++ compilation.
 - [Phase 11]: Extend the existing manifest-driven JSONTestSuite oracle with project-owned malformed BigInt fixtures. — Keeps one completeness-checked correctness oracle and preserves existing expectations.
+- [Phase 11]: Extend the existing hidden exception seam with fixed selectors rather than add another symbol. — Deterministic exception coverage stays outside the public and production-facing ABI.
+- [Phase 11]: Map trapped bad allocation to status 97 while preserving returned MEMALLOC and internal status 127. — Thrown exceptions and returned engine errors remain distinct caller classifications.
+- [Phase 11]: Keep the public header, normative document, ABI number, and public symbol surface unchanged. — The source now conforms to the already-locked exception contract.
 
 ### Pending Todos
 
@@ -198,8 +202,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-29T15:24:21.923Z
-Stopped at: Completed 11-16-PLAN.md
+Last session: 2026-07-29T15:36:59.123Z
+Stopped at: Completed 11-17-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
