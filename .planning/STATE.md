@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: verifying
-stopped_at: Completed 11-14-PLAN.md
-last_updated: "2026-07-29T11:53:49.574Z"
+stopped_at: Phase 11 verification found a blocking large-depth diagnostic replay gap
+last_updated: "2026-07-29T12:32:46.000Z"
 last_activity: 2026-07-29
 progress:
   total_phases: 22
-  completed_phases: 12
+  completed_phases: 11
   total_plans: 64
   completed_plans: 63
-  percent: 55
+  percent: 50
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 ## Current Position
 
-Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — COMPLETE
+Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — VERIFICATION GAPS
 Plan: 14 of 14
-Status: Phase complete — ready for verification
+Status: 1 blocking gap — plan gap closure before re-verification
 Last activity: 2026-07-29
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
-Progress: [██████████] 98%
+Progress: [█████████░] 98%
 
 ## Performance Metrics
 
@@ -185,6 +185,7 @@ None yet.
 
 ### Blockers/Concerns
 
+- [Phase 11] `v0.1.7` accepts extreme configured depths that can overflow the native stack during malformed-input diagnostic replay; `LIMIT-01` and `DIAG-02` remain blocked until traversal is made iterative or one consistently safe depth bound is enforced and covered by a subprocess regression.
 - [Phase 09.1] Plan 02 remains the release gate: land the prepared source on origin/main, run strict readiness there, publish v0.1.2 through CI, and dispatch public bootstrap validation before any default-install claim.
 - [Phase 02 advisory] Review whether parse-time `simdjson::UNSUPPORTED_ARCHITECTURE` should map to `PURE_SIMDJSON_ERR_CPU_UNSUPPORTED` instead of `PURE_SIMDJSON_ERR_INTERNAL`.
 - [Phase 02 advisory] Clean up stale public comments for now-live exports and decide whether `last_error_offset` should remain sentinel-only or surface real offsets.
