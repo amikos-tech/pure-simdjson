@@ -255,7 +255,7 @@ pure_simdjson_error_code_t map_cpp_exception(
     const std::bad_alloc &error
 ) noexcept {
   log_cpp_exception(function_name, error.what());
-  return PURE_SIMDJSON_ERR_INTERNAL;
+  return PURE_SIMDJSON_ERR_CPP_EXCEPTION;
 }
 
 pure_simdjson_error_code_t map_cpp_exception(
