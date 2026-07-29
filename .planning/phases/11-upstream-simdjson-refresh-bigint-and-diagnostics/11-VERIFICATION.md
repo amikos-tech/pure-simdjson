@@ -1,49 +1,66 @@
 ---
 phase: 11-upstream-simdjson-refresh-bigint-and-diagnostics
-verified: 2026-07-29T12:28:41Z
+verified: 2026-07-29T14:20:07Z
 status: gaps_found
-score: 81/84 must-haves verified
+score: 86/88 must-haves verified
 overrides_applied: 0
+re_verification:
+  previous_status: gaps_found
+  previous_score: 81/84
+  gaps_closed:
+    - "Accepted configured depths are bounded safely in the current source: zero selects 1024, 1 through 1024 are accepted, values above 1024 fail before allocation/traversal, and malformed input at the accepted ceiling returns a typed status from a subprocess."
+  gaps_remaining: []
+  regressions:
+    - "Plan 11-02 D-02 was previously counted as verified; fresh malformed-token probing proves that non-integer syntax can be accepted as kind 9."
+    - "The roadmap contract/correctness gate truth was previously counted as verified; the bad_alloc status mismatch proves that the green suite does not cover the full normative exception contract."
 gaps:
-  - truth: "Accepted configured depths remain safe on malformed input, and syntax failures return either a proven byte offset or explicit unknown instead of terminating the process."
+  - truth: "Only valid oversized integer tokens enter the BigInt path; malformed JSON is rejected without silently dropping token suffixes."
     status: failed
-    reason: "On the immutable v0.1.7 release, a parser configured with max_capacity=1000000 and max_depth=256002 parses a valid 256000-level document successfully, but the same-depth document with an innermost trailing comma exits with SIGSEGV (139) during recursive diagnostic replay. The option accepts the depth, the primary parser can process it, and only the error-location replay exhausts the native call stack."
+    reason: "The built ABI returns success for oversized integers followed by x, underscore, plus, slash, or NUL. Positive and negative roots become kind 9 with only the digit prefix copied, and a nested malformed token is accepted as an array. The generated simdjson BigInt branch returns before the normal structural-or-whitespace delimiter check, then visit_number scans only sign plus digits and returns success."
+    artifacts:
+      - path: "patches/simdjson-v4.6.4-positive-bigint.patch"
+        issue: "All nine architecture hunks reroute positive overflow from INVALID_NUMBER to BIGINT_NUMBER without preserving the trailing-token validity check."
+      - path: "tests/rust_shim_bigint.rs"
+        issue: "Valid boundary and exact-text cases exist, but there is no positive, negative, root, or nested malformed-suffix regression."
+      - path: "testdata/jsontestsuite/expectations.tsv"
+        issue: "The oracle covers ordinary malformed numbers and valid oversized integers, but not malformed oversized integers that enter BIGINT_ERROR/number_as_string."
+    missing:
+      - "Validate the character after the complete BigInt token as structural or JSON whitespace before returning success on every generated architecture path."
+      - "Add positive, negative, root, nested, and multiple-suffix regressions proving malformed oversized integers return PURE_SIMDJSON_ERR_INVALID_JSON and never expose truncated text."
+  - truth: "Every C++ exception trapped at the Rust/C++ seam maps to the normative PURE_SIMDJSON_ERR_CPP_EXCEPTION status 97."
+    status: failed
+    reason: "docs/ffi-contract.md is normative and says C++ exceptions map to status 97, but the first catch branch routes std::bad_alloc through an overload that returns PURE_SIMDJSON_ERR_INTERNAL status 127. The existing forced-exception test throws std::runtime_error only, so it passes without exercising the conflicting branch."
     artifacts:
       - path: "src/native/simdjson_bridge.cpp"
-        issue: "consume_ondemand_value recursively calls itself once per array/object level while using caller-controlled max_depth; the malformed-input replay can overflow the process stack."
-      - path: "parser_options.go"
-        issue: "WithMaxDepth accepts every positive uint32 value without imposing a bound that is safe for the recursive diagnostic implementation."
-      - path: "tests/rust_shim_diagnostics.rs"
-        issue: "The replay depth-boundary regression uses MAX_DEPTH=4 and does not exercise a large accepted depth in an isolated subprocess."
+        issue: "map_cpp_exception(const std::bad_alloc&) returns PURE_SIMDJSON_ERR_INTERNAL while the other C++ exception overloads return PURE_SIMDJSON_ERR_CPP_EXCEPTION."
+      - path: "docs/ffi-contract.md"
+        issue: "The normative exception policy and status table require trapped C++ exceptions to use status 97."
+      - path: "tests/rust_shim_minimal.rs"
+        issue: "The exception seam covers std::runtime_error but has no deterministic std::bad_alloc path."
     missing:
-      - "Replace call-stack-recursive diagnostic traversal with bounded iterative traversal, or define and enforce one demonstrably safe maximum depth across option validation and every parser-owned traversal."
-      - "Add a subprocess regression at a large accepted depth proving malformed syntax returns ErrInvalidJSON with a known/unknown offset state and never terminates by signal."
-      - "Reconcile the internal fast materializer's separate hard-coded depth 1024 with the chosen parser-depth contract."
+      - "Make the bad_alloc catch behavior agree with the normative public status contract, or record an explicit accepted contract override before changing the documentation."
+      - "Add a deterministic bad_alloc exception seam and assert the selected public status."
 ---
 
-# Phase 11: Upstream simdjson refresh, exact big integers, and production diagnostics Verification Report
+# Phase 11: Upstream simdjson Refresh, BigInt, and Diagnostics Verification Report
 
-**Phase Goal:** Establish the compatibility foundation for v0.2 by moving to the current audited simdjson 4.6 patch release, preserving oversized integer literals as exact decimal text, and exposing the small set of parser controls and diagnostics required for production operation.
+**Phase Goal:** Establish the compatibility foundation for v0.2 by moving to the current audited simdjson 4.6 patch release, preserving oversized integer literals as exact decimal text, and exposing parser controls/diagnostics.
 
-**Verified:** 2026-07-29T12:28:41Z
+**Verified:** 2026-07-29T14:20:07Z
+
 **Status:** gaps_found
-**Re-verification:** No — initial verification
 
-## Verification Scope and Source Identity
+**Re-verification:** Yes — after Plan 11-15 attempted to close the prior maximum-depth gap.
 
-The checked-out branch predates the published release, so it was not used as evidence for shipped behavior. Verification used the user-designated immutable production source:
+## Verification Scope
 
-| Property | Independently observed value |
-| --- | --- |
-| Annotated tag | `v0.1.7` |
-| Tag object | `cd153ae770745dad124750ec8dd765eb1afdb83e` |
-| Tag target | `ab86c2e1e666c6c313d1dd951c37a8c43538c407` |
-| Audited `origin/main` | `7c1051b8758139645ce437a8ae38ca75fc8f2174` |
-| Main ancestry | `git merge-base --is-ancestor v0.1.7^{commit} origin/main` returned 0 |
-| simdjson gitlink | `1bcf71bd85059ab6574ea1159de9298dcc1212c5` (v4.6.4) |
-| Bootstrap / ABI | `0.1.7` / `0x00010002` |
+This report verifies code and behavior, not SUMMARY claims.
 
-No previous `11-VERIFICATION.md` existed. SUMMARY claims were not treated as evidence.
+- The Plan 11-15 closure was verified at current source HEAD `7253804522596343b6964afaa532d2a28ac2727d`.
+- Historical publication evidence remains tied to immutable annotated tag `v0.1.7`: tag object `cd153ae770745dad124750ec8dd765eb1afdb83e`, target `ab86c2e1e666c6c313d1dd951c37a8c43538c407`, and an ancestry check against local `origin/main` at `7c1051b8758139645ce437a8ae38ca75fc8f2174`.
+- The checked-out simdjson gitlink is exactly `1bcf71bd85059ab6574ea1159de9298dcc1212c5`, and that commit identifies itself as `v4.6.4`.
+- The BigInt patch and the conflicting `std::bad_alloc` mapping are present in both the current source and the immutable `v0.1.7` source. The Plan 11-15 depth ceiling is newer source-only work and must not be attributed to `v0.1.7`.
+- Existing user changes in `.planning/config.json` and the untracked Phase 10 learnings file were not modified.
 
 ## Goal Achievement
 
@@ -51,146 +68,171 @@ No previous `11-VERIFICATION.md` existed. SUMMARY claims were not treated as evi
 
 | # | Observable truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | simdjson v4.6.4 is integrated and Go/Rust/C++ contract, correctness, benchmark, and five-target gates are green. | ✓ VERIFIED | Exact audited gitlink and patch gate in `build.rs`; fresh contract, Rust, Go race, and no-baseline benchmark runs passed; release run `30030435051` succeeded for all five targets. |
-| 2 | Integers above `uint64` become `TypeBigInt` and `GetBigInt` returns exact decimal text without automatic `math/big` allocation. | ✓ VERIFIED | Kind 9 flows from native materialization through Rust/FFI to `element.go`; fresh BigInt tests passed; no Go production import of `math/big`. |
-| 3 | Kernel report/override and safe bounded capacity/depth controls are available. | ✗ FAILED | Kernel and capacity paths are wired, but an accepted large `WithMaxDepth` value permits malformed input to crash in diagnostic replay. |
-| 4 | Syntax/UTF-8 failures report a real offset when available and explicit unknown otherwise, never fabricating one. | ✗ FAILED | Covered corpus behavior is correct, but the accepted large-depth syntax failure terminates with SIGSEGV and reports neither a known offset nor explicit unknown. |
+| 1 | simdjson v4.6.4 is integrated and the Go/Rust/C++ contract, correctness, benchmark, and five-target gates are green. | ✗ FAILED | The exact v4.6.4 base, historical five-target publication, and fresh local commands are green, but independent behavior falsifies contract/correctness: malformed oversized numeric tokens are accepted and `std::bad_alloc` maps to the wrong normative status. A green but incomplete gate is not goal evidence. |
+| 2 | Valid integers above `uint64` become `TypeBigInt`, and `GetBigInt` returns exact decimal text without automatic `math/big` allocation. | ✓ VERIFIED | Fresh ABI probing and Rust/Go tests preserve positive and negative exact text as kind 9; no production Go file imports `math/big`. |
+| 3 | Kernel report/override plus bounded capacity/depth controls are available and safe. | ✓ VERIFIED | Kernel selection is wired through mandatory native bindings; capacity is bounded; depth now normalizes to 1024 and rejects values above 1024 before native allocation or replay. |
+| 4 | Syntax/UTF-8 failures expose a proven upstream byte offset when available and explicit unknown otherwise, without fabricating one or terminating the process. | ✓ VERIFIED | The nine-case corpus passed, pointer-derived offsets remain range-checked, unavailable locations remain `UINT64_MAX` plus false, and the depth-1024 malformed subprocess passed without a signal. |
 
-**Roadmap score:** 2/4 criteria verified
+**Roadmap score:** 3/4 criteria verified.
 
 ### PLAN Must-Have Resolution
 
-The 14 PLAN files contain 80 detailed truths. Every truth was checked against tagged source, wiring, tests, or hosted/public evidence.
+The 15 PLAN files contain 84 detailed truths. Every plan's frontmatter truths were checked. Plans 11-01 through 11-14 received quick regression checks after the previous report; Plan 11-15 and newly failed surfaces received full existence, substance, wiring, and behavior checks.
 
-| Plan | Resolution | Notes |
+| Plan | Resolution | Evidence and exceptions |
 | --- | --- | --- |
-| 11-01 | 4/4 VERIFIED | Immutable v4.6.4 base/patch contract and build-time audit are substantive. |
-| 11-02 | 6/6 VERIFIED | ABI 1.2 and exact BigInt kind/span contract are present and tested. |
-| 11-03 | 6/6 VERIFIED | Go `TypeBigInt`/`GetBigInt` path is copied, exact, and wired. |
-| 11-04 | 6/6 VERIFIED | Configured parser creation stores and applies exact capacity/depth values. |
-| 11-05 | 7/8 VERIFIED, 1 FAILED | The truth requiring resource exhaustion to remain unknown and never trigger an unbounded attempt fails at large accepted depth. |
-| 11-06 | 5/5 VERIFIED | Go error offset/known transport and reset behavior are wired. |
-| 11-07 | 7/7 VERIFIED | Kernel reporting/override and post-creation lock behavior are present. |
-| 11-08 | 4/4 VERIFIED | ParserPool options and lock behavior are wired. |
-| 11-09 | 5/5 VERIFIED | Contract/header validation covers the additive ABI. |
-| 11-10 | 5/5 VERIFIED | BigInt and diagnostics cross-language tests are substantive. |
-| 11-11 | 5/5 VERIFIED | Limits and kernel integration tests are substantive. |
-| 11-12 | 6/6 VERIFIED | Correctness/contract integration is present. |
-| 11-13 | 7/7 VERIFIED | Readiness, benchmark, and release-facing gates are present. |
-| 11-14 | 6/6 VERIFIED | Annotated main-ancestor tag, CI release, five R2 jobs, and three fallback jobs were independently observed. |
+| 11-01 | 4/4 VERIFIED | v4.6.4 provenance, audited build-output patch application, branch-count guard, and upstream C++17 singleheader path remain present. |
+| 11-02 | 5/6 VERIFIED | **D-02 FAILED:** malformed oversized tokens such as `18446744073709551616x` classify as kind 9, so it is false that only integer syntax enters kind 9. Valid boundary, frame, accessor, and race/oracle paths otherwise work. |
+| 11-03 | 6/6 VERIFIED | Copied BigInt ownership, lifetime, strict wrong-type behavior, kind hints, and `ffi_wrap` wiring remain substantive. |
+| 11-04 | 6/6 VERIFIED | Configured capacity/depth transport, immutable options, pre-copy capacity rejection, and legacy defaults remain wired. |
+| 11-05 | 8/8 VERIFIED | Diagnostic replay is input-derived, two-pass, bounded by parser limits, range-proven, and explicitly unknown when upstream cannot supply a location. |
+| 11-06 | 5/5 VERIFIED | Kernel reporting/selection is process-global, exact, serialized, and locked by parser creation. |
+| 11-07 | 7/7 VERIFIED | ABI/version/bootstrap mirrors remain coherent at `0x00010002`; staged artifact policy checks pass. |
+| 11-08 | 4/4 VERIFIED | Loader probes ABI before binding mandatory symbols and surfaces compatibility failures without partial publication. |
+| 11-09 | 5/5 VERIFIED | Generated header, C smoke, append-only ABI values/layouts, and normative documentation exist. The separately reported bad_alloc behavior contradicts that normative contract and blocks the roadmap contract truth even though this plan's document-existence truth is present. |
+| 11-10 | 5/5 VERIFIED | BigInt and diagnostics cross the Go materializers and public error model with copied ownership and explicit known/unknown state. |
+| 11-11 | 5/5 VERIFIED | Parser pools preserve homogeneous immutable capacity/depth configurations. |
+| 11-12 | 6/6 VERIFIED | Kernel/diagnostic integration and race/contract checks remain substantive and green. |
+| 11-13 | 7/7 VERIFIED | Benchmark signal, readiness scripts, packaged smoke, and release-facing source gates exist and pass. |
+| 11-14 | 6/6 VERIFIED | Annotated main-ancestor tag and historical five-target/fallback publication evidence remain coherent; no tag was moved. |
+| 11-15 | 4/4 VERIFIED | One 1024 ceiling is enforced across Go/native construction, both replay passes, recursive consumption, and materialization; the largest accepted malformed case is subprocess-safe; all requested regression gates passed. |
 
-Merged with the four non-negotiable roadmap truths, **81/84 must-haves are verified**. The three failed truth rows have one root cause and are grouped as one actionable gap.
+**PLAN score:** 83/84 truths verified.
+
+**Merged score:** 86/88 must-haves verified.
+
+## Re-verification of the Previous Gap
+
+The previous depth-control gap is closed in the current source.
+
+| Check | Evidence | Status |
+| --- | --- | --- |
+| Go option normalization | `parser_options.go` defines `maxSupportedDepth = 1024`, derives the default from it, accepts zero or 1..1024, and rejects larger values during option normalization before library loading. | ✓ VERIFIED |
+| Native constructor ordering | `parser_new_configured_with_selection_lock` rejects `max_depth > MAX_SUPPORTED_DEPTH` before acquiring the implementation-selection mutex and before parser allocation. | ✓ VERIFIED |
+| Replay bounds | Both `replay_raw_json_location` and `replay_recursive_location` reject a limit above the shared constant before allocating an On-Demand parser. | ✓ VERIFIED |
+| Recursive traversal | `consume_ondemand_value` is bounded by the same effective maximum passed to the replay parser. | ✓ VERIFIED |
+| Materializer bound | `append_materialize_frame` uses `MAX_SUPPORTED_DEPTH`; the former independent materializer depth literal is gone. | ✓ VERIFIED |
+| Process isolation | `deep_malformed_at_max_supported_depth_is_process_safe` launches the exact child test, requires normal success plus `1 passed`, and therefore catches signal termination. | ✓ VERIFIED |
+| Fresh behavior | `cargo test --locked --test rust_shim_limits --test rust_shim_diagnostics -- --test-threads=1` passed 14/14 tests. | ✓ PASS |
+
+The immutable `v0.1.7` tag predates Plan 11-15 and therefore still contains the old unbounded-depth behavior. Plan 11-15 explicitly limited itself to source/readiness closure and did not move or replace that tag. Phase 16 owns the final v0.2 publication; `v0.1.7` is not used here as evidence that the new depth closure has shipped.
 
 ## Required Artifacts
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `third_party/simdjson` + `patches/simdjson-v4.6.4-*.patch` + `build.rs` | Exact audited upstream and deterministic patch gate | ✓ VERIFIED | Base commit, clean-submodule checks, OUT_DIR copy, patch apply-check, and nine semantic postconditions are enforced. |
-| `src/native/simdjson_bridge.{h,cpp}` | ABI 1.2 bridge, BigInt spans, configured parser, kernel, diagnostics | ⚠ PARTIAL | Substantive and exported; diagnostic replay is unsafe at a large accepted depth. |
-| `src/lib.rs`, `src/runtime/registry.rs`, `src/runtime/mod.rs` | Rust ABI exports and runtime ownership/copy paths | ✓ VERIFIED | Mandatory symbols delegate to registry; copied byte/error state and configured construction are present. |
-| `include/pure_simdjson.h`, `internal/ffi/bindings.go` | C/Go ABI mirrors | ✓ VERIFIED | ABI/version/status/kind values and function layouts agree; contract audit passed. |
-| `element.go`, `parser_options.go`, `parser.go`, `pool.go`, `kernel.go`, `errors.go` | Public Go surface | ⚠ PARTIAL | BigInt, kernel, capacity, and normal diagnostics work; max-depth validation does not protect recursive replay. |
-| `tests/rust_shim_*.rs`, Go `*_test.go`, contract scripts | Cross-language regression coverage | ⚠ PARTIAL | Fresh suites pass, but no high-depth crash regression exists. |
-| `.github/workflows/release.yml`, `.github/workflows/public-bootstrap-validation.yml` | CI-only publication and fresh-runner validation | ✓ VERIFIED | Hosted runs and public artifacts were checked independently. |
+| `third_party/simdjson` | Exact official v4.6.4 gitlink | ✓ VERIFIED | Gitlink and checkout are `1bcf71bd...`; exact tag lookup returns `v4.6.4`; tracked/staged submodule state is clean. |
+| `patches/simdjson-v4.6.4-positive-bigint.patch`, `build.rs` | Audited, fail-closed positive-BigInt patch | ⚠ PARTIAL | Base, clean-tree, apply-check, and exactly-nine-hunk guards are real. The behavior is incomplete because the rerouted overflow exits before delimiter validation. |
+| `src/native/simdjson_bridge.cpp` | BigInt, limits, kernel, diagnostics, and exception boundary | ⚠ PARTIAL | BigInt spans and controls are wired; depth closure is substantive. `std::bad_alloc` returns status 127 contrary to the normative status-97 contract. |
+| `src/lib.rs`, `src/runtime/registry.rs`, `src/runtime/mod.rs` | Rust ABI exports and owned copy/diagnostic transport | ✓ VERIFIED | Exports delegate through the registry and copy string/BigInt/error state into owned storage. |
+| `include/pure_simdjson.h`, `internal/ffi/bindings.go` | ABI 1.2 C/Go mirrors | ✓ VERIFIED | ABI `0x00010002`, kind 9, statuses, signatures, symbols, and layouts agree; generated-header and C layout checks pass. |
+| `element.go`, `materializer_fastpath.go` | Public and fast-path BigInt handling | ✓ VERIFIED | Kind 9 maps to `TypeBigInt`; both paths copy real native bytes; valid exact text flows. |
+| `parser_options.go`, `parser.go`, `pool.go` | Safe immutable capacity/depth controls | ✓ VERIFIED | Configuration is validated before library use and preserved homogeneously in pools. |
+| `kernel.go`, `library_loading.go` | Kernel report/override and lifecycle lock | ✓ VERIFIED | Real native names flow through mandatory binding; the cache is not a hardcoded result. |
+| `errors.go` and diagnostic exports | Known/unknown offset model | ✓ VERIFIED | Offset is exposed only with a true known flag; unknown remains sentinel plus false. |
+| `tests/rust_shim_*.rs`, Go tests, JSONTestSuite oracle | Cross-language regression coverage | ⚠ PARTIAL | Existing suites are substantive and green, but omit malformed oversized-number suffixes and a deterministic bad_alloc seam. |
+| `.github/workflows/release.yml`, public-bootstrap workflow, `11-ARTIFACT-READINESS.md` | Historical artifact/public validation | ✓ VERIFIED | Immutable `v0.1.7` identity and previously audited hosted evidence remain coherent; current source-only Plan 11-15 changes are not misrepresented as part of that tag. |
+
+The SDK artifact heuristic reported false negatives for the submodule directory and some prose/pattern links. Manual checks resolved those cases with `git ls-tree`, exact source inspection, generated-header diffing, and executable tests. The two PARTIAL artifacts above are behavioral failures, not heuristic misses.
 
 ## Key Link Verification
 
 | From | To | Via | Status | Details |
 | --- | --- | --- | --- | --- |
-| Audited simdjson gitlink | Compiled native bridge | `build.rs` commit/cleanliness/patch/postcondition gate | ✓ WIRED | Build fails closed on base or patch drift. |
-| JSON oversized integer | Go `GetBigInt()` | native kind 9 span → Rust copied bytes → FFI binding → Go string | ✓ WIRED | Exact boundary corpus passed. |
-| `WithMaxCapacity` | pre-copy parser rejection | Go normalization → configured FFI → registry comparison | ✓ WIRED | Capacity is checked before `mem::take`, resize, or input copy. |
-| `WithMaxDepth` | primary parser and both replay parsers | stored config → `DiagnosticReplayLimits` | ⚠ UNSAFE | Exact values are forwarded, but recursive replay turns a legal value into stack exhaustion. |
-| Upstream error pointer | Go `Error.Offset` / `HasOffset` | in-range pointer proof → Rust transport → Go typed error | ✓ WIRED | Zero is distinguishable from unknown in covered cases. |
-| Parser/kernel setup | process-wide override lock | Go mutex + mandatory native support/select exports | ✓ WIRED | Reporting is cache-only and selection locks after parser creation. |
-| `v0.1.7` tag | public bootstrap | release workflow → signed assets/checksums → validation workflow | ✓ WIRED | Publication precedes successful five-target R2 and three-target fallback validation. |
+| Official simdjson v4.6.4 | Built native source | clean exact-base check → copied build output → nine patch hunks | ✓ WIRED | Provenance and fail-closed patch application are real. |
+| Oversized numeric token | DOM BigInt tape value | `BIGINT_NUMBER`/`BIGINT_ERROR` → `number_as_string(true)` | ✗ NOT CORRECTLY WIRED | The branch bypasses the later structural-or-whitespace check; `visit_number` copies only sign/digits and returns success, dropping a malformed suffix. |
+| Native kind 9 | Go `GetBigInt()` and materializers | native span → Rust-owned copy → Go binding/string | ✓ WIRED | Valid positive/negative exact text survives document lifetime and both materialization paths. |
+| `WithMaxDepth` | primary parser, both replay parsers, recursive replay, materializer | shared effective value and `MAX_SUPPORTED_DEPTH` | ✓ WIRED | All paths use the 1024 ceiling and reject larger values before unsafe work. |
+| Upstream location pointer | Go `Error.Offset` / `HasOffset` | checked in-range pointer → Rust transport → Go typed error | ✓ WIRED | Known zero is preserved; unavailable/out-of-range values remain explicitly unknown. |
+| Go kernel API | process-global simdjson implementation selection | loader binding → native setter/report → selection lock | ✓ WIRED | Kernel tests are process-isolated and use the real implementation registry. |
+| C++ catch boundary | ABI status code | catch macro → `map_cpp_exception` | ✗ PARTIAL | `runtime_error` and unknown exceptions map to 97; `std::bad_alloc` maps to 127. |
+| Rust ABI source | generated header → Go binding → C smoke | cbindgen plus mandatory symbol table | ✓ WIRED | `make verify-contract` passes header diff, rules, and C layout compilation. |
+| Annotated `v0.1.7` tag | historical five-target/public bootstrap evidence | tag-driven release and separate public validation | ✓ WIRED | Tag target remains an ancestor of local `origin/main`; Plan 11-15 is correctly treated as later source work. |
 
 ## Data-Flow Trace (Level 4)
 
 | Artifact | Data variable | Source | Produces real data | Status |
 | --- | --- | --- | --- | --- |
-| `element.go` | BigInt decimal bytes | Real parsed token from patched simdjson | Yes; copied across native/Rust/Go lifetime boundaries | ✓ FLOWING |
-| `parser_options.go` / registry | capacity/depth config | Public options | Yes; exact values reach all parser constructors | ⚠ FLOWING BUT UNSAFE |
-| `errors.go` | offset + known flag | Checked upstream `current_location()` pointer | Yes for covered failures | ⚠ FLOWING UNTIL LARGE-DEPTH CRASH |
-| `kernel.go` | active/requested kernel | Native runtime support/selection | Yes; real runtime result, not hardcoded | ✓ FLOWING |
-| release/bootstrap workflows | artifacts and checksum metadata | Immutable tag build and public object storage | Yes; 18 release assets and live metadata observed | ✓ FLOWING |
+| BigInt public/materializer path | decimal text | parsed oversized token → native span → copied Rust bytes → Go string | Yes for valid input | ⚠ FLOWING BUT VALIDATION-HOLLOW: a malformed suffix is discarded before the same path returns the digit prefix. |
+| Parser limits | `maxCapacity`, `maxDepth` | public Go options or C constructor values | Yes | ✓ FLOWING: exact normalized values reach primary parse, replay, and materialization, bounded at 1024 depth. |
+| Diagnostics | offset plus known flag | upstream `current_location()` followed by pointer-range proof | Yes when upstream supplies a valid pointer | ✓ FLOWING: otherwise exact sentinel/false, never a guessed offset. |
+| Kernel | active/requested implementation name | simdjson runtime implementation registry | Yes | ✓ FLOWING: report and override are not static placeholders. |
+| Exception status | ABI return code | C++ catch overload | Yes | ✗ WRONG VALUE for `std::bad_alloc`: 127 instead of normative 97. |
+| Release/bootstrap | artifact identity and checksum metadata | immutable tag and hosted workflows | Yes for historical `v0.1.7` | ✓ FLOWING, with Plan 11-15 correctly excluded from the old tag. |
 
 ## Behavioral Spot-Checks
 
-All local commands below ran in a fresh detached checkout of `v0.1.7` with the exact submodule initialized.
-
 | Behavior | Command / invocation | Result | Status |
 | --- | --- | --- | --- |
-| Cross-language contract and Rust behavior | `make verify-contract` | 17 Rust unit tests, 67 integration tests, 25 header audits, and C layout compile passed | ✓ PASS |
-| Go API under race detector | fresh release dylib + `go test ./... -race -count=1` | All four Go packages passed | ✓ PASS |
-| PR benchmark harness | `scripts/bench/run_pr_benchmark.sh --no-baseline --out-dir <temp>` | Exit 0; benchmark output and JSON summary produced | ✓ PASS |
-| Five-target release | Hosted run `30030435051` on tag target | Eight jobs successful, including five platform builds, Alpine smoke, and publish | ✓ PASS |
-| Public bootstrap | Hosted run `30448288140` for `v0.1.7` | Five R2 targets and linux/darwin/windows fallback jobs successful | ✓ PASS |
-| Public metadata | anonymous GET of `v0.1.7/SHA256SUMS` and `latest.json` | HTTP 200; five real checksum rows; latest version `v0.1.7` | ✓ PASS |
-| Deep valid input control | ABI parser: capacity `1,000,000`, depth `256,002`, input `"[" × 256000 + "0" + "]" × 256000` | create 0, parse 0, free 0; process exit 0 | ✓ PASS |
-| Deep malformed syntax | Same config, input `"[" × 256000 + "0," + "]" × 256000` | Process terminated with exit 139 / SIGSEGV | ✗ FAIL |
+| Fresh production library | `cargo build --release --locked` | Release dylib built successfully. | ✓ PASS |
+| Maximum-depth and diagnostics closure | `cargo test --locked --test rust_shim_limits --test rust_shim_diagnostics -- --test-threads=1` | 14/14 passed, including the exact child-process crash regression. | ✓ PASS |
+| Rust/C/header contract | `make verify-contract` | Rust suites, 25 header audits, generated-header diff, header rules, and C layout compile passed. | ✓ PASS |
+| Existing exception seam | exact `psimdjson_test_force_cpp_exception_returns_err_cpp_exception` test | Forced `std::runtime_error` returned 97 and passed; it does not exercise `std::bad_alloc`. | ✓ PASS, INCOMPLETE COVERAGE |
+| Go API race gate | fresh exact dylib + `go test ./... -race -count=1 -timeout=180s` | All four packages passed under the race detector. | ✓ PASS |
+| Benchmark regression signal | `scripts/bench/run_pr_benchmark.sh --no-baseline --out-dir <temp>` | Exit 0; non-empty `.bench.txt`, `summary.json`, and `markdown.md` produced. | ✓ PASS |
+| Non-strict release readiness | `bash scripts/release/check_readiness.sh` | `basic release readiness checks passed`. | ✓ PASS |
+| Valid BigInt control | ABI parse of `18446744073709551616` | `parse_rc=0 kind=9 text=18446744073709551616`. | ✓ PASS |
+| Malformed positive BigInt | ABI parse of `18446744073709551616x` | `parse_rc=0 kind=9 text=18446744073709551616`; suffix silently discarded. | ✗ FAIL |
+| Malformed negative BigInt | ABI parse of `-9223372036854775809x` | `parse_rc=0 kind=9 text=-9223372036854775809`; suffix silently discarded. | ✗ FAIL |
+| Malformed nested BigInt | ABI parse of `[123456789012345678901x]` | `parse_rc=0 kind=7`; malformed document accepted. | ✗ FAIL |
+| Invalid UTF-8 control | ABI parse of oversized digits plus byte `0xff` | `parse_rc=32`; invalid UTF-8 remains rejected. | ✓ PASS |
 
-### Exact Failure Reproduction
-
-Against the fresh `target/release/libpure_simdjson` built from `v0.1.7`:
-
-1. Call `pure_simdjson_parser_new_configured(1_000_000, 256_002, &parser)`.
-2. Build 512,002 bytes: `b"[" * 256_000 + b"0," + b"]" * 256_000`.
-3. Call `pure_simdjson_parser_parse(parser, input, len(input), &doc)`.
-4. The process exits 139 instead of returning a typed status and known/unknown diagnostic state.
-
-The control differs only by removing the comma. It returns success from create, parse, document free, and parser free. Smaller malformed probes at depths 1,025 through 128,000 returned ordinary `ErrInvalidJSON` with diagnostic state; 256,000 exposed the stack limit.
-
-The source explains the transition: `consume_ondemand_value` at `src/native/simdjson_bridge.cpp:426` recursively calls itself at lines 458 and 490, while `parser_options.go:75-92` permits depth values through `uint32` maximum.
+The malformed-input probe also reproduced success/truncation for `_`, `+`, `/`, and NUL suffixes. This is not a generic “the parser accepts trailing content” claim: ordinary small-number JSONTestSuite cases remain rejected. The failure is specific to the oversized-integer BigInt branch.
 
 ## Probe Execution
 
-No Phase 11 PLAN/SUMMARY declares a `probe-*.sh`, and no conventional `scripts/*/tests/probe-*.sh` exists. Step 7c is therefore **SKIPPED (no declared probe scripts)**. The direct ABI crash reproduction above is recorded as a behavioral spot-check.
+No conventional `scripts/*/tests/probe-*.sh` files or Phase 11 declared probe scripts exist.
+
+**Step 7c:** SKIPPED — no probe contract was declared. The runnable ABI and subprocess checks above cover the phase behaviors directly.
 
 ## Requirements Coverage
 
-| Requirement | Source plans | Status | Evidence |
-| --- | --- | --- | --- |
-| UP-01 | 11-01, 11-09, 11-12, 11-13, 11-14 | ✓ SATISFIED | Exact v4.6.4 integration, patch gate, contract tests, and cross-platform release evidence. |
-| NUM-01 | 11-02, 11-03, 11-09, 11-10, 11-12, 11-14 | ✓ SATISFIED | `TypeBigInt` kind 9 is stable and exact decimal text crosses every layer. |
-| NUM-02 | 11-02, 11-03, 11-10, 11-12, 11-14 | ✓ SATISFIED | Exact accessor is opt-in; no automatic Go `math/big` allocation. |
-| DIAG-01 | 11-07, 11-08, 11-11, 11-12, 11-14 | ✓ SATISFIED | Kernel report/override is real, validated, and locked after parser creation. |
-| DIAG-02 | 11-05, 11-06, 11-09, 11-10, 11-12, 11-14 | ✗ BLOCKED | Normal known/unknown behavior works, but an accepted large-depth syntax failure crashes before returning either state. |
-| LIMIT-01 | 11-04, 11-05, 11-08, 11-09, 11-11, 11-12, 11-14 | ✗ BLOCKED | Capacity and normal depth boundaries work; the advertised accepted depth range is not safe for diagnostic replay. |
-
-All six requirements mapped to Phase 11 appear in PLAN frontmatter; no Phase 11 requirement is orphaned.
-
-## Anti-Patterns and Advisory Findings
-
-| File | Line | Pattern | Severity | Impact |
+| Requirement | Source plans | Description | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| `src/native/simdjson_bridge.cpp` | 426, 458, 490 | Caller-bounded but call-stack-recursive error traversal | 🛑 BLOCKER | Large accepted malformed input can terminate the host process. |
-| `src/native/simdjson_bridge.cpp` | 845-849 | Internal fast materializer hard-codes depth 1024 | ⚠ WARNING | A valid document accepted above depth 1024 can return depth-limit status from the internal benchmark/test materializer. No exported Go API currently uses this helper. |
-| `README.md` at `v0.1.7` | 67 | Says the published default-install version is still `v0.1.4` | ⚠ WARNING | Consumer-facing release status is stale after successful `v0.1.7` publication. |
-| `docs/releases.md` at `v0.1.7` | 21, 60, 141, 160 | Operator examples remain pinned to `0.1.4` | ℹ INFO | Examples are usable only after manual version substitution; the live release itself is correctly `v0.1.7`. |
+| UP-01 | 11-01, 11-02, 11-07, 11-13, 11-14 | Exact audited simdjson v4.6.4 plus compatibility gates | ✗ BLOCKED | Exact provenance and automated gates pass, but the patch accepts malformed JSON and the exception boundary contradicts the normative ABI contract. |
+| NUM-01 | 11-02, 11-03, 11-10, 11-13, 11-14 | Preserve valid oversized integers as exact text instead of invalid JSON | ✗ BLOCKED | Valid literals work, but the preservation mechanism also turns malformed oversized tokens into valid/truncated BigInts; the feature is not correctness-safe. |
+| NUM-02 | 11-02, 11-03, 11-07 through 11-10, 11-13, 11-14 | `TypeBigInt`/`GetBigInt` without automatic arbitrary precision dependency | ✓ SATISFIED | Kind 9 and exact copied text cross native/Rust/Go paths; no production `math/big` import. |
+| DIAG-01 | 11-06 through 11-09, 11-12 through 11-14 | Kernel report and exact override | ✓ SATISFIED | Mandatory bindings, process-global lock semantics, real report, and process-isolated tests pass. |
+| DIAG-02 | 11-05, 11-07 through 11-10, 11-12 through 11-15 | Real offsets when upstream proves them; explicit unknown otherwise | ✓ SATISFIED | Corpus, known-zero, range proof, stale-state clearing, limit boundaries, and depth-1024 subprocess all pass. |
+| LIMIT-01 | 11-04, 11-07 through 11-09, 11-11 through 11-15 | Safe immutable capacity/depth options and homogeneous pools | ✓ SATISFIED | Capacity checks precede copy; depth is capped at 1024 across all recursive consumers; pool identity includes both values. |
 
-No unreferenced `TBD`, `FIXME`, or `XXX` debt marker was found in the Phase 11 production-file delta.
+No Phase 11 requirement mapped in `REQUIREMENTS.md` is absent from all plans. There are no orphaned Phase 11 requirement IDs.
+
+## Anti-Patterns Found
+
+| File | Line / area | Pattern | Severity | Impact |
+| --- | --- | --- | --- | --- |
+| `patches/simdjson-v4.6.4-positive-bigint.patch` | 18-75 | Nine early overflow returns changed from `INVALID_NUMBER` to `BIGINT_NUMBER` without retaining delimiter validation | 🛑 BLOCKER | Malformed oversized numeric tokens reach the string-preservation path. |
+| generated patched `simdjson.cpp` | `parse_number` / `tape_builder::visit_number` | BigInt error returns before the normal delimiter check; visitor scans sign/digits only and returns success | 🛑 BLOCKER | Suffix bytes are silently discarded and malformed JSON becomes a valid BigInt/document. |
+| `src/native/simdjson_bridge.cpp` | 253-258, 286-309 | Special `std::bad_alloc` overload returns a different public status from the normative all-C++-exception rule | 🛑 BLOCKER | Callers receive status 127 where ABI documentation promises 97. |
+| `tests/rust_shim_bigint.rs`, JSONTestSuite oracle | coverage gap | No malformed oversized-token suffix matrix | ⚠ WARNING | Full Rust/Go/oracle gates remain green while the parser accepts malformed JSON. |
+| `tests/rust_shim_minimal.rs` | exception seam | Only `std::runtime_error` is forced | ⚠ WARNING | The conflicting `std::bad_alloc` catch branch is never executed by the contract suite. |
+
+No unreferenced `TBD`, `FIXME`, or `XXX` debt marker was found in the Phase 11 closure files. The word “placeholder” in benchmark documentation names an intentionally scoped DOM-era benchmark and does not flow to product behavior.
 
 ## Deferred-Phase Filter
 
-Phases 12-16 cover DOM navigation, batched On-Demand extraction, borrowed views, streaming, and final v0.2 stabilization/release. None specifically promises to make the existing Phase 11 configured-depth diagnostic replay safe. The gap is therefore **not deferred**.
+Phases 12-16 cover DOM navigation, batched On-Demand extraction, borrowed views, streaming, and final v0.2 stabilization/release. None names malformed BigInt token validation or reconciliation of C++ exception status 97 versus 127. Both gaps remain Phase 11 compatibility-foundation defects and are **not deferred**.
+
+Phase 16 does own publication of the final v0.2 artifact. That future publication does not fix either source defect and is not used to suppress them.
 
 ## Human Verification Required
 
-None. Visual behavior is not in scope, and the tag identity, hosted jobs, public endpoints, ABI behavior, and crash were all directly observable.
+None. The relevant behavior is ABI-, source-, subprocess-, and command-observable. There are no deferred `<human-check>` blocks in the Phase 11 plans.
 
 ## Gaps Summary
 
-Phase 11 substantially delivers the v4.6.4 refresh, exact BigInt path, kernel controls, release artifacts, and ordinary diagnostics. It does not yet deliver a safe production depth-control/diagnostic contract.
+Plan 11-15 successfully closes the previous recursive diagnostic stack-overflow gap in the current source. ABI identity, v4.6.4 provenance, valid BigInt text flow, kernel controls, bounded parser limits, known/unknown diagnostic offsets, contract compilation, Go race tests, benchmark signal, and readiness checks are all substantive.
 
-The smallest coherent closure is:
+The phase goal is still not achieved:
 
-1. Make error-location traversal iterative, or cap accepted depth to a value proven safe for every parser-owned traversal.
-2. Apply that contract consistently to primary parsing, both diagnostic replay passes, and the internal materializer.
-3. Add a subprocess regression so a signal is reported as a test failure rather than killing the test runner.
-4. Re-run the contract suite, Go race suite, large-depth valid/malformed controls, benchmark harness, and release readiness checks.
+1. The BigInt preservation path changes parser validity. It accepts malformed oversized numeric tokens and exposes a truncated decimal prefix as if the JSON were valid.
+2. The C++ exception boundary disagrees with its normative ABI contract for `std::bad_alloc`.
+
+Both issues affect the compatibility foundation, neither is covered by a later roadmap phase, and neither has an accepted override. Phase 12 should not proceed on the assumption that Phase 11 is complete.
 
 ---
 
-_Verified: 2026-07-29T12:28:41Z_
+_Verified: 2026-07-29T14:20:07Z_
+
 _Verifier: the agent (gsd-verifier)_
