@@ -4,7 +4,8 @@ import "fmt"
 
 const (
 	defaultMaxCapacity uint64 = 0xFFFFFFFF
-	defaultMaxDepth    uint32 = 1024
+	maxSupportedDepth  uint32 = 1024
+	defaultMaxDepth           = maxSupportedDepth
 	minMaxCapacity            = 32
 )
 
@@ -42,7 +43,7 @@ func WithMaxCapacity(bytes int) ParserOption {
 }
 
 // WithMaxDepth sets the upstream parser's maximum nesting depth. Zero selects
-// the default depth of 1024.
+// the default depth of 1024; nonzero values must be between 1 and 1024.
 func WithMaxDepth(depth int) ParserOption {
 	return ParserOption{kind: parserOptionMaxDepth, value: depth}
 }
@@ -81,12 +82,12 @@ func normalizeParserOptions(opts ...ParserOption) (parserConfig, error) {
 					"%w: maximum depth must not be negative",
 					ErrInvalidOption,
 				)
-			case uint64(option.value) > uint64(^uint32(0)):
+			case uint64(option.value) > uint64(maxSupportedDepth):
 				return parserConfig{}, fmt.Errorf(
-					"%w: maximum depth %d exceeds %d",
+					"%w: maximum depth %d exceeds the supported maximum of %d",
 					ErrInvalidOption,
 					option.value,
-					uint64(^uint32(0)),
+					maxSupportedDepth,
 				)
 			default:
 				config.maxDepth = uint32(option.value)

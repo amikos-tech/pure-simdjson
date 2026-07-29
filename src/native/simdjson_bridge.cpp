@@ -91,7 +91,8 @@ struct psimdjson_parser {
 namespace {
 
 constexpr uint64_t DEFAULT_MAX_CAPACITY = UINT64_C(0xFFFFFFFF);
-constexpr uint32_t DEFAULT_MAX_DEPTH = UINT32_C(1024);
+constexpr uint32_t MAX_SUPPORTED_DEPTH = UINT32_C(1024);
+constexpr uint32_t DEFAULT_MAX_DEPTH = MAX_SUPPORTED_DEPTH;
 constexpr uint64_t MIN_MAX_CAPACITY = UINT64_C(32);
 constexpr uint32_t REPLAY_PASS_RAW_JSON = 1;
 constexpr uint32_t REPLAY_PASS_RECURSIVE = 2;
@@ -428,6 +429,10 @@ simdjson::error_code consume_ondemand_value(
     size_t current_depth,
     size_t max_depth
 ) {
+  if (max_depth > static_cast<size_t>(MAX_SUPPORTED_DEPTH)) {
+    return simdjson::DEPTH_ERROR;
+  }
+
   simdjson::ondemand::json_type type;
   auto error = value.type().get(type);
   if (error != simdjson::SUCCESS) {
@@ -523,6 +528,10 @@ ReplayDisposition replay_raw_json_location(
     DiagnosticReplayLimits limits,
     psimdjson_test_replay_observation *observation
 ) {
+  if (limits.max_depth > MAX_SUPPORTED_DEPTH) {
+    observation->replay_error = static_cast<int32_t>(simdjson::DEPTH_ERROR);
+    return ReplayDisposition::stopped;
+  }
   if (limits.max_capacity > std::numeric_limits<size_t>::max()) {
     observation->replay_error = static_cast<int32_t>(simdjson::CAPACITY);
     return ReplayDisposition::stopped;
@@ -594,6 +603,10 @@ ReplayDisposition replay_recursive_location(
     DiagnosticReplayLimits limits,
     psimdjson_test_replay_observation *observation
 ) {
+  if (limits.max_depth > MAX_SUPPORTED_DEPTH) {
+    observation->replay_error = static_cast<int32_t>(simdjson::DEPTH_ERROR);
+    return ReplayDisposition::stopped;
+  }
   if (limits.max_capacity > std::numeric_limits<size_t>::max()) {
     observation->replay_error = static_cast<int32_t>(simdjson::CAPACITY);
     return ReplayDisposition::stopped;
@@ -695,6 +708,9 @@ pure_simdjson_error_code_t parser_new_configured_with_selection_lock(
   }
   if (max_capacity != 0 &&
       (max_capacity < MIN_MAX_CAPACITY || max_capacity > DEFAULT_MAX_CAPACITY)) {
+    return invalid_argument();
+  }
+  if (max_depth > MAX_SUPPORTED_DEPTH) {
     return invalid_argument();
   }
 
@@ -842,10 +858,9 @@ pure_simdjson_error_code_t append_materialize_frame(
     std::string_view key,
     size_t depth
 ) {
-  // Defense-in-depth: simdjson's parser cap catches user input first today.
-  // Keep the materializer bound in case future refactors decouple those depths.
-  constexpr size_t MAX_MATERIALIZE_FRAME_DEPTH = 1024;
-  if (depth > MAX_MATERIALIZE_FRAME_DEPTH) {
+  // Defense-in-depth: keep the same N-1-success/N-failure boundary as parser
+  // construction in case future refactors decouple materialization from parse.
+  if (depth >= static_cast<size_t>(MAX_SUPPORTED_DEPTH)) {
     return PURE_SIMDJSON_ERR_DEPTH_LIMIT;
   }
 
@@ -1643,6 +1658,9 @@ pure_simdjson_error_code_t psimdjson_test_recursive_replay_observation(
         out_offset == nullptr ||
         out_has_offset == nullptr ||
         out_observation == nullptr) {
+      return invalid_argument();
+    }
+    if (max_depth > MAX_SUPPORTED_DEPTH) {
       return invalid_argument();
     }
     if (input_len > std::numeric_limits<size_t>::max() - simdjson::SIMDJSON_PADDING) {
