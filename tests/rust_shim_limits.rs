@@ -12,6 +12,8 @@ use pure_simdjson::{
     pure_simdjson_parser_t,
 };
 
+const MAX_SUPPORTED_DEPTH: u32 = 1024;
+
 fn parser_new() -> pure_simdjson_parser_t {
     let mut parser = 0;
     let rc = unsafe { pure_simdjson_parser_new(&mut parser) };
@@ -114,7 +116,21 @@ fn configured_constructor_normalizes_defaults_and_rejects_invalid_capacity() {
     }
 
     free_parser(parser_new_configured(0, 0));
+    free_parser(parser_new_configured(0, MAX_SUPPORTED_DEPTH));
     free_parser(parser_new_configured(32, 0));
+
+    let mut parser = u64::MAX;
+    let rc =
+        unsafe { pure_simdjson_parser_new_configured(0, MAX_SUPPORTED_DEPTH + 1, &mut parser) };
+    if rc == PURE_SIMDJSON_OK && parser != u64::MAX {
+        free_parser(parser);
+    }
+    assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_ARGUMENT);
+    assert_eq!(
+        parser,
+        u64::MAX,
+        "unsupported depth changed the output handle"
+    );
 }
 
 #[test]
@@ -162,7 +178,8 @@ fn configured_depth_accepts_n_minus_one_and_rejects_n() {
 fn legacy_constructor_keeps_default_depth_boundary() {
     let parser = parser_new();
 
-    let (accepted_rc, accepted_doc) = parser_parse(parser, &nested_array(1023));
+    let (accepted_rc, accepted_doc) =
+        parser_parse(parser, &nested_array(MAX_SUPPORTED_DEPTH as usize - 1));
     assert_eq!(accepted_rc, PURE_SIMDJSON_OK);
     assert_ne!(accepted_doc, 0);
     assert_eq!(
@@ -170,7 +187,8 @@ fn legacy_constructor_keeps_default_depth_boundary() {
         PURE_SIMDJSON_OK
     );
 
-    let (rejected_rc, rejected_doc) = parser_parse(parser, &nested_array(1024));
+    let (rejected_rc, rejected_doc) =
+        parser_parse(parser, &nested_array(MAX_SUPPORTED_DEPTH as usize));
     assert_eq!(rejected_rc, PURE_SIMDJSON_ERR_DEPTH_LIMIT);
     assert_eq!(rejected_doc, 0);
 
