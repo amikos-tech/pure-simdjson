@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: verifying
-stopped_at: Phase 11 verification found a blocking large-depth diagnostic replay gap
-last_updated: "2026-07-29T12:32:46.000Z"
-last_activity: 2026-07-29
+status: executing
+stopped_at: Completed 11-14-PLAN.md
+last_updated: "2026-07-29T13:11:42.406Z"
+last_activity: 2026-07-29 -- Phase 11 planning complete
 progress:
   total_phases: 22
   completed_phases: 11
-  total_plans: 64
+  total_plans: 65
   completed_plans: 63
   percent: 50
 ---
@@ -27,8 +27,8 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — VERIFICATION GAPS
 Plan: 14 of 14
-Status: 1 blocking gap — plan gap closure before re-verification
-Last activity: 2026-07-29
+Status: Ready to execute
+Last activity: 2026-07-29 -- Phase 11 planning complete
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
 Progress: [█████████░] 98%
 
