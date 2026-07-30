@@ -126,6 +126,6 @@ Current-source evidence:
 - `make verify-contract` passed 91 Rust tests, deterministic header regeneration, 25 ABI/header audits, and the C layout compile.
 - `make verify-docs` passed.
 - A fresh release build plus `go test ./... -race -count=1 -timeout=180s` passed all four Go packages.
-- The four release/bootstrap Python suites passed 43/43 tests.
+- The four release/bootstrap Python suites passed 46/46 tests on the branch rebased onto current `main`.
 - `TestJSONTestSuiteOracle`, the no-baseline PR benchmark signal, and non-strict release readiness all passed.
 - No missing or partial requirement-level validation was found, so no test file was generated and no auditor repair task was required.
