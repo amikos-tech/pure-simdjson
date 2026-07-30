@@ -524,7 +524,7 @@ Plans:
 **Requirements:** TBD — promoted from backlog item `999.8` and narrowed to lightweight benchmark coverage rather than general branch-head CI. Planning should decide the exact benchmark subset, acceptable runtime budget, benchstat/regression threshold policy, advisory-vs-blocking semantics, and whether docs-only changes skip the job.
 
 **Depends on:** Phase 09.1
-**Plans:** 3/3 plans complete
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] `10-01-PLAN.md` — Section-aware bidirectional benchstat regression parser, contract tests, and fixture corpus covering real multi-metric benchstat output (D-08, D-11, D-12, D-13, D-14, D-15)

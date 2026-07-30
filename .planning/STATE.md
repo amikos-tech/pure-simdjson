@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: executing
-stopped_at: "Phase 11 shipped — PR #38; ready to discuss Phase 12"
-last_updated: "2026-07-30T11:51:16.989Z"
-last_activity: 2026-07-30 -- Phase 10 planning complete
+status: completed
+stopped_at: Completed 10-04-PLAN.md
+last_updated: "2026-07-30T11:55:37.048Z"
+last_activity: 2026-07-30 -- Phase 10 marked complete
 progress:
   total_phases: 22
-  completed_phases: 12
+  completed_phases: 13
   total_plans: 69
-  completed_plans: 68
-  percent: 55
+  completed_plans: 69
+  percent: 59
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 ## Current Position
 
-Phase: 10 (lightweight-pr-benchmark-regression-signal) — EXECUTING
-Plan: 2 of 3
-Status: Ready to execute
-Last activity: 2026-07-30 -- Phase 10 planning complete
+Phase: 10 — COMPLETE
+Plan: 4 of 4
+Status: Phase 10 complete
+Last activity: 2026-07-30 -- Phase 10 marked complete
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
 Progress: [██████████] 100%
 
@@ -71,6 +71,7 @@ Progress: [██████████] 100%
 | Phase 11 P17 | 8min | 1 tasks | 5 files |
 | Phase 11 P18 | 8min | 1 tasks | 2 files |
 | Phase 10 P03 | 8 min | 1 tasks | 4 files |
+| Phase 10 P04 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -194,6 +195,8 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 11]: Parser-aware bad-allocation capture uses a fixed non-allocating diagnostic and selector 3 stays on the existing hidden seam. — This guarantees noexcept containment while preserving the public ABI and returned MEMALLOC/internal status semantics.
 - [Phase 10]: PR benchmark jobs restore but never save the canonical baseline cache; only the main-baseline workflow writes it.
 - [Phase 10]: `REQUIRE_NO_REGRESSION` stays `false` until observed CI noise supports a separate blocking-mode decision.
+- [Phase 10]: Treat non-empty raw samples returned by Phase 9 as wrong evidence for the PR benchstat CLI. — The PR input is benchstat output; raw samples would otherwise yield a misleading clean result.
+- [Phase 10]: Keep Phase 10 section-aware sec/op parsing as the regression classifier after shared input validation. — Raw evidence recognition does not replace benchstat metric-section semantics.
 
 ### Pending Todos
 
@@ -207,8 +210,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-30T11:38:22.032Z
-Stopped at: Phase 11 shipped — PR #38; ready to discuss Phase 12
+Last session: 2026-07-30T11:55:36.860Z
+Stopped at: Completed 10-04-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
