@@ -1,8 +1,8 @@
 ---
 phase: 12
 slug: high-value-dom-navigation-and-simd-utility-apis
-status: draft
-nyquist_compliant: false
+status: approved
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-07-30
 ---
@@ -39,19 +39,25 @@ created: 2026-07-30
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD | TBD | TBD | DOM-01 | — | `AtPointer` rejects malformed pointers with `ErrInvalidPath` rather than traversing | unit | `go test -run TestElement_AtPointer ./...` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | DOM-02 | — | `AtPath` rejects malformed paths with `ErrInvalidPath`; bracket-key non-quote-awareness documented, not silently mis-resolved | unit | `go test -run TestElement_AtPath ./...` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | DOM-03 | — | `AtPathAll` returns `([]Element{}, nil)` on zero matches; never a partial/unordered set | unit | `go test -run TestElement_AtPathAll ./...` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | DOM-03 | T-12-BULK | Bulk view-array allocation is freed exactly once; double-free and mismatched-length free are rejected | Rust integration | `cargo test --test rust_shim_navigation` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | DOM-04 | — | Out-of-range `Array.At` returns `ErrIndexOutOfRange`, never a zero-value `Element` | unit | `go test -run 'TestArray_At\|TestArray_Len\|TestObject_Size' ./...` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | UTIL-01 | T-12-ALIAS | `MinifyInto` with `dst == src` produces byte-identical output to the non-aliased path | unit + Rust contract | `go test -run TestMinify ./...`; `cargo test --test rust_shim_minify` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | UTIL-01 | T-12-BOUNDS | Undersized `dst` is rejected at the C++ bridge boundary before `simdjson::minify` is called — never a silent truncation or overflow | C++/Rust contract | `cargo test --test rust_shim_minify -- undersized` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | UTIL-02 | — | `ValidateUTF8` reports invalid UTF-8 as `false`, and library-load failure as a real `error` | unit | `go test -run TestValidateUTF8 ./...` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | UTIL-01/02 (D-15) | T-12-CPU | Standalone entry points return `ErrCPUUnsupported` on unsupported CPUs and lock kernel selection on first success | unit | `go test -run 'TestMinify_CPUGate\|TestValidateUTF8_CPUGate' ./...` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | D-14 | T-12-ALIAS | `dst == src` aliasing is memory-safe on x86-64 kernels (haswell/westmere/fallback), not just arm64 | CI-matrix (ASan/UBSan) | `bash .planning/spikes/004-minify-buffer-safety/verify.sh` in `linux-smoke` | ❌ W0 | ⬜ pending |
+| Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
+| — | 12-01 | 1 | DOM-01 | — | Native `at_pointer` maps `INVALID_JSON_POINTER` to status 11, not the generic internal-error bucket | Rust integration | `cargo test --test rust_shim_navigation` | ❌ W0 | ⬜ pending |
+| — | 12-01 | 1 | DOM-02 | — | Native `at_path` maps `INDEX_OUT_OF_BOUNDS` to status 12, distinguishable from a missing field | Rust integration | `cargo test --test rust_shim_navigation` | ❌ W0 | ⬜ pending |
+| — | 12-02 | 2 | DOM-04 | — | Native `array_at` returns the out-of-bounds status rather than a zero-initialized view | Rust integration | `cargo test --test rust_shim_navigation` | ❌ W0 | ⬜ pending |
+| — | 12-03 | 3 | DOM-03 | T-12-BULK | Bulk view-array allocation is freed exactly once; double-free and mismatched-length free are rejected via the separate `view_array_allocations` map | Rust integration | `cargo test --test rust_shim_navigation` | ❌ W0 | ⬜ pending |
+| — | 12-04 | 4 | UTIL-01 | T-12-BOUNDS | Undersized `dst` is rejected at the C++ bridge boundary before `simdjson::minify` is called — never a silent truncation or overflow | C++/Rust contract | `cargo test --test rust_shim_minify -- undersized` | ❌ W0 | ⬜ pending |
+| — | 12-04 | 4 | UTIL-01/02 (D-15) | T-12-CPU | Native minify/validate entry points replicate the CPU-unsupported rejection and lock kernel selection on first success | Rust integration | `cargo test --test rust_shim_minify` | ❌ W0 | ⬜ pending |
+| — | 12-04 | 4 | D-14 | T-12-ALIAS | `dst == src` aliasing is memory-safe on x86-64 kernels (haswell/westmere/fallback), not just arm64 | CI-matrix (ASan/UBSan) | `bash .planning/spikes/004-minify-buffer-safety/verify.sh` as a step in `linux-smoke` | ❌ W0 | ⬜ pending |
+| — | 12-05 | 5 | all | — | Every new symbol resolves at bind time; a missing export fails loudly rather than nil-dereferencing at call time | unit | `go test ./internal/ffi/...` | ❌ W0 | ⬜ pending |
+| — | 12-06 | 6 | DOM-01 | — | `AtPointer` rejects malformed pointers with `ErrInvalidPath` rather than traversing | unit | `go test -run TestElement_AtPointer ./...` | ❌ W0 | ⬜ pending |
+| — | 12-06 | 6 | DOM-02 | — | `AtPath` bracket-key non-quote-awareness is documented and test-pinned, not silently mis-resolved | unit | `go test -run TestElement_AtPath ./...` | ❌ W0 | ⬜ pending |
+| — | 12-06 | 6 | DOM-03 | — | `AtPathAll` returns `([]Element{}, nil)` on zero matches; never a partial or unordered set | unit | `go test -run TestElement_AtPathAll ./...` | ❌ W0 | ⬜ pending |
+| — | 12-07 | 6 | UTIL-01 | T-12-ALIAS | `MinifyInto` with `dst == src` produces byte-identical output to the non-aliased path | unit | `go test -run TestMinify ./...` | ❌ W0 | ⬜ pending |
+| — | 12-07 | 6 | UTIL-02 | — | `ValidateUTF8` reports invalid UTF-8 as `false`, and library-load failure as a real `error` | unit | `go test -run TestValidateUTF8 ./...` | ❌ W0 | ⬜ pending |
+| — | 12-07 | 6 | UTIL-01/02 (D-15) | T-12-CPU | Go entry points return `ErrCPUUnsupported` on unsupported CPUs; `SetKernel` afterward returns `ErrKernelLocked`, and the doc comments say so | unit | `go test -run 'TestMinify\|TestValidateUTF8' ./...` | ❌ W0 | ⬜ pending |
+| — | 12-08 | 7 | DOM-04 | — | Out-of-range `Array.At` returns `ErrIndexOutOfRange`, never a zero-value `Element`; O(n) scan and 16,777,215 size saturation are documented | unit | `go test -run 'TestArray_At\|TestArray_Len\|TestObject_Size' ./...` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
-*Task IDs and plan/wave assignments are filled in by the planner; requirement→behavior rows above are fixed by RESEARCH.md § Validation Architecture.*
+*Plan/wave assignments confirmed by gsd-plan-checker against the 8 committed plans. Per-task IDs are assigned at execution time; every task in every plan already carries a concrete `<automated>` command (verified — no watch-mode flags, no 3-consecutive-task gaps).*
 
 ---
 
@@ -75,11 +81,11 @@ created: 2026-07-30
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 120s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 120s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-07-30 (gsd-plan-checker, Dimension 8 — VERIFICATION PASSED across all 8 plans)

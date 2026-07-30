@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: "Phase 10 shipped — PR #40"
+status: executing
 stopped_at: Phase 12 context gathered
-last_updated: "2026-07-30T15:20:49.168Z"
-last_activity: 2026-07-30
+last_updated: "2026-07-30T17:25:13.988Z"
+last_activity: 2026-07-30 -- Phase 12 planning complete
 progress:
   total_phases: 22
   completed_phases: 13
-  total_plans: 69
+  total_plans: 77
   completed_plans: 69
   percent: 59
 ---
@@ -27,8 +27,8 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 Phase: 10 — COMPLETE
 Plan: 4 of 4
-Status: Phase 10 shipped — PR #40
-Last activity: 2026-07-30
+Status: Ready to execute
+Last activity: 2026-07-30 -- Phase 12 planning complete
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
 Progress: [██████████] 100%
 
