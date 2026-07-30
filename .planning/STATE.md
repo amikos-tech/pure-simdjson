@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: completed
-stopped_at: Completed 10-04-PLAN.md
-last_updated: "2026-07-30T11:55:37.048Z"
-last_activity: 2026-07-30 -- Phase 10 marked complete
+stopped_at: Completed quick task 260730-lk4
+last_updated: "2026-07-30T12:37:00.000Z"
+last_activity: 2026-07-30 -- Completed quick task 260730-lk4
 progress:
   total_phases: 22
   completed_phases: 13
@@ -28,7 +28,7 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 Phase: 10 — COMPLETE
 Plan: 4 of 4
 Status: Phase 10 complete
-Last activity: 2026-07-30 -- Phase 10 marked complete
+Last activity: 2026-07-30 -- Completed quick task 260730-lk4: scoped PR benchmark evidence validation
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
 Progress: [██████████] 100%
 
@@ -87,6 +87,7 @@ Progress: [██████████] 100%
 | 2026-04-27 | apply-pr-22-feedback-items-2-4-6-8-and-9 | Applied 5 of 9 PR #22 review items: bidirectional ABI sync comments between `internal/bootstrap/abi_assertion.go` and `scripts/release/check_bootstrap_abi_state.py`, fixed `semver_tuple` return-type to honor `tuple[int, int, int]` annotation, added `0.1.1` stale-version boundary test, documented + tested pre-release semver acceptance (`0.1.2-dev`), and added a clarifying comment on the layered `bootstrap.Version` check in `scripts/release/check_readiness.sh`. Items #1/#3/#5/#7 explicitly skipped per prior `/pr-feedback` analysis. |
 | 2026-04-28 | pr-benchmark-review-feedback | Addressed Phase 10 PR benchmark feedback: empty benchmark captures now fail closed, parser metric-section handling is stricter, baseline cache save is success-only, workflow comments are clearer, asymmetric `NO_BASELINE=1` parsing was removed, and focused regression tests cover the new contracts. |
 | 2026-04-28 | pr-benchmark-nice-to-haves | Added follow-up Phase 10 PR benchmark nice-to-have coverage: pinned the current non-`vs base` metric-header limitation, required clean `yq` stderr for workflow YAML smoke checks, and made stale-output replacement a true two-run orchestrator test. |
+| 2026-07-30 | address-reported-benchmark-evidence-guar | Scoped PR raw-evidence validation to one shared-regex scan, removed implementation-coupled coverage, and added a local raw benchmark fixture. |
 
 ### Learning Extractions
 
