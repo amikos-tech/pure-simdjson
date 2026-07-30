@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: ready_to_plan
-stopped_at: Phase 11 complete (18/18) — ready to discuss Phase 12
-last_updated: 2026-07-29T18:13:29.226Z
-last_activity: 2026-07-29
+status: "Phase 11 shipped — PR #38"
+stopped_at: "Phase 11 shipped — PR #38; ready to discuss Phase 12"
+last_updated: "2026-07-30T09:19:50.088Z"
+last_activity: 2026-07-30
 progress:
   total_phases: 22
   completed_phases: 12
@@ -27,8 +27,8 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 Phase: 12
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-29
+Status: Phase 11 shipped — PR #38
+Last activity: 2026-07-30
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
 Progress: [██████████] 99%
 
@@ -205,7 +205,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-07-29T17:47:03.263Z
-Stopped at: Completed 11-18-PLAN.md
+Stopped at: Phase 11 shipped — PR #38; ready to discuss Phase 12
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
