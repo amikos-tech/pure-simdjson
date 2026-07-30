@@ -10,6 +10,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
+import importlib.util
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -239,6 +241,51 @@ class CheckPRRegressionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(payload["regression"])
         self.assertEqual(payload["flagged_rows"], [])
+
+    def test_real_phase9_benchstat_uses_shared_raw_evidence_guard(self) -> None:
+        module_name = "check_pr_regression_shared_helper_test"
+        spec = importlib.util.spec_from_file_location(module_name, SCRIPT_PATH)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        try:
+            spec.loader.exec_module(module)
+            fixture_path = FIXTURES_DIR / "real-tier1-vs-stdlib.benchstat.txt"
+            with mock.patch.object(
+                module,
+                "parse_benchmark_file",
+                wraps=module.parse_benchmark_file,
+            ) as parse_mock:
+                module.validate_benchstat_evidence(fixture_path)
+
+            parse_mock.assert_called_once_with(fixture_path)
+            self.assertEqual(
+                module.parse_benchstat_for_regressions(
+                    fixture_path.read_text(encoding="utf-8"),
+                    threshold_pct=5.0,
+                    p_max=0.05,
+                ),
+                [],
+            )
+        finally:
+            sys.modules.pop(module_name, None)
+
+    def test_raw_phase9_capture_is_rejected_as_wrong_benchstat_evidence(self) -> None:
+        raw_capture = REPO_ROOT / "testdata" / "benchmark-results" / "v0.1.2" / "phase9.bench.txt"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = pathlib.Path(temp_dir)
+            result = self.run_gate(
+                raw_capture,
+                summary_out=temp_path / "summary.json",
+                markdown_out=temp_path / "markdown.md",
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertRegex(
+            result.stderr,
+            r"EvidenceError|wrong (?:benchmark )?evidence",
+        )
 
     def test_parser_and_orchestrator_tier_lists_match(self) -> None:
         parser_text = SCRIPT_PATH.read_text(encoding="utf-8")
