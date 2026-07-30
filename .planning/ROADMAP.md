@@ -572,10 +572,17 @@ Plans:
 
 **Scope boundary:** No JSON encoder/builder, reflection-based `Unmarshal`, full JSONPath engine, file-loading wrapper, or mutable DOM API is added.
 
-**Plans:** 0 plans
+**Plans:** 8 plans in 7 waves
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 12 to break down)
+- [ ] `12-01-PLAN.md` — ABI 0x00010003 + 2 new status codes; native AtPointer/AtPath (Wave 1)
+- [ ] `12-02-PLAN.md` — Native Array.At/Len and Object.Size (Wave 2)
+- [ ] `12-03-PLAN.md` — Native wildcard AtPathAll bulk-transport + tracked-allocation free (Wave 3)
+- [ ] `12-04-PLAN.md` — Native Minify/ValidateUTF8, CPU-unsupported gate, D-14 CI, ABI 1.3 docs closeout (Wave 4)
+- [ ] `12-05-PLAN.md` — Go internal/ffi binding layer for all 9 new native exports (Wave 5)
+- [ ] `12-06-PLAN.md` — Go AtPointer/AtPath/AtPathAll public API (Wave 6)
+- [ ] `12-07-PLAN.md` — Go Minify/MinifyInto/ValidateUTF8 public API (Wave 6)
+- [ ] `12-08-PLAN.md` — Go Array.At/Len and Object.Size public API (Wave 7)
 
 ### Phase 13: Batched On-Demand path extraction
 
