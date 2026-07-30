@@ -1,0 +1,7 @@
+goos: linux
+goarch: amd64
+pkg: example.com/pure-simdjson/bench
+cpu: Intel(R) Xeon(R) CPU
+BenchmarkTier1FullParse_twitter_json-4    10000    123456 ns/op    4096 B/op    12 allocs/op
+PASS
+ok  	example.com/pure-simdjson/bench	1.234s

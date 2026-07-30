@@ -25,7 +25,7 @@ The v0.2 extension keeps the safe, re-readable DOM API as the default while addi
 - [x] **Phase 8: Low-overhead DOM traversal ABI and specialized Go any materializer** — Fold the old DOM-materialization backlog into the active milestone with a lower-overhead traversal surface, one-copy string extraction, exact container sizing, and a specialized Go `any` builder
 - [x] **Phase 9: Benchmark gate recalibration, Tier 1/2/3 positioning, and post-ABI evidence refresh** — Reframe the benchmark story around measured Tier 1/Tier 2/Tier 3 strengths, then rerun and publish evidence after Phase 8 lands
 - [ ] **Phase 09.1: Bootstrap artifact and ABI alignment for default installs (INSERTED)** — Align the bootstrap-pinned public artifact/version/checksum state with the current ABI and validate the default-install path after Phase 9 locks the benchmark/release story
-- [ ] **Phase 10: Lightweight PR benchmark regression signal** — Add a cheap pull-request benchmark workflow covering Tier 1/2/3 so every PR gets a useful regression signal without waiting for the heavier release-grade benchmark capture path
+- [x] **Phase 10: Lightweight PR benchmark regression signal** — Add a cheap pull-request benchmark workflow covering Tier 1/2/3 so every PR gets a useful regression signal without waiting for the heavier release-grade benchmark capture path (completed 2026-07-30)
 - [x] **Phase 11: Upstream simdjson refresh, exact big integers, and production diagnostics** — Upgrade the audited upstream base, preserve oversized integers exactly, expose kernel/limit controls, and make parser diagnostics truthful (completed 2026-07-29)
 - [ ] **Phase 12: High-value DOM navigation and SIMD utility APIs** — Add JSON Pointer/path navigation, indexed/container helpers, wildcard path lookup, minification, and standalone UTF-8 validation without growing into a query or encoding engine
 - [ ] **Phase 13: Batched On-Demand path extraction** — Extract a typed, predeclared path set in one native traversal while guarding simdjson's single-consumption semantics
@@ -524,7 +524,7 @@ Plans:
 **Requirements:** TBD — promoted from backlog item `999.8` and narrowed to lightweight benchmark coverage rather than general branch-head CI. Planning should decide the exact benchmark subset, acceptable runtime budget, benchstat/regression threshold policy, advisory-vs-blocking semantics, and whether docs-only changes skip the job.
 
 **Depends on:** Phase 09.1
-**Plans:** 3 plans
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] `10-01-PLAN.md` — Section-aware bidirectional benchstat regression parser, contract tests, and fixture corpus covering real multi-metric benchstat output (D-08, D-11, D-12, D-13, D-14, D-15)

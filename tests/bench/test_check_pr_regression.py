@@ -240,6 +240,18 @@ class CheckPRRegressionTests(unittest.TestCase):
         self.assertFalse(payload["regression"])
         self.assertEqual(payload["flagged_rows"], [])
 
+    def test_raw_go_capture_is_rejected_as_wrong_benchstat_evidence(self) -> None:
+        fixture = "raw-go-test.bench.txt"
+        result, _, _ = self.run_fixture(fixture)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(
+            result.stderr,
+            "benchmark regression evidence error: "
+            f"wrong benchmark evidence: {FIXTURES_DIR / fixture} contains raw go test -bench samples; "
+            "expected benchstat output\n",
+        )
+
     def test_parser_and_orchestrator_tier_lists_match(self) -> None:
         parser_text = SCRIPT_PATH.read_text(encoding="utf-8")
         orchestrator_text = ORCHESTRATOR_PATH.read_text(encoding="utf-8")
