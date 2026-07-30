@@ -4,14 +4,14 @@ milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
 stopped_at: "Phase 11 shipped — PR #38; ready to discuss Phase 12"
-last_updated: "2026-07-30T11:38:36.728Z"
-last_activity: 2026-07-30
+last_updated: "2026-07-30T11:51:16.989Z"
+last_activity: 2026-07-30 -- Phase 10 planning complete
 progress:
   total_phases: 22
-  completed_phases: 13
-  total_plans: 68
+  completed_phases: 12
+  total_plans: 69
   completed_plans: 68
-  percent: 59
+  percent: 55
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 Phase: 10 (lightweight-pr-benchmark-regression-signal) — EXECUTING
 Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-07-30
+Last activity: 2026-07-30 -- Phase 10 planning complete
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
 Progress: [██████████] 100%
 
