@@ -12,7 +12,7 @@ from typing import Any
 
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from check_benchmark_claims import EvidenceError, parse_benchmark_file  # noqa: E402
+from check_benchmark_claims import BENCHMARK_RE, EvidenceError  # noqa: E402
 
 
 # Benchstat delta - see https://pkg.go.dev/golang.org/x/perf/cmd/benchstat for output format.
@@ -55,10 +55,9 @@ def read_text(path: pathlib.Path) -> str:
         raise EvidenceError(f"read {path}: {error}") from error
 
 
-def validate_benchstat_evidence(path: pathlib.Path) -> None:
+def validate_benchstat_evidence(path: pathlib.Path, text: str) -> None:
     """Reject raw `go test -bench` captures before parsing benchstat tables."""
-    _metadata, raw_samples = parse_benchmark_file(path)
-    if raw_samples:
+    if any(BENCHMARK_RE.match(line) for line in text.splitlines()):
         raise EvidenceError(
             f"wrong benchmark evidence: {path} contains raw go test -bench samples; "
             "expected benchstat output"
@@ -198,9 +197,10 @@ def main() -> int:
         return 1
 
     try:
-        validate_benchstat_evidence(args.benchstat_output)
+        benchstat_text = read_text(args.benchstat_output)
+        validate_benchstat_evidence(args.benchstat_output, benchstat_text)
         flagged = parse_benchstat_for_regressions(
-            read_text(args.benchstat_output),
+            benchstat_text,
             args.threshold_pct,
             args.p_max,
         )
