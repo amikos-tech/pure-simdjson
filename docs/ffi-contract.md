@@ -172,8 +172,9 @@ The lifecycle is explicit by design so later phases do not introduce hidden reus
 - `max_capacity == 0` means the default `4294967295` (`0xFFFFFFFF`) bytes.
 - A non-zero capacity must be in `32..4294967295`; other values return `PURE_SIMDJSON_ERR_INVALID_ARGUMENT`.
 - `max_depth == 0` means the default `1024`.
-- A non-zero `uint32_t` depth is used as supplied.
-- The effective pair is stored on the parser and reused unchanged by primary DOM parsing and diagnostic replay.
+- A non-zero depth must be in `1..1024`; values above `1024` return `PURE_SIMDJSON_ERR_INVALID_ARGUMENT`.
+- The effective pair is stored on the parser and reused unchanged by primary DOM parsing and both diagnostic replay passes.
+- The same `1024` ceiling bounds the internal fast materializer, so parsing, replay, and materialization share one depth boundary.
 - Input longer than the effective capacity returns status 9 before padding arithmetic, arena growth, input allocation, or input copying.
 - Input that crosses the effective nesting limit returns status 8.
 

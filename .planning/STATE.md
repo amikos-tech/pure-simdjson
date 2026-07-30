@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: executing
-stopped_at: Completed 11-13-PLAN.md
-last_updated: "2026-07-23T15:45:50.361Z"
-last_activity: 2026-07-23
+status: "Phase 11 shipped — PR #38"
+stopped_at: "Phase 11 shipped — PR #38; ready to discuss Phase 12"
+last_updated: "2026-07-30T09:19:50.088Z"
+last_activity: 2026-07-30
 progress:
   total_phases: 22
-  completed_phases: 11
-  total_plans: 64
-  completed_plans: 62
-  percent: 50
+  completed_phases: 12
+  total_plans: 68
+  completed_plans: 67
+  percent: 55
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 **Core value:** Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning: typed extraction and selective traversal are the primary story, while full `any` materialization is documented without overstating current wins.
-**Current focus:** Phase 11 — upstream-simdjson-refresh-bigint-and-diagnostics
+**Current focus:** Phase 12 — high value dom navigation and simd utility apis
 
 ## Current Position
 
-Phase: 11 (upstream-simdjson-refresh-bigint-and-diagnostics) — EXECUTING
-Plan: 14 of 14
-Status: Ready to execute
-Last activity: 2026-07-23
-Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. `v0.1.0` remains the latest published tag. Phase 09.1 now owns bootstrap artifact/default-install alignment before any later release tag.
-Progress: [██████████] 97%
+Phase: 12
+Plan: Not started
+Status: Phase 11 shipped — PR #38
+Last activity: 2026-07-30
+Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
+Progress: [██████████] 99%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 35
+- Total plans completed: 53
 - Average duration: 11.1m
 - Total execution time: 1.4 hours
 
@@ -65,6 +65,11 @@ Progress: [██████████] 97%
 | Phase 11 P11 | 13min | 2 tasks | 10 files |
 | Phase 11 P12 | 19min | 2 tasks | 8 files |
 | Phase 11 P13 | 19min | 2 tasks | 7 files |
+| Phase 11 P14 | 9 min | 1 tasks | 3 files |
+| Phase 11 P15 | 14min | 2 tasks | 8 files |
+| Phase 11 P16 | 8min | 2 tasks | 8 files |
+| Phase 11 P17 | 8min | 1 tasks | 5 files |
+| Phase 11 P18 | 8min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -173,6 +178,19 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 11]: Keep the existing release/public wrapper indirection and make the tag-owned Go smoke the configured ABI 1.2 behavior contract. — This strengthens the one shared smoke path without duplicating release machinery.
 - [Phase 11]: Plan 11-13 stops at SOURCE READY — NOT RELEASED; strict origin/main ancestry and hosted proof remain the 11-14-T1 operator gate. — Local source evidence cannot substitute for tag-driven publication and Phase 06.1 public validation.
 - [Phase 11]: Every pre-publication Go runtime gate uses the freshly built release library through PURE_SIMDJSON_LIB_PATH. — The unpublished bootstrap version must not supply local readiness evidence.
+- [Phase 11]: Final intermediate compatibility release is v0.1.7 with ABI 0x00010002 — It supersedes the plan-time v0.1.5 identity after immutable release recovery and is not the Phase 16 v0.2 release.
+- [Phase 11]: Release recovery used new patch versions for corrected source — Published tags remained immutable; no tag was moved or replaced.
+- [Phase 11]: Retain the operator strict-readiness transcript for the exact v0.1.7 tag target without rerunning it after main advanced — The script depth-1 fetch can false-negative for an older valid ancestor, while hosted verify-tag-source independently passed on the tag.
+- [Phase 11]: Phase 11 closes only after both release and public bootstrap workflows pass — CI-only five-platform publication and separate Phase 06.1 validation jointly satisfy D-17 and D-18.
+- [Phase 11]: Depth 1024 is both the default and the supported maximum across Go and native parser-owned traversal. — One enforced ceiling prevents malformed-input replay from exhausting the native stack.
+- [Phase 11]: Unsupported native depth is rejected before implementation-selection locking and parser allocation. — Invalid configuration must not change irreversible process state or output handles.
+- [Phase 11]: Validate delimiters inside all three BigInt early-return branches in the single audited output-copy patch. — Preserves valid exact text without adding a parser, source copy, dependency, or ABI change.
+- [Phase 11]: Treat nine guarded copies and zero unguarded copies as a build-time architecture-parity contract. — Makes architecture drift fail before C++ compilation.
+- [Phase 11]: Extend the existing manifest-driven JSONTestSuite oracle with project-owned malformed BigInt fixtures. — Keeps one completeness-checked correctness oracle and preserves existing expectations.
+- [Phase 11]: Extend the existing hidden exception seam with fixed selectors rather than add another symbol. — Deterministic exception coverage stays outside the public and production-facing ABI.
+- [Phase 11]: Map trapped bad allocation to status 97 while preserving returned MEMALLOC and internal status 127. — Thrown exceptions and returned engine errors remain distinct caller classifications.
+- [Phase 11]: Keep the public header, normative document, ABI number, and public symbol surface unchanged. — The source now conforms to the already-locked exception contract.
+- [Phase 11]: Parser-aware bad-allocation capture uses a fixed non-allocating diagnostic and selector 3 stays on the existing hidden seam. — This guarantees noexcept containment while preserving the public ABI and returned MEMALLOC/internal status semantics.
 
 ### Pending Todos
 
@@ -186,8 +204,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-23T15:45:50.353Z
-Stopped at: Completed 11-13-PLAN.md
+Last session: 2026-07-29T17:47:03.263Z
+Stopped at: Phase 11 shipped — PR #38; ready to discuss Phase 12
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z

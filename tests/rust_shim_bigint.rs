@@ -7,13 +7,20 @@ use pure_simdjson::{
     pure_simdjson_element_get_int64, pure_simdjson_element_get_uint64, pure_simdjson_element_type,
     pure_simdjson_error_code_t::{
         PURE_SIMDJSON_ERR_INVALID_ARGUMENT, PURE_SIMDJSON_ERR_INVALID_HANDLE,
-        PURE_SIMDJSON_ERR_WRONG_TYPE, PURE_SIMDJSON_OK,
+        PURE_SIMDJSON_ERR_INVALID_JSON, PURE_SIMDJSON_ERR_WRONG_TYPE, PURE_SIMDJSON_OK,
     },
     pure_simdjson_object_get_field, pure_simdjson_parser_free, pure_simdjson_parser_new,
     pure_simdjson_parser_parse, pure_simdjson_parser_t, pure_simdjson_value_view_t,
 };
 
 const KIND_BIGINT: u32 = 9;
+
+#[derive(Clone, Copy)]
+enum BigIntLocation {
+    Root,
+    ArrayFirst,
+    ObjectField,
+}
 
 fn parser_new() -> pure_simdjson_parser_t {
     let mut parser = 0_u64;
@@ -45,6 +52,22 @@ fn object_get_field(object: &pure_simdjson_value_view_t, key: &[u8]) -> pure_sim
     value
 }
 
+fn array_first(array: &pure_simdjson_value_view_t) -> pure_simdjson_value_view_t {
+    let mut iter = pure_simdjson_array_iter_t::default();
+    assert_eq!(
+        unsafe { pure_simdjson_array_iter_new(array, &mut iter) },
+        PURE_SIMDJSON_OK
+    );
+    let mut item = pure_simdjson_value_view_t::default();
+    let mut done = 1_u8;
+    assert_eq!(
+        unsafe { pure_simdjson_array_iter_next(&mut iter, &mut item, &mut done) },
+        PURE_SIMDJSON_OK
+    );
+    assert_eq!(done, 0);
+    item
+}
+
 fn read_bigint(view: &pure_simdjson_value_view_t) -> String {
     let mut out_ptr: *mut u8 = ptr::null_mut();
     let mut out_len = 0_usize;
@@ -60,12 +83,158 @@ fn read_bigint(view: &pure_simdjson_value_view_t) -> String {
     value
 }
 
+fn assert_bigint_case(json: &[u8], expected: &[u8], location: BigIntLocation) {
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, json);
+    let root = doc_root(doc);
+    let bigint = match location {
+        BigIntLocation::Root => root,
+        BigIntLocation::ArrayFirst => array_first(&root),
+        BigIntLocation::ObjectField => object_get_field(&root, b"n"),
+    };
+
+    assert_eq!(bigint.kind_hint, KIND_BIGINT, "wrong kind for {json:?}");
+    assert_eq!(
+        read_bigint(&bigint).as_bytes(),
+        expected,
+        "wrong exact text for {json:?}"
+    );
+
+    cleanup(parser, doc);
+}
+
 fn cleanup(parser: pure_simdjson_parser_t, doc: pure_simdjson_doc_t) {
     assert_eq!(unsafe { pure_simdjson_doc_free(doc) }, PURE_SIMDJSON_OK);
     assert_eq!(
         unsafe { pure_simdjson_parser_free(parser) },
         PURE_SIMDJSON_OK
     );
+}
+
+#[test]
+fn malformed_bigint_suffixes_are_rejected_without_truncation() {
+    let cases: &[(&str, &[u8])] = &[
+        ("positive root x", b"18446744073709551616x"),
+        ("positive root underscore", b"18446744073709551616_"),
+        ("positive root plus", b"18446744073709551616+"),
+        ("positive root slash", b"18446744073709551616/"),
+        ("positive root NUL", b"18446744073709551616\0"),
+        ("negative root x", b"-9223372036854775809x"),
+        ("negative root underscore", b"-9223372036854775809_"),
+        ("negative root plus", b"-9223372036854775809+"),
+        ("negative root slash", b"-9223372036854775809/"),
+        ("negative root NUL", b"-9223372036854775809\0"),
+        ("array value x", b"[123456789012345678901x]"),
+        ("array value underscore", b"[123456789012345678901_]"),
+        ("array value plus", b"[123456789012345678901+]"),
+        ("array value slash", b"[123456789012345678901/]"),
+        ("array value NUL", b"[123456789012345678901\0]"),
+        ("object value x", br#"{"n":-9223372036854775809x}"#),
+        ("object value underscore", br#"{"n":-9223372036854775809_}"#),
+        ("object value plus", br#"{"n":-9223372036854775809+}"#),
+        ("object value slash", br#"{"n":-9223372036854775809/}"#),
+        ("object value NUL", b"{\"n\":-9223372036854775809\0}"),
+    ];
+
+    for &(name, json) in cases {
+        let parser = parser_new();
+        let sentinel = u64::MAX;
+        let mut doc = sentinel;
+        let rc = unsafe { pure_simdjson_parser_parse(parser, json.as_ptr(), json.len(), &mut doc) };
+        assert_eq!(
+            rc, PURE_SIMDJSON_ERR_INVALID_JSON,
+            "{name} unexpectedly parsed: {json:?}"
+        );
+        assert_eq!(doc, sentinel, "{name} overwrote the document output");
+        assert_eq!(
+            unsafe { pure_simdjson_parser_free(parser) },
+            PURE_SIMDJSON_OK
+        );
+    }
+}
+
+#[test]
+fn valid_bigint_delimiters_preserve_exact_text() {
+    let positive = b"18446744073709551616";
+    let negative = b"-9223372036854775809";
+    let cases: &[(&[u8], &[u8], BigIntLocation)] = &[
+        (positive, positive, BigIntLocation::Root),
+        (negative, negative, BigIntLocation::Root),
+        (
+            b"[18446744073709551616]",
+            positive,
+            BigIntLocation::ArrayFirst,
+        ),
+        (
+            b"[-9223372036854775809]",
+            negative,
+            BigIntLocation::ArrayFirst,
+        ),
+        (
+            br#"{"n":18446744073709551616}"#,
+            positive,
+            BigIntLocation::ObjectField,
+        ),
+        (
+            br#"{"n":-9223372036854775809}"#,
+            negative,
+            BigIntLocation::ObjectField,
+        ),
+        (
+            b"[18446744073709551616,0]",
+            positive,
+            BigIntLocation::ArrayFirst,
+        ),
+        (
+            b"[-9223372036854775809,0]",
+            negative,
+            BigIntLocation::ArrayFirst,
+        ),
+        (
+            b"[18446744073709551616 ]",
+            positive,
+            BigIntLocation::ArrayFirst,
+        ),
+        (
+            b"[-9223372036854775809 ]",
+            negative,
+            BigIntLocation::ArrayFirst,
+        ),
+        (
+            b"[18446744073709551616\t]",
+            positive,
+            BigIntLocation::ArrayFirst,
+        ),
+        (
+            b"[-9223372036854775809\t]",
+            negative,
+            BigIntLocation::ArrayFirst,
+        ),
+        (
+            b"[18446744073709551616\r]",
+            positive,
+            BigIntLocation::ArrayFirst,
+        ),
+        (
+            b"[-9223372036854775809\r]",
+            negative,
+            BigIntLocation::ArrayFirst,
+        ),
+        (
+            b"[18446744073709551616\n]",
+            positive,
+            BigIntLocation::ArrayFirst,
+        ),
+        (
+            b"[-9223372036854775809\n]",
+            negative,
+            BigIntLocation::ArrayFirst,
+        ),
+    ];
+
+    for &(json, expected, location) in cases {
+        assert_bigint_case(json, expected, location);
+    }
 }
 
 #[test]

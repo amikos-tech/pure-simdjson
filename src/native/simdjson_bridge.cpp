@@ -91,7 +91,8 @@ struct psimdjson_parser {
 namespace {
 
 constexpr uint64_t DEFAULT_MAX_CAPACITY = UINT64_C(0xFFFFFFFF);
-constexpr uint32_t DEFAULT_MAX_DEPTH = UINT32_C(1024);
+constexpr uint32_t MAX_SUPPORTED_DEPTH = UINT32_C(1024);
+constexpr uint32_t DEFAULT_MAX_DEPTH = MAX_SUPPORTED_DEPTH;
 constexpr uint64_t MIN_MAX_CAPACITY = UINT64_C(32);
 constexpr uint32_t REPLAY_PASS_RAW_JSON = 1;
 constexpr uint32_t REPLAY_PASS_RECURSIVE = 2;
@@ -254,7 +255,7 @@ pure_simdjson_error_code_t map_cpp_exception(
     const std::bad_alloc &error
 ) noexcept {
   log_cpp_exception(function_name, error.what());
-  return PURE_SIMDJSON_ERR_INTERNAL;
+  return PURE_SIMDJSON_ERR_CPP_EXCEPTION;
 }
 
 pure_simdjson_error_code_t map_cpp_exception(
@@ -270,8 +271,8 @@ pure_simdjson_error_code_t map_cpp_exception(const char *function_name) noexcept
   return PURE_SIMDJSON_ERR_CPP_EXCEPTION;
 }
 
-void capture_parser_exception(psimdjson_parser *parser, const std::bad_alloc &error) noexcept {
-  try_set_last_error_message(parser, std::string("std::bad_alloc: ") + error.what());
+void capture_parser_exception(psimdjson_parser *parser, const std::bad_alloc &) noexcept {
+  try_set_last_error_message(parser, "std::bad_alloc");
 }
 
 void capture_parser_exception(psimdjson_parser *parser, const std::exception &error) noexcept {
@@ -306,6 +307,21 @@ void capture_parser_exception(psimdjson_parser *parser) noexcept {
     capture_parser_exception(parser_ptr);                                \
     return map_cpp_exception(function_name);                              \
   }
+
+pure_simdjson_error_code_t force_parser_bad_alloc_for_tests(
+    uint64_t *out_value
+) noexcept {
+  psimdjson_parser parser;
+  try {
+    if (out_value == nullptr) {
+      return invalid_argument();
+    }
+
+    throw std::bad_alloc();
+    *out_value = 0;
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_PARSER_CPP_EXCEPTIONS(__func__, &parser)
+}
 
 struct DiagnosticReplayLimits {
   uint64_t max_capacity;
@@ -428,6 +444,10 @@ simdjson::error_code consume_ondemand_value(
     size_t current_depth,
     size_t max_depth
 ) {
+  if (max_depth > static_cast<size_t>(MAX_SUPPORTED_DEPTH)) {
+    return simdjson::DEPTH_ERROR;
+  }
+
   simdjson::ondemand::json_type type;
   auto error = value.type().get(type);
   if (error != simdjson::SUCCESS) {
@@ -523,6 +543,10 @@ ReplayDisposition replay_raw_json_location(
     DiagnosticReplayLimits limits,
     psimdjson_test_replay_observation *observation
 ) {
+  if (limits.max_depth > MAX_SUPPORTED_DEPTH) {
+    observation->replay_error = static_cast<int32_t>(simdjson::DEPTH_ERROR);
+    return ReplayDisposition::stopped;
+  }
   if (limits.max_capacity > std::numeric_limits<size_t>::max()) {
     observation->replay_error = static_cast<int32_t>(simdjson::CAPACITY);
     return ReplayDisposition::stopped;
@@ -594,6 +618,10 @@ ReplayDisposition replay_recursive_location(
     DiagnosticReplayLimits limits,
     psimdjson_test_replay_observation *observation
 ) {
+  if (limits.max_depth > MAX_SUPPORTED_DEPTH) {
+    observation->replay_error = static_cast<int32_t>(simdjson::DEPTH_ERROR);
+    return ReplayDisposition::stopped;
+  }
   if (limits.max_capacity > std::numeric_limits<size_t>::max()) {
     observation->replay_error = static_cast<int32_t>(simdjson::CAPACITY);
     return ReplayDisposition::stopped;
@@ -695,6 +723,9 @@ pure_simdjson_error_code_t parser_new_configured_with_selection_lock(
   }
   if (max_capacity != 0 &&
       (max_capacity < MIN_MAX_CAPACITY || max_capacity > DEFAULT_MAX_CAPACITY)) {
+    return invalid_argument();
+  }
+  if (max_depth > MAX_SUPPORTED_DEPTH) {
     return invalid_argument();
   }
 
@@ -842,10 +873,9 @@ pure_simdjson_error_code_t append_materialize_frame(
     std::string_view key,
     size_t depth
 ) {
-  // Defense-in-depth: simdjson's parser cap catches user input first today.
-  // Keep the materializer bound in case future refactors decouple those depths.
-  constexpr size_t MAX_MATERIALIZE_FRAME_DEPTH = 1024;
-  if (depth > MAX_MATERIALIZE_FRAME_DEPTH) {
+  // Defense-in-depth: keep the same N-1-success/N-failure boundary as parser
+  // construction in case future refactors decouple materialization from parse.
+  if (depth >= static_cast<size_t>(MAX_SUPPORTED_DEPTH)) {
     return PURE_SIMDJSON_ERR_DEPTH_LIMIT;
   }
 
@@ -1645,6 +1675,9 @@ pure_simdjson_error_code_t psimdjson_test_recursive_replay_observation(
         out_observation == nullptr) {
       return invalid_argument();
     }
+    if (max_depth > MAX_SUPPORTED_DEPTH) {
+      return invalid_argument();
+    }
     if (input_len > std::numeric_limits<size_t>::max() - simdjson::SIMDJSON_PADDING) {
       return invalid_argument();
     }
@@ -1748,8 +1781,26 @@ pure_simdjson_error_code_t psimdjson_test_checked_diagnostic_offset(
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
-pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(void) noexcept {
+pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(
+    uint32_t exception_kind
+) noexcept {
   try {
-    throw std::runtime_error("forced cpp exception");
+    switch (exception_kind) {
+      case 0:
+        throw std::runtime_error("forced cpp exception");
+      case 1:
+        throw std::bad_alloc();
+      case 3: {
+        constexpr uint64_t OUTPUT_SENTINEL = UINT64_C(0xA5A5A5A5A5A5A5A5);
+        uint64_t output_value = OUTPUT_SENTINEL;
+        const auto status = force_parser_bad_alloc_for_tests(&output_value);
+        if (output_value != OUTPUT_SENTINEL) {
+          return PURE_SIMDJSON_ERR_INTERNAL;
+        }
+        return status;
+      }
+      default:
+        return invalid_argument();
+    }
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }

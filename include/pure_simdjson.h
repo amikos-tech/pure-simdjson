@@ -258,6 +258,8 @@ pure_simdjson_error_code_t pure_simdjson_parser_new(pure_simdjson_parser_t *out_
  * Allocate a parser handle with immutable capacity and depth bounds.
  *
  * `max_capacity == 0` uses `0xFFFFFFFF`; `max_depth == 0` uses `1024`.
+ * Nonzero depths must be in `1..1024`; values above `1024` return
+ * `PURE_SIMDJSON_ERR_INVALID_ARGUMENT`.
  * Positive capacities below `32` and capacities above `0xFFFFFFFF` are rejected.
  *
  * # Safety

@@ -71,6 +71,7 @@ func TestParserOptionRejectsInvalidValues(t *testing.T) {
 		{name: "capacity one", option: WithMaxCapacity(1)},
 		{name: "capacity thirty one", option: WithMaxCapacity(31)},
 		{name: "negative depth", option: WithMaxDepth(-1)},
+		{name: "depth above supported maximum", option: WithMaxDepth(1025)},
 	}
 	if strconv.IntSize > 32 {
 		tooLargeCapacity := uint64(0xFFFFFFFF) + 1
@@ -117,6 +118,18 @@ func TestParserOptionInvalidFailsBeforeLibraryResolution(t *testing.T) {
 	}
 	if errors.Is(err, errLoadLibrary) {
 		t.Fatalf("NewParser(ParserOption{}) error = %v, unexpectedly resolved the library", err)
+	}
+
+	parser, err = NewParser(WithMaxDepth(1025))
+	if parser != nil {
+		_ = parser.Close()
+		t.Fatal("NewParser(WithMaxDepth(1025)) returned a parser")
+	}
+	if !errors.Is(err, ErrInvalidOption) {
+		t.Fatalf("NewParser(WithMaxDepth(1025)) error = %v, want ErrInvalidOption before library resolution", err)
+	}
+	if errors.Is(err, errLoadLibrary) {
+		t.Fatalf("NewParser(WithMaxDepth(1025)) error = %v, unexpectedly resolved the library", err)
 	}
 }
 

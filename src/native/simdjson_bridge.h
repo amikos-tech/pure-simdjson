@@ -237,7 +237,9 @@ pure_simdjson_error_code_t psimdjson_test_checked_diagnostic_offset(
     uint8_t *out_has_offset
 ) PSIMDJSON_NOEXCEPT;
 
-pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(void) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_test_force_cpp_exception(
+    uint32_t exception_kind
+) PSIMDJSON_NOEXCEPT;
 
 #ifdef __cplusplus
 }

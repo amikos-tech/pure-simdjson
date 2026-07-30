@@ -1,76 +1,232 @@
-Subject: [PATCH] route positive uint64 overflow through BIGINT_ERROR
+Subject: [PATCH] validate BigInt delimiters before exact-text preservation
 Upstream-Base: simdjson v4.6.4
 Upstream-Commit: 1bcf71bd85059ab6574ea1159de9298dcc1212c5
 
-Official v4.6.4 classifies positive 20-digit uint64 overflow as NUMBER_ERROR,
-which prevents number_as_string(true) from preserving values such as
-18446744073709551616. Route that already-detected overflow through the
-existing BIGINT_ERROR path. The repeated hunks are the architecture copies
-generated into simdjson's official singleheader source.
+Official v4.6.4 returns through BIGINT_ERROR before parse_number reaches its
+normal token-delimiter validation. Validate all three BigInt early-return
+branches before preserving exact text so malformed suffixes cannot be dropped.
+The positive 20-digit uint64-overflow branch remains routed through the existing
+BIGINT_ERROR path for valid integer syntax such as 18446744073709551616.
+
+The repeated hunks cover every architecture implementation generated into
+simdjson's official singleheader source.
 
 diff --git a/simdjson.cpp b/simdjson.cpp
 --- a/simdjson.cpp
 +++ b/simdjson.cpp
-@@ -10888,5 +10888,5 @@
-     // - Therefore, if the number is positive and lower than that, it's overflow.
-     // - The value we are looking at is less than or equal to INT64_MAX.
+@@ -10870,3 +10870,6 @@
+   size_t longest_digit_count = negative ? 19 : 20;
+-  if (digit_count > longest_digit_count) { return BIGINT_NUMBER(src); }
++  if (digit_count > longest_digit_count) {
++    if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++    return BIGINT_NUMBER(src);
++  }
+   if (digit_count == longest_digit_count) {
+@@ -10874,3 +10877,6 @@
+       // Anything negative above INT64_MAX+1 is invalid
+-      if (i > uint64_t(INT64_MAX)+1) { return BIGINT_NUMBER(src);  }
++      if (i > uint64_t(INT64_MAX)+1) {
++        if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++        return BIGINT_NUMBER(src);
++      }
+       WRITE_INTEGER(~i+1, src, writer);
+@@ -10890,3 +10896,6 @@
      //
 -    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
-+    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) {
++      if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++      return BIGINT_NUMBER(src);
++    }
    }
-@@ -17421,5 +17421,5 @@
-     // - Therefore, if the number is positive and lower than that, it's overflow.
-     // - The value we are looking at is less than or equal to INT64_MAX.
+@@ -17403,3 +17412,6 @@
+   size_t longest_digit_count = negative ? 19 : 20;
+-  if (digit_count > longest_digit_count) { return BIGINT_NUMBER(src); }
++  if (digit_count > longest_digit_count) {
++    if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++    return BIGINT_NUMBER(src);
++  }
+   if (digit_count == longest_digit_count) {
+@@ -17407,3 +17419,6 @@
+       // Anything negative above INT64_MAX+1 is invalid
+-      if (i > uint64_t(INT64_MAX)+1) { return BIGINT_NUMBER(src);  }
++      if (i > uint64_t(INT64_MAX)+1) {
++        if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++        return BIGINT_NUMBER(src);
++      }
+       WRITE_INTEGER(~i+1, src, writer);
+@@ -17423,3 +17438,6 @@
      //
 -    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
-+    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) {
++      if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++      return BIGINT_NUMBER(src);
++    }
    }
-@@ -23809,5 +23809,5 @@
-     // - Therefore, if the number is positive and lower than that, it's overflow.
-     // - The value we are looking at is less than or equal to INT64_MAX.
+@@ -23791,3 +23809,6 @@
+   size_t longest_digit_count = negative ? 19 : 20;
+-  if (digit_count > longest_digit_count) { return BIGINT_NUMBER(src); }
++  if (digit_count > longest_digit_count) {
++    if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++    return BIGINT_NUMBER(src);
++  }
+   if (digit_count == longest_digit_count) {
+@@ -23795,3 +23816,6 @@
+       // Anything negative above INT64_MAX+1 is invalid
+-      if (i > uint64_t(INT64_MAX)+1) { return BIGINT_NUMBER(src);  }
++      if (i > uint64_t(INT64_MAX)+1) {
++        if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++        return BIGINT_NUMBER(src);
++      }
+       WRITE_INTEGER(~i+1, src, writer);
+@@ -23811,3 +23835,6 @@
      //
 -    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
-+    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) {
++      if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++      return BIGINT_NUMBER(src);
++    }
    }
-@@ -30354,5 +30354,5 @@
-     // - Therefore, if the number is positive and lower than that, it's overflow.
-     // - The value we are looking at is less than or equal to INT64_MAX.
+@@ -30336,3 +30363,6 @@
+   size_t longest_digit_count = negative ? 19 : 20;
+-  if (digit_count > longest_digit_count) { return BIGINT_NUMBER(src); }
++  if (digit_count > longest_digit_count) {
++    if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++    return BIGINT_NUMBER(src);
++  }
+   if (digit_count == longest_digit_count) {
+@@ -30340,3 +30370,6 @@
+       // Anything negative above INT64_MAX+1 is invalid
+-      if (i > uint64_t(INT64_MAX)+1) { return BIGINT_NUMBER(src);  }
++      if (i > uint64_t(INT64_MAX)+1) {
++        if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++        return BIGINT_NUMBER(src);
++      }
+       WRITE_INTEGER(~i+1, src, writer);
+@@ -30356,3 +30389,6 @@
      //
 -    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
-+    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) {
++      if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++      return BIGINT_NUMBER(src);
++    }
    }
-@@ -37259,5 +37259,5 @@
-     // - Therefore, if the number is positive and lower than that, it's overflow.
-     // - The value we are looking at is less than or equal to INT64_MAX.
+@@ -37241,3 +37277,6 @@
+   size_t longest_digit_count = negative ? 19 : 20;
+-  if (digit_count > longest_digit_count) { return BIGINT_NUMBER(src); }
++  if (digit_count > longest_digit_count) {
++    if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++    return BIGINT_NUMBER(src);
++  }
+   if (digit_count == longest_digit_count) {
+@@ -37245,3 +37284,6 @@
+       // Anything negative above INT64_MAX+1 is invalid
+-      if (i > uint64_t(INT64_MAX)+1) { return BIGINT_NUMBER(src);  }
++      if (i > uint64_t(INT64_MAX)+1) {
++        if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++        return BIGINT_NUMBER(src);
++      }
+       WRITE_INTEGER(~i+1, src, writer);
+@@ -37261,3 +37303,6 @@
      //
 -    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
-+    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) {
++      if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++      return BIGINT_NUMBER(src);
++    }
    }
-@@ -44010,5 +44010,5 @@
-     // - Therefore, if the number is positive and lower than that, it's overflow.
-     // - The value we are looking at is less than or equal to INT64_MAX.
+@@ -43992,3 +44037,6 @@
+   size_t longest_digit_count = negative ? 19 : 20;
+-  if (digit_count > longest_digit_count) { return BIGINT_NUMBER(src); }
++  if (digit_count > longest_digit_count) {
++    if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++    return BIGINT_NUMBER(src);
++  }
+   if (digit_count == longest_digit_count) {
+@@ -43996,3 +44044,6 @@
+       // Anything negative above INT64_MAX+1 is invalid
+-      if (i > uint64_t(INT64_MAX)+1) { return BIGINT_NUMBER(src);  }
++      if (i > uint64_t(INT64_MAX)+1) {
++        if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++        return BIGINT_NUMBER(src);
++      }
+       WRITE_INTEGER(~i+1, src, writer);
+@@ -44012,3 +44063,6 @@
      //
 -    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
-+    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) {
++      if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++      return BIGINT_NUMBER(src);
++    }
    }
-@@ -50198,5 +50198,5 @@
-     // - Therefore, if the number is positive and lower than that, it's overflow.
-     // - The value we are looking at is less than or equal to INT64_MAX.
+@@ -50180,3 +50234,6 @@
+   size_t longest_digit_count = negative ? 19 : 20;
+-  if (digit_count > longest_digit_count) { return BIGINT_NUMBER(src); }
++  if (digit_count > longest_digit_count) {
++    if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++    return BIGINT_NUMBER(src);
++  }
+   if (digit_count == longest_digit_count) {
+@@ -50184,3 +50241,6 @@
+       // Anything negative above INT64_MAX+1 is invalid
+-      if (i > uint64_t(INT64_MAX)+1) { return BIGINT_NUMBER(src);  }
++      if (i > uint64_t(INT64_MAX)+1) {
++        if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++        return BIGINT_NUMBER(src);
++      }
+       WRITE_INTEGER(~i+1, src, writer);
+@@ -50200,3 +50260,6 @@
      //
 -    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
-+    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) {
++      if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++      return BIGINT_NUMBER(src);
++    }
    }
-@@ -56374,5 +56374,5 @@
-     // - Therefore, if the number is positive and lower than that, it's overflow.
-     // - The value we are looking at is less than or equal to INT64_MAX.
+@@ -56356,3 +56419,6 @@
+   size_t longest_digit_count = negative ? 19 : 20;
+-  if (digit_count > longest_digit_count) { return BIGINT_NUMBER(src); }
++  if (digit_count > longest_digit_count) {
++    if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++    return BIGINT_NUMBER(src);
++  }
+   if (digit_count == longest_digit_count) {
+@@ -56360,3 +56426,6 @@
+       // Anything negative above INT64_MAX+1 is invalid
+-      if (i > uint64_t(INT64_MAX)+1) { return BIGINT_NUMBER(src);  }
++      if (i > uint64_t(INT64_MAX)+1) {
++        if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++        return BIGINT_NUMBER(src);
++      }
+       WRITE_INTEGER(~i+1, src, writer);
+@@ -56376,3 +56445,6 @@
      //
 -    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
-+    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) {
++      if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++      return BIGINT_NUMBER(src);
++    }
    }
-@@ -62527,5 +62527,5 @@
-     // - Therefore, if the number is positive and lower than that, it's overflow.
-     // - The value we are looking at is less than or equal to INT64_MAX.
+@@ -62509,3 +62581,6 @@
+   size_t longest_digit_count = negative ? 19 : 20;
+-  if (digit_count > longest_digit_count) { return BIGINT_NUMBER(src); }
++  if (digit_count > longest_digit_count) {
++    if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++    return BIGINT_NUMBER(src);
++  }
+   if (digit_count == longest_digit_count) {
+@@ -62513,3 +62588,6 @@
+       // Anything negative above INT64_MAX+1 is invalid
+-      if (i > uint64_t(INT64_MAX)+1) { return BIGINT_NUMBER(src);  }
++      if (i > uint64_t(INT64_MAX)+1) {
++        if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++        return BIGINT_NUMBER(src);
++      }
+       WRITE_INTEGER(~i+1, src, writer);
+@@ -62529,3 +62607,6 @@
      //
 -    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return INVALID_NUMBER(src); }
-+    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) { return BIGINT_NUMBER(src); }
++    }  else if (src[0] != uint8_t('1') || i <= uint64_t(INT64_MAX)) {
++      if (jsoncharutils::is_not_structural_or_whitespace(*p)) { return INVALID_NUMBER(src); }
++      return BIGINT_NUMBER(src);
++    }
    }

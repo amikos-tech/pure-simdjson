@@ -1,3 +1,5 @@
+use std::{env, process::Command};
+
 use pure_simdjson::{
     pure_simdjson_doc_free,
     pure_simdjson_error_code_t::{
@@ -11,6 +13,7 @@ use pure_simdjson::{
 
 const DEFAULT_MAX_CAPACITY: u64 = u32::MAX as u64;
 const DEFAULT_MAX_DEPTH: u32 = 1024;
+const DEEP_MALFORMED_CHILD_ENV: &str = "PURE_SIMDJSON_DEEP_MALFORMED_CHILD";
 
 const POINTER_NOT_QUERIED: u32 = 0;
 const POINTER_IN_BOUNDS: u32 = 1;
@@ -171,6 +174,63 @@ fn nested_array(depth: usize, malformed: bool) -> Vec<u8> {
     }
     json.extend(std::iter::repeat_n(b']', depth));
     json
+}
+
+#[test]
+fn deep_malformed_at_max_supported_depth_child() {
+    if env::var_os(DEEP_MALFORMED_CHILD_ENV).is_none() {
+        return;
+    }
+
+    let depth = DEFAULT_MAX_DEPTH as usize - 1;
+    let mut json = Vec::with_capacity(depth * 2 + 2);
+    json.extend(std::iter::repeat_n(b'[', depth));
+    json.extend_from_slice(b"0,");
+    json.extend(std::iter::repeat_n(b']', depth));
+
+    let parser = parser_new_configured(DEFAULT_MAX_CAPACITY, DEFAULT_MAX_DEPTH);
+    let mut doc = 0;
+    let rc = unsafe { pure_simdjson_parser_parse(parser, json.as_ptr(), json.len(), &mut doc) };
+    assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_JSON);
+    assert_eq!(doc, 0);
+
+    let offset = last_error_offset(parser);
+    let has_offset = last_error_has_offset(parser);
+    if has_offset {
+        assert!(offset < json.len() as u64);
+    } else {
+        assert_eq!(offset, u64::MAX);
+    }
+
+    assert_eq!(
+        unsafe { pure_simdjson_parser_free(parser) },
+        PURE_SIMDJSON_OK
+    );
+}
+
+#[test]
+fn deep_malformed_at_max_supported_depth_is_process_safe() {
+    let output = Command::new(env::current_exe().expect("diagnostics test binary path"))
+        .env(DEEP_MALFORMED_CHILD_ENV, "1")
+        .arg("--exact")
+        .arg("deep_malformed_at_max_supported_depth_child")
+        .arg("--nocapture")
+        .arg("--test-threads=1")
+        .output()
+        .expect("spawn deep malformed diagnostics child");
+
+    assert!(
+        output.status.success(),
+        "deep malformed diagnostics child failed: status={:?}\nstdout={}\nstderr={}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("1 passed"),
+        "deep malformed diagnostics child did not run exactly one test:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+    );
 }
 
 fn diagnostic_cases() -> [(&'static str, Vec<u8>, u64, bool); 9] {
