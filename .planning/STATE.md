@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: "Phase 11 shipped — PR #38"
+status: executing
 stopped_at: "Phase 11 shipped — PR #38; ready to discuss Phase 12"
-last_updated: "2026-07-30T09:19:50.088Z"
+last_updated: "2026-07-30T11:38:36.728Z"
 last_activity: 2026-07-30
 progress:
   total_phases: 22
-  completed_phases: 12
+  completed_phases: 13
   total_plans: 68
-  completed_plans: 67
-  percent: 55
+  completed_plans: 68
+  percent: 59
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 **Core value:** Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning: typed extraction and selective traversal are the primary story, while full `any` materialization is documented without overstating current wins.
-**Current focus:** Phase 12 — high value dom navigation and simd utility apis
+**Current focus:** Phase 10 — lightweight-pr-benchmark-regression-signal
 
 ## Current Position
 
-Phase: 12
-Plan: Not started
-Status: Phase 11 shipped — PR #38
+Phase: 10 (lightweight-pr-benchmark-regression-signal) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-07-30
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
-Progress: [██████████] 99%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ Progress: [██████████] 99%
 | Phase 11 P16 | 8min | 2 tasks | 8 files |
 | Phase 11 P17 | 8min | 1 tasks | 5 files |
 | Phase 11 P18 | 8min | 1 tasks | 2 files |
+| Phase 10 P03 | 8 min | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -191,6 +192,8 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 11]: Map trapped bad allocation to status 97 while preserving returned MEMALLOC and internal status 127. — Thrown exceptions and returned engine errors remain distinct caller classifications.
 - [Phase 11]: Keep the public header, normative document, ABI number, and public symbol surface unchanged. — The source now conforms to the already-locked exception contract.
 - [Phase 11]: Parser-aware bad-allocation capture uses a fixed non-allocating diagnostic and selector 3 stays on the existing hidden seam. — This guarantees noexcept containment while preserving the public ABI and returned MEMALLOC/internal status semantics.
+- [Phase 10]: PR benchmark jobs restore but never save the canonical baseline cache; only the main-baseline workflow writes it.
+- [Phase 10]: `REQUIRE_NO_REGRESSION` stays `false` until observed CI noise supports a separate blocking-mode decision.
 
 ### Pending Todos
 
@@ -204,7 +207,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-29T17:47:03.263Z
+Last session: 2026-07-30T11:38:22.032Z
 Stopped at: Phase 11 shipped — PR #38; ready to discuss Phase 12
 Resume file: None
 
