@@ -1,6 +1,7 @@
 # Phase 12: High-value DOM navigation and SIMD utility APIs - Context
 
 **Gathered:** 2026-07-30
+**Updated:** 2026-07-30 — Spike 004 findings folded in (D-13/D-14); Minify aliasing decision confirmed, no amendment needed
 **Status:** Ready for planning
 
 <domain>
@@ -33,6 +34,10 @@ No JSON encoder/builder, reflection-based `Unmarshal`, full JSONPath (RFC 9535) 
 - **D-09:** `MinifyInto` is the variant that must be exercised by the required "overlap" tests (success criterion 4) — `dst == src` aliasing must be tested as a first-class supported case, not just an internal FFI-level proof. `dst` must be sized `>= len(src)` (minified output is never longer than input); undersized `dst` returns an error rather than silently truncating.
 - **D-10:** Minify's buffer handling is NOT gated by Phase 14's zero-copy benchmark-gating rule. That rule exists for document-lifetime-tied borrowed views with invalidation hazards; `Minify`/`MinifyInto` operate on plain, always-caller-owned byte slices with no Doc/Parser lifetime coupling, so it is in-scope for Phase 12 as stated in UTIL-01, not deferred.
 
+### Validated Spike Resolution — Minify Aliasing Safety
+- **D-13 (post-discussion, spike-validated 2026-07-30):** D-08/D-09's `dst == src` aliasing contract is confirmed memory-safe and correct, not just theoretically sound. `.planning/spikes/004-minify-buffer-safety/` built a standalone ASan+UBSan probe against the untouched vendored simdjson v4.6.4 singleheader (matching production's `SIMDJSON_IMPLEMENTATION_FALLBACK=1` build.rs flag) and found: (a) upstream's own doc comments contradict each other on whether `dst` needs `len + SIMDJSON_PADDING` slack or just `len` bytes, and upstream's own multi-year fuzz harness never tests the `dst == src` case at all; (b) empirically, across the `arm64` and `fallback` kernels, `dst` sized exactly `len(src)` (no padding) triggered zero ASan/UBSan traps, and in-place (`dst == src`) output was byte-identical to the non-aliased reference across 12 fixtures including two adversarial high-compression-ratio inputs (~18KB, ~25KB), with identical results across 3 repeated runs. **No CONTEXT.md amendment to D-08/D-09 was needed — the locked decision stands as originally written.**
+- **D-14 (residual, non-blocking):** The spike ran on an Apple Silicon (arm64) host and could not exercise the `haswell`/`westmere`/`icelake` x86-64 kernels. Before Phase 12 claims the aliasing guarantee across all five shipped platforms, re-run the same probe (or an equivalent contract test) on an x86-64 CI runner — fold this into the existing Rust/C++ contract test suite or five-platform smoke matrix rather than treating it as a one-off. This is a plan-phase task, not a blocker to starting the plan.
+
 ### ValidateUTF8 (UTIL-02)
 - **D-11:** `func ValidateUTF8(data []byte) (bool, error)` — not a bare bool, and not a `Type()/TypeErr()`-style dual method. The error return exists because, unlike upstream's pure C++ function, the Go entry point can genuinely fail on first call (native library not yet loaded/bootstrapped, ABI mismatch) — every other function that touches `activeLibrary()` (`NewParser`, `SetKernel`) already returns `error` for exactly this reason, and `ValidateUTF8` is the first standalone entry point that can trigger first-time library resolution without a prior `NewParser` call.
 - **D-12:** No dual-method (`ValidateUTF8()`/`ValidateUTF8Err()`) — that convention exists for transient Doc/Parser handle validity, which `ValidateUTF8` has none of; its only failure mode (library load) is not a "safe to hide" condition, it's a real error every caller needs to see.
@@ -56,6 +61,12 @@ No JSON encoder/builder, reflection-based `Unmarshal`, full JSONPath (RFC 9535) 
 - `.planning/PROJECT.md` — copied-DOM-by-default philosophy, precision-preservation goal, five-platform requirement, no-cgo constraint, FFI safety rules (`ffi_wrap`/`catch_unwind` on every export).
 - `.planning/phases/11-upstream-simdjson-refresh-bigint-and-diagnostics/11-CONTEXT.md` — current ABI (0x00010002), truthful-diagnostics precedent that this phase's error-taxonomy decisions extend, and the established pattern of additive-only ABI growth.
 - `.planning/phases/08-low-overhead-dom-traversal-abi-and-specialized-go-any-materi/08-CONTEXT.md` — existing frame/materializer ABI that indexed-array-access work must not destabilize.
+
+### Validated spike evidence
+- `.planning/spikes/MANIFEST.md` — Phase 12 spike contract and validated verdict.
+- `.planning/spikes/004-minify-buffer-safety/README.md` — ASan/UBSan evidence behind D-13 that `MinifyInto`'s `dst == src` aliasing is memory-safe and correct on the `arm64`/`fallback` kernels, plus the D-14 residual x86-64 verification follow-up.
+- `.planning/spikes/004-minify-buffer-safety/probe.cpp`, `verify.sh` — reusable probe; re-run on x86-64 CI per D-14 before claiming the aliasing guarantee across all five platforms.
+- `.planning/spikes/CONVENTIONS.md` — isolation, exact-pin, machine-readable evidence, repeatability, and promotion rules these probes follow.
 
 ### Public Go and C contracts
 - `element.go` — current `Element`/`Array`/`Object` types, existing accessor methods, and the `Type()/TypeErr()`, `IsNull()/IsNullErr()` dual-method convention that `Len()/LenErr()` extends (D-06).
