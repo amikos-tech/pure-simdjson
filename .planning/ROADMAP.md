@@ -554,7 +554,7 @@ Plans:
 - [x] `11-15-PLAN.md` — Bound configured depth and prove maximum-depth malformed diagnostics are process-safe
 - [x] `11-16-PLAN.md` — Restore BigInt token-boundary validation across all generated architecture paths
 - [x] `11-17-PLAN.md` — Align trapped `std::bad_alloc` with the normative status-97 FFI contract
-- [ ] `11-18-PLAN.md` — Make parser-aware bad-allocation capture allocation-safe and prove status-97 process survival
+- [x] `11-18-PLAN.md` — Make parser-aware bad-allocation capture allocation-safe and prove status-97 process survival
 
 ### Phase 12: High-value DOM navigation and SIMD utility APIs
 
