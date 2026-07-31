@@ -578,10 +578,10 @@ Plans:
 - [ ] `12-01-PLAN.md` — ABI 0x00010003 + 2 new status codes; native AtPointer/AtPath (Wave 1)
 - [ ] `12-02-PLAN.md` — Native Array.At/Len and Object.Size (Wave 2)
 - [ ] `12-03-PLAN.md` — Native wildcard AtPathAll bulk-transport + tracked-allocation free (Wave 3)
-- [ ] `12-04-PLAN.md` — Native Minify/ValidateUTF8, CPU-unsupported gate, D-14 CI, ABI 1.3 docs closeout (Wave 4)
-- [ ] `12-05-PLAN.md` — Go internal/ffi binding layer for all 9 new native exports (Wave 5)
-- [ ] `12-06-PLAN.md` — Go AtPointer/AtPath/AtPathAll public API (Wave 6)
-- [ ] `12-07-PLAN.md` — Go Minify/MinifyInto/ValidateUTF8 public API (Wave 6)
+- [ ] `12-04-PLAN.md` — Native Minify/ValidateUTF8, exact overlap safety, durable D-14 CI probe, ABI 1.3 docs (Wave 4)
+- [ ] `12-05-PLAN.md` — ABI 1.3 bootstrap/loader policy and Go bindings for all 9 native exports (Wave 5)
+- [ ] `12-06-PLAN.md` — Go AtPointer/AtPath/AtPathAll API and typed public error mappings (Wave 6)
+- [ ] `12-07-PLAN.md` — Go Minify/MinifyInto/ValidateUTF8 API and kernel-state synchronization (Wave 7)
 - [ ] `12-08-PLAN.md` — Go Array.At/Len and Object.Size public API (Wave 7)
 
 ### Phase 13: Batched On-Demand path extraction
