@@ -1,159 +1,103 @@
 ---
 phase: 12-high-value-dom-navigation-and-simd-utility-apis
-verified: "2026-07-31T12:50:20Z"
-status: gaps_found
-score: "53/55 must-haves verified"
+verified: "2026-07-31T18:05:00Z"
+status: passed
+score: "55/55 must-haves verified"
 overrides_applied: 0
-gaps:
-  - truth: "Focused Rust and header checks cover both utility exports and their exact signatures"
-    status: failed
-    reason: "The public minify export violates its documented BUFFER_TOO_SMALL out-parameter contract, and the focused Rust test does not assert that out_written receives src_len. A direct call returned status 6 while leaving the caller's sentinel untouched."
-    artifacts:
-      - path: "src/runtime/mod.rs"
-        issue: "native_minify returns Err(rc) on every non-OK status and discards the native written value."
-      - path: "src/lib.rs"
-        issue: "pure_simdjson_minify writes out_written only in the Ok branch, so status 6 loses the required capacity."
-      - path: "tests/rust_shim_minify.rs"
-        issue: "The undersized-destination test initializes written to SIZE_MAX but asserts only status and destination immutability."
-    missing:
-      - "Preserve the native status and written value together across src/runtime/mod.rs."
-      - "Write src_len to out_written for PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL in the public export."
-      - "Assert the status/required-capacity pair in Rust and dynamic C smoke coverage."
-  - truth: "Loader tests reject ABI 1.2, bind and cache only a complete ABI 1.3 surface, fail closed on an incomplete ABI 1.3 artifact, and preserve later additive ABI 1.4 compatibility"
-    status: failed
-    reason: "The loader treats two earlier public ABI symbols as optional, so an ABI 1.3 library missing either allocator-telemetry export can still bind and be cached despite the complete-earlier-surface rule. The ABI 1.3 fixtures omit both symbols and cannot catch this."
-    artifacts:
-      - path: "internal/ffi/bindings.go"
-        issue: "pure_simdjson_native_alloc_stats_reset and pure_simdjson_native_alloc_stats_snapshot use optional registration after the mandatory symbol loop."
-      - path: "internal/ffi/bindings_test.go"
-        issue: "abi13RequiredSymbols omits both public allocator-telemetry symbols."
-      - path: "library_loading_test.go"
-        issue: "abi13MandatoryFixtureSymbols omits both symbols, so the complete/incomplete loader tests model an incomplete surface as complete."
-    missing:
-      - "Move both public allocator-telemetry exports into the mandatory binding table."
-      - "Add both names to ABI 1.3 binding and loader fixtures."
-      - "Add one-symbol-missing regressions proving either omission fails before cache installation."
+re_verification:
+  previous_status: gaps_found
+  previous_score: "53/55 must-haves verified"
+  gaps_closed:
+    - "Focused Rust and header checks cover both utility exports and their exact signatures (12-04 T5 / minify BUFFER_TOO_SMALL out_written contract)"
+    - "Loader tests reject ABI 1.2, bind and cache only a complete ABI 1.3 surface, fail closed on an incomplete ABI 1.3 artifact, and preserve later additive ABI 1.4 compatibility (12-11 T5 / allocator-telemetry mandatory binding)"
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 12: High-value DOM navigation and SIMD utility APIs Verification Report
 
 **Phase Goal:** Expose the mature, high-value parts of simdjson's DOM and implementation APIs as thin Go wrappers: standards-based navigation, indexed/container helpers, wildcard path selection, fast minification, and standalone UTF-8 validation.
-**Verified:** 2026-07-31T12:50:20Z
-**Status:** gaps_found
-**Re-verification:** No — initial verification
+**Verified:** 2026-07-31T18:05:00Z
+**Status:** passed
+**Re-verification:** Yes — after gap closure plans 12-12 and 12-13
 
 ## Goal Achievement
 
-The public navigation, wildcard, container, minify, and UTF-8 happy paths are implemented and pass focused and full race-enabled tests. The phase does not pass goal-backward verification because two fail-closed ABI contracts are observably false: minify drops its required-capacity output on status 6, and the Go loader accepts an ABI 1.3 library missing two earlier public symbols.
+Both blockers recorded in the prior verification (2026-07-31T12:50:20Z) are closed and independently re-proven with adversarial, fresh execution — not by trusting the gap-closure SUMMARYs. The minify `BUFFER_TOO_SMALL` out-parameter contract now round-trips the required capacity, and the ABI 1.3 loader now fails closed on either missing allocator-telemetry symbol before cache installation. All 55 plan must-have truths and all 4 roadmap success criteria are verified. The public navigation, wildcard, container, minify, and UTF-8 surfaces are implemented, wired to real upstream simdjson calls, and pass focused, full-suite, race-enabled, contract, documentation, sanitizer, and dynamic-library-smoke gates.
 
 ### Roadmap Success Criteria
 
 | # | Roadmap truth | Status | Evidence |
 |---|---|---|---|
-| 1 | `Element.AtPointer` follows RFC 6901 and `Element.AtPath` follows the simdjson dot/index subset with typed traversal errors. | ✓ VERIFIED | Public methods in `element.go`; native calls delegate to `element::at_pointer`/`element::at_path`; focused Rust and Go tests pass. |
-| 2 | Wildcard queries return ordered, document-tied views without claiming full RFC 9535 support. | ✓ VERIFIED | Scratch-vector-to-owned-view flow is wired; lifetime/free/concurrency tests pass; Go docs explicitly disclaim RFC 9535. |
-| 3 | Arrays expose indexed access and length; arrays and objects expose size without Go iteration. | ✓ VERIFIED | `Array.At`, `Len`/`LenErr`, and `Object.Size`/`SizeErr` call native helpers; populated, empty, wrong-kind, closed, and bounds tests pass. |
-| 4 | `Minify` and `ValidateUTF8` are allocation-conscious SIMD wrappers with overlap, empty, malformed, and cross-platform tests. | ✗ FAILED | Main behavior and tests exist, but the public ABI loses `out_written` on `BUFFER_TOO_SMALL`; the passing test misses this assertion. |
+| 1 | `Element.AtPointer` follows RFC 6901 and `Element.AtPath` follows the simdjson dot/index subset with typed traversal errors. | ✓ VERIFIED | Unchanged since prior pass; re-ran `cargo test --test rust_shim_navigation` (19/19 passed) and `go test . -race -run TestMinify` unrelated packages unaffected; navigation code paths untouched by gap-closure commits. |
+| 2 | Wildcard queries return ordered, document-tied views without claiming full RFC 9535 support. | ✓ VERIFIED | Same as above — `rust_shim_navigation.rs` wildcard tests pass; code untouched by 12-12/12-13. |
+| 3 | Arrays expose indexed access and length; arrays and objects expose size without Go iteration. | ✓ VERIFIED | `Array.At`/`Len`/`Object.Size` code untouched by gap closure; full `go test ./... -race -count=1` green. |
+| 4 | `Minify` and `ValidateUTF8` are allocation-conscious SIMD wrappers with overlap, empty, malformed, and cross-platform tests. | ✓ VERIFIED | Gap 1 closed: direct `ctypes` call against the freshly rebuilt `target/release/libpure_simdjson.dylib` confirms `rc=6 written=8 dst_unchanged=True` (source `{"a": 1}`, 8 bytes, 7-byte dest) instead of the prior `written=SIZE_MAX`. Success path (`rc=0 written=7 out=b'{"a":1}'`), same-start aliasing, and partial-overlap rejection (`rc=1`) all verified in the same adversarial run — no regression to 12-04 T1/T2. |
 
 ### Plan Must-Have Truths
 
-Every PLAN frontmatter truth was checked against current code and fresh execution. The score below is based on these 55 plan truths.
+Every PLAN frontmatter truth was re-checked. The two previously-failed truths were re-verified with fresh, adversarial execution (not the passing test suite alone); the 53 previously-passing truths were regression-checked via full-suite re-runs of every gate the gap-closure commits could plausibly have affected.
 
 | Plan | Truth | Status | Evidence |
 |---|---|---|---|
-| 12-01 T1 | ABI 1.3 keeps INVALID_PATH=11 and INDEX_OUT_OF_RANGE=12 distinct. | ✓ VERIFIED | `src/lib.rs` pins ABI `0x0001_0003` and codes 11/12; generated header and Go constants agree. |
-| 12-01 T2 | AtPointer delegates RFC 6901 resolution and returns a registered descendant. | ✓ VERIFIED | `Element.AtPointer` → binding → Rust registry → `psimdjson_element_at_pointer_index` → upstream `at_pointer`; tests pass. |
-| 12-01 T3 | AtPath delegates the documented simdjson dot/index subset. | ✓ VERIFIED | Same end-to-end chain reaches upstream `at_path`; dot-path and invalid bare-name cases pass. |
-| 12-01 T4 | Header contract requires both navigation symbols. | ✓ VERIFIED | Both are in `REQUIRED_SYMBOLS`; `make verify-contract` passed. |
-| 12-01 T5 | ABI checker pins exact navigation signatures. | ✓ VERIFIED | `diag-surface` signature fixtures passed in the fresh contract run. |
-| 12-02 T1 | Native Array.At is upstream's O(n) tape scan, not random access. | ✓ VERIFIED | C++ bridge calls `array.at(size_t(index))`; Go docs disclose O(n)/O(n²) behavior. |
-| 12-02 T2 | Native Array.Len/Object.Size are O(1) tape counts with 0xFFFFFF saturation. | ✓ VERIFIED | C++ bridge calls `array.size()`/`object.size()`; Go docs disclose the exact cap. |
-| 12-02 T3 | Out-of-range Array.At maps to status 12. | ✓ VERIFIED | `map_error` maps `INDEX_OUT_OF_BOUNDS`; Rust and Go bounds tests pass. |
-| 12-02 T4 | Contract requires all three DOM-04 symbols. | ✓ VERIFIED | Required-symbol and generated-header contract run passed. |
-| 12-02 T5 | Empty/wrong-kind native cases and exact signatures are tested. | ✓ VERIFIED | Navigation suite passed 19/19 including empty and wrong-kind size cases. |
-| 12-03 T1 | Wildcard scratch indices are synchronously copied to a Rust-owned ValueView array. | ✓ VERIFIED | C++ doc owns `wildcard_indices`; registry copies under `with_resolved_view` before returning. |
-| 12-03 T2 | Wildcard results preserve order and valid empty results are OK/null/zero. | ✓ VERIFIED | Spike-005 table test and Go non-nil-empty tests pass. |
-| 12-03 T3 | View arrays use a separate allocation ledger. | ✓ VERIFIED | `view_array_allocations` is distinct from `byte_allocations`. |
-| 12-03 T4 | ValueView free rejects mismatch and double free. | ✓ VERIFIED | Exact pointer/count ledger and focused free-discipline tests pass. |
-| 12-03 T5 | Copied views outlive the carrier, not the document; same-doc calls serialize. | ✓ VERIFIED | Lifetime and concurrency tests pass. |
-| 12-03 T6 | Null/count boundary pairs are explicit. | ✓ VERIFIED | Null/zero succeeds; null/nonzero and nonnull/zero reject in implementation and tests. |
-| 12-03 T7 | Wildcard/free exact signatures are enforced. | ✓ VERIFIED | `make verify-contract` passed both signatures. |
-| 12-04 T1 | Native minify checks capacity before upstream entry. | ✓ VERIFIED | `psimdjson_minify` stores `src_len`, rejects short capacity at lines 1130-1135, before kernel/upstream work. |
-| 12-04 T2 | Only same-start aliasing or disjoint buffers are accepted. | ✓ VERIFIED | Both partial-overlap directions reject before writes; Rust/Go tests and sanitizer gate pass. |
-| 12-04 T3 | Utilities apply fallback/selection-lock ordering and scan after mutex release. | ✓ VERIFIED | Both C++ utility functions use scoped selection locking; fresh utility-lock test passes. |
-| 12-04 T4 | Minify is documented as non-validating except unclosed strings. | ✓ VERIFIED | C++/Rust/Go comments and normative FFI text state this limitation; malformed test passes. |
-| 12-04 T5 | Focused Rust/header checks cover both utility exports and exact signatures. | ✗ FAILED | Signatures pass, but the undersized test omits the decisive `written == src_len` assertion; direct ABI execution proves the missed failure. |
-| 12-05 T1 | Go ABI and status constants match native ABI 1.3/codes 11/12. | ✓ VERIFIED | Go numeric tests and compile-time constants pass. |
-| 12-05 T2 | Bootstrap source identity is unpublished `0.2.0-dev`, not a false release. | ✓ VERIFIED | Source constant/canary use `0.2.0-dev`; no release mutation occurred. |
-| 12-05 T3 | Bootstrap docs distinguish current source from historical ABI 1.2 and require local override. | ✓ VERIFIED | Documentation text and `make verify-docs` pass. |
-| 12-06 T1 | Public AtPointer exposes typed RFC 6901 errors. | ✓ VERIFIED | RFC escapes, malformed syntax, missing, wrong-kind, out-of-range, root, and trailing-empty-key cases pass. |
-| 12-06 T2 | Public AtPath documents leading separator and bracket-quote asymmetry. | ✓ VERIFIED | Doc comments and dedicated behavior cases are present and pass. |
-| 12-06 T3 | AtPathAll rejects wildcard-free paths and normalizes branch misses to non-nil empty. | ✓ VERIFIED | Go precheck precedes FFI; empty/missing/out-of-range/non-container cases pass. |
-| 12-06 T4 | Navigation sentinels are distinct and missing/wrong-type reuse existing sentinels. | ✓ VERIFIED | Shared status switch and `errors.Is` tests pass. |
-| 12-06 T5 | ErrBufferTooSmall is public; only invalid argument maps intentionally to internal error. | ✓ VERIFIED | Sentinel and switch mapping are present. |
-| 12-07 T1 | Minify allocates; MinifyInto allows exact alias/disjoint and rejects partial overlap pre-FFI. | ✓ VERIFIED | Public code and both-direction unchanged-storage tests pass. |
-| 12-07 T2 | Short Go destinations reject pre-FFI with ErrBufferTooSmall. | ✓ VERIFIED | `MinifyInto` checks lengths before load/call; unchanged-buffer test passes. |
-| 12-07 T3 | Utilities operate on caller-owned slices without Doc/Parser lifetime coupling. | ✓ VERIFIED | APIs are package functions over byte slices and active library bindings. |
-| 12-07 T4 | ValidateUTF8 returns `(bool,error)` and invalid UTF-8 is `(false,nil)`. | ✓ VERIFIED | Valid, invalid, empty, parser-regression, and operational-gate tests pass. |
-| 12-07 T5 | Go kernel state mirrors preflight/CPU/success/post-gate outcomes. | ✓ VERIFIED | Subprocess-isolated utility lock tests pass. |
-| 12-08 T1 | Array.At returns `(Element,error)` with no error-hiding twin. | ✓ VERIFIED | Exact method shape is present. |
-| 12-08 T2 | Array.At uses Go `int` and rejects negatives before FFI. | ✓ VERIFIED | Code precheck and poisoned-view negative-index test pass. |
-| 12-08 T3 | Len/LenErr and Size/SizeErr follow panic-safe dual methods. | ✓ VERIFIED | Empty, closed, zero-value, and wrong-kind cases pass. |
-| 12-08 T4 | Out-of-range At returns ErrIndexOutOfRange. | ✓ VERIFIED | Public and native tests pass. |
-| 12-08 T5 | O(n) and 16,777,215 saturation are documented. | ✓ VERIFIED | Public comments contain both exact disclosures. |
-| 12-09 T1 | Packed native/header ABI is `0x00010003`. | ✓ VERIFIED | Rust constant, cbindgen source, generated header, and Go mirror agree. |
-| 12-09 T2 | Status values 11/12 are append-only/distinct. | ✓ VERIFIED | Rust/C/Go numeric assertions pass. |
-| 12-09 T3 | Rust, generated C, C assertions, and Python fixtures agree. | ✓ VERIFIED | Fresh full contract gate passed. |
-| 12-09 T4 | Normative table describes statuses without renumbering older values. | ✓ VERIFIED | Documentation and contract check pass. |
-| 12-10 T1 | Durable D-14 probe is outside planning and dynamically counts supported kernels. | ✓ VERIFIED | Script/probe inspection plus fresh run: `kernels=arm64,fallback total=24 runs=3`. |
-| 12-10 T2 | Phase-2 workflow runs D-14 when script/tests-native change. | ✓ VERIFIED | Both paths and invocation are in the workflow. |
-| 12-10 T3 | Native smoke resolves/invokes all nine ABI 1.3 exports. | ✓ VERIFIED | Closed-world source checks pass; fresh native smoke passed. |
-| 12-10 T4 | Five-platform Go workflow includes the Phase 12 branch. | ✓ VERIFIED | Exact branch is configured and workflow contract tests pass. |
-| 12-10 T5 | Current loader-contract text requires ABI 1.3 and labels ABI 1.2 historical/rejected. | ✓ VERIFIED | Normative docs contain the required wording; docs gate passes. |
-| 12-10 T6 | Workflow tests pin triggers, smoke calls, and absence of planning-local production dependencies. | ✓ VERIFIED | 17/17 workflow-contract tests pass. |
-| 12-11 T1 | All nine Phase 12 symbols are mandatory, never optional. | ✓ VERIFIED | All nine appear in the mandatory `symbols` slice. |
-| 12-11 T2 | Wrappers preserve ordering/KeepAlive/copies and wildcard arrays free once. | ✓ VERIFIED | Manual data-flow trace and binding tests verify marshaling and copy-before-free. |
-| 12-11 T3 | Binding tests exercise all nine Phase 12 symbols and boundary states. | ✓ VERIFIED | `go test ./internal/ffi` passes; test matrix includes wildcard/minify/UTF-8 cases. |
-| 12-11 T4 | Release policy accepts 0.2.0-dev/ABI 1.3 and rejects 0.1.7. | ✓ VERIFIED | 14/14 policy tests pass. |
-| 12-11 T5 | Loader binds/caches only a complete ABI 1.3 surface and fails closed when incomplete. | ✗ FAILED | Two public earlier-surface symbols are optional and absent from both “complete” fixture lists. |
+| 12-01 T1–T5 | ABI 1.3 status codes, AtPointer/AtPath delegation, header contract, exact signatures. | ✓ VERIFIED | Unchanged; `cargo test --test rust_shim_navigation` and `make verify-contract` re-run clean. |
+| 12-02 T1–T5 | Native Array.At/Len/Object.Size behavior, bounds mapping, symbol contract. | ✓ VERIFIED | Unchanged; navigation suite re-run 19/19 passed. |
+| 12-03 T1–T7 | Wildcard scratch-to-owned-view transport, ordering, allocation ledger, free discipline, lifetime/serialization, null/count boundaries, signatures. | ✓ VERIFIED | Unchanged; same suite re-run clean. |
+| 12-04 T1 | Native minify checks capacity before upstream entry. | ✓ VERIFIED | Re-run `cargo test --test rust_shim_minify`; adversarial `ctypes` Case 1 confirms the check still triggers (`rc=6`) before any output byte is written (`dst_unchanged=True`). |
+| 12-04 T2 | Only same-start aliasing or disjoint buffers are accepted. | ✓ VERIFIED | Adversarial Case 3 (same-start alias, `rc=0`) and Case 4 (partial overlap starting mid-buffer, `rc=1`, rejected) both confirmed directly against the built dylib — no regression from the Gap 1 fix. |
+| 12-04 T3 | Utilities apply fallback/selection-lock ordering and scan after mutex release. | ✓ VERIFIED | `cargo test --test rust_shim_utility_lock` re-run: 1/1 passed. |
+| 12-04 T4 | Minify is documented as non-validating except unclosed strings. | ✓ VERIFIED | `minify_unclosed_string_returns_invalid_json` re-run passed; doc comment unchanged in intent (only extended, see header regen check below). |
+| 12-04 T5 | Focused Rust/header checks cover both utility exports and exact signatures. | ✓ VERIFIED (was FAILED) | `tests/rust_shim_minify.rs::minify_undersized_dst_returns_buffer_too_small_before_writing` now contains `assert_eq!(written, input.len());` (confirmed by direct file read) and passes. `tests/smoke/ffi_export_surface.c` gained a new block asserting `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL` + `undersized_written == sizeof(minify_source) - 1` against the real dylib; `run_native_smoke.sh` printed `ffi export surface smoke passed`. Independent `ctypes` adversarial call also confirms `written == src_len` (8) on status 6. |
+| 12-05 T1–T3 | Go ABI/status constants, bootstrap source identity, bootstrap docs. | ✓ VERIFIED | Unaffected by gap closure; `make verify-docs` and Go ABI tests re-run clean. |
+| 12-06 T1–T5 | Public AtPointer/AtPath typed errors, AtPathAll semantics, sentinel distinctness, ErrBufferTooSmall mapping. | ✓ VERIFIED | Unaffected; `go test ./... -race -count=1` green. |
+| 12-07 T1 | Minify allocates; MinifyInto allows exact alias/disjoint and rejects partial overlap pre-FFI. | ✓ VERIFIED | Re-ran `go test . -race -run TestMinify` (`TestMinifyInto_Overlap`, `_Disjoint`, `_PartialOverlap` all pass) — Go-level pre-FFI rejection is independent of and unaffected by the Rust-side capacity fix. |
+| 12-07 T2 | Short Go destinations reject pre-FFI with ErrBufferTooSmall. | ✓ VERIFIED | `TestMinifyInto_UndersizedDst` re-run passed; Go's `MinifyInto` still checks length before calling FFI, so it never even exercises the fixed BUFFER_TOO_SMALL path — confirmed no regression. |
+| 12-07 T3–T5 | Utilities operate on caller-owned slices; ValidateUTF8 tri-state; kernel-state mirroring. | ✓ VERIFIED | `TestMinifyAutomaticFallbackRejected`, `TestMinifyLocksKernelSelection`, etc. re-run passed (subprocess-isolated, ~1s each as expected). |
+| 12-08 T1–T5 | Array.At shape, int/negative rejection, Len/Size dual methods, out-of-range mapping, doc disclosures. | ✓ VERIFIED | Unaffected by gap closure; full Go suite green. |
+| 12-09 T1 | Packed native/header ABI is `0x00010003`. | ✓ VERIFIED | `make verify-contract` re-run: header diff against freshly-`cbindgen`-regenerated output is empty; ABI constant unchanged. |
+| 12-09 T2 | Status values 11/12 are append-only/distinct. | ✓ VERIFIED | Unaffected; contract gate re-run clean. |
+| 12-09 T3 | Rust, generated C, C assertions, and Python fixtures agree. | ✓ VERIFIED | `make verify-contract` re-run: `tests/abi/test_check_header.py` (26 tests), `test_check_bootstrap_abi_state.py` (14 tests), `test_release_workflow_contracts.py` (17 tests) all pass; `cc -Iinclude tests/abi/handle_layout.c -c` compiles clean. Confirms the 12-12 header regeneration (extending `pure_simdjson_minify`'s doc comment) introduced **only** two added comment lines — verified via `git show 0b192c2 -- include/pure_simdjson.h`, no signature/struct/enum change. |
+| 12-09 T4 | Normative table describes statuses without renumbering older values. | ✓ VERIFIED | `make verify-docs` re-run: exit 0. |
+| 12-10 T1–T6 | D-14 probe, phase-2 workflow triggers, native smoke, five-platform branch, loader-contract docs, workflow-contract tests. | ✓ VERIFIED | Re-ran `bash scripts/ci/verify_minify_buffer_safety.sh` → `kernels=arm64,fallback total=24 runs=3`; re-ran `bash scripts/release/run_native_smoke.sh target/release/libpure_simdjson.dylib darwin-arm64` → `ffi export surface smoke passed`. Neither script nor workflow file was touched by 12-12/12-13. |
+| 12-11 T1 | All nine Phase 12 symbols are mandatory, never optional. | ✓ VERIFIED | Unaffected — these nine were already mandatory prior to gap closure; still present in `bindings.go`'s `symbols` slice. |
+| 12-11 T2 | Wrappers preserve ordering/KeepAlive/copies and wildcard arrays free once. | ✓ VERIFIED | Unaffected by gap closure; binding tests re-run clean. |
+| 12-11 T3 | Binding tests exercise all nine Phase 12 symbols and boundary states. | ✓ VERIFIED | `go test ./internal/ffi/... -race -count=1` re-run: all pass, no regression from the two newly-mandatory symbols added alongside them. |
+| 12-11 T4 | Release policy accepts 0.2.0-dev/ABI 1.3 and rejects 0.1.7. | ✓ VERIFIED | Unaffected; `test_check_bootstrap_abi_state.py` (14/14) re-run clean. |
+| 12-11 T5 | Loader binds/caches only a complete ABI 1.3 surface and fails closed when incomplete. | ✓ VERIFIED (was FAILED) | `internal/ffi/bindings.go`: `pure_simdjson_native_alloc_stats_reset`/`_snapshot` are now in the mandatory `symbols` slice (confirmed by direct file read); `grep -c registerOptionalFuncWithRegistrar internal/ffi/bindings.go` shows only the `psdj_internal_materialize_build` call remains optional. `abi13RequiredSymbols` (bindings_test.go) and `abi13MandatoryFixtureSymbols` (library_loading_test.go) both include the two symbols at the correct position. `TestBindRequiresNativeAllocStatsSymbols`, `TestABI13IncompleteMissingAllocStatsResetFailsClosed`, `TestABI13IncompleteMissingAllocStatsSnapshotFailsClosed` all pass and assert `cachedLibrary == nil` + no `"implementation-name"` event — i.e., failure occurs strictly before cache installation, not merely "binding errors." **Adversarial regression proof:** reverted `internal/ffi/bindings.go` to its pre-fix (optional-registration) content and re-ran the internal/ffi gap tests — both `TestBindRequiresNativeAllocStatsSymbols` subtests and `TestBindLooksUpCompleteABI13Surface` failed as expected (`Bind() error = nil with ... missing`). Separately reverted only the `abi13MandatoryFixtureSymbols` fixture-list hunk in `library_loading_test.go` (keeping the two new test functions) and re-ran — both `TestABI13IncompleteMissingAllocStats{Reset,Snapshot}FailsClosed` failed as expected (`activeLibrary() error = nil, want incomplete ABI 1.3 failure`). Both files were restored to their fixed state afterward (`git status --short` clean). `TestABILaterAdditiveMinorBindsAndCaches` (ABI 1.4 forward compatibility) re-run and still passes — promoting the two symbols to mandatory does not reject a future additive ABI. |
 
-**Score:** 53/55 plan truths verified
+**Score:** 55/55 plan truths verified
 
 ### Required Artifacts
 
-The artifact query reported 43/43 declared artifact occurrences present and substantive. Manual Level-3/Level-4 checks found the following functional exceptions.
-
 | Artifact/group | Expected | Status | Details |
 |---|---|---|---|
-| `element.go`, `errors.go`, navigation/indexed Go tests | Public DOM APIs, taxonomy, lifecycle, and docs | ✓ VERIFIED | Substantive, called through live bindings, and covered by passing public tests. |
-| `src/native/simdjson_bridge.cpp`, `src/runtime/registry.rs`, `tests/rust_shim_navigation.rs` | Upstream navigation/container bridge, tracked wildcard transport | ✓ VERIFIED | Exists, substantive, wired, and real document data flows through it. |
-| `minify.go`, `utf8.go`, `kernel.go`, Go utility tests | Public Go SIMD utilities and kernel-state handling | ✓ VERIFIED | Public behavior passes focused and race-enabled tests. |
-| `src/lib.rs`, `src/runtime/mod.rs` | Public native utility export and thin runtime handoff | ✗ PARTIAL | Success paths flow; `BUFFER_TOO_SMALL` loses the required `written` value between bridge and export. |
-| `tests/rust_shim_minify.rs` | Raw utility boundary coverage | ✗ PARTIAL | Exercises status 6 but never asserts its required output parameter. |
-| `internal/ffi/bindings.go` | Complete mandatory ABI binding before cache | ✗ PARTIAL | Nine Phase 12 symbols are mandatory, but two earlier public symbols are downgraded to optional. |
-| `internal/ffi/bindings_test.go`, `library_loading_test.go` | Complete/incomplete ABI 1.3 fail-closed tests | ✗ PARTIAL | Both fixture lists omit allocator reset/snapshot and model an incomplete surface as complete. |
-| ABI/header sources and tests (`src/lib.rs`, `cbindgen.toml`, `include/`, `tests/abi/`) | ABI 1.3 numeric/signature contract | ✓ VERIFIED | Deterministic regeneration, Python rules, and C layout compile pass. |
-| Bootstrap/release policy sources and docs | Unreleased 0.2.0-dev/ABI 1.3 identity | ✓ VERIFIED | Constants, canary, policy tests, and docs agree. |
-| Durable probe, smoke, workflows, workflow tests | Cross-platform/sanitizer gates | ✓ VERIFIED | Sources are substantive and wired; local D-14 and native smoke execute successfully. |
+| `element.go`, `errors.go`, navigation/indexed Go tests | Public DOM APIs, taxonomy, lifecycle, docs | ✓ VERIFIED | Unchanged since prior pass; full Go suite green. |
+| `src/native/simdjson_bridge.cpp`, `src/runtime/registry.rs`, `tests/rust_shim_navigation.rs` | Upstream navigation/container bridge, tracked wildcard transport | ✓ VERIFIED | Untouched by gap closure (confirmed via `git diff --stat` over both gap-closure commit ranges — zero C++ files modified); tests re-run clean. |
+| `minify.go`, `utf8.go`, `kernel.go`, Go utility tests | Public Go SIMD utilities and kernel-state handling | ✓ VERIFIED | `TestMinify*` suite re-run passed; Go-level pre-FFI checks are independent of the Rust fix and remain correct. |
+| `src/lib.rs`, `src/runtime/mod.rs` | Public native utility export and thin runtime handoff | ✓ VERIFIED (was PARTIAL) | `native_minify` now returns `(pure_simdjson_error_code_t, usize)`; `pure_simdjson_minify` writes `out_written` via `ptr::write` guarded by `rc == err_ok() || rc == err_buffer_too_small()`, never through `write_out`. Confirmed by direct source read and adversarial `ctypes` call. |
+| `tests/rust_shim_minify.rs` | Raw utility boundary coverage | ✓ VERIFIED (was PARTIAL) | `assert_eq!(written, input.len());` present and passing. |
+| `tests/smoke/ffi_export_surface.c` | Dynamic C smoke coverage of status+capacity pair | ✓ VERIFIED (new) | New undersized-destination block asserts both status 6 and `out_written == src_len`; `run_native_smoke.sh` passed against the real dylib. |
+| `internal/ffi/bindings.go` | Complete mandatory ABI binding before cache | ✓ VERIFIED (was PARTIAL) | Both allocator-telemetry symbols moved into the mandatory `symbols` slice; only `psdj_internal_materialize_build` remains optional. |
+| `internal/ffi/bindings_test.go`, `library_loading_test.go` | Complete/incomplete ABI 1.3 fail-closed tests | ✓ VERIFIED (was PARTIAL) | Both fixture lists include the two symbols at the correct position; new per-symbol missing-binding and fail-closed-before-cache regressions pass, and were adversarially proven to fail against pre-fix code. |
+| `include/pure_simdjson.h` | ABI-stable, regenerated only for the new doc comment | ✓ VERIFIED | `make verify-contract`'s header diff is empty against a fresh `cbindgen` run; `git show 0b192c2` confirms only 2 added comment lines, no signature/struct/enum change — highest-risk deviation in the gap closure confirmed benign. |
+| ABI/header sources and tests, bootstrap/release policy, durable probe/smoke/workflows | ABI 1.3 numeric/signature contract, unreleased identity, cross-platform/sanitizer gates | ✓ VERIFIED | All re-run clean (`make verify-contract`, `make verify-docs`, `verify_minify_buffer_safety.sh`, `run_native_smoke.sh`); none of these files were touched by 12-12/12-13. |
 
-All other declared artifacts (`internal/ffi/types*.go`, `internal/bootstrap/*`, `docs/bootstrap.md`, `docs/ffi-contract.md`, `element_*_test.go`, `minify_test.go`, `utf8_test.go`, policy scripts, and workflow-contract tests) passed existence, substance, and wiring checks.
+All other declared artifacts (`internal/ffi/types*.go`, `internal/bootstrap/*`, `docs/bootstrap.md`, `docs/ffi-contract.md`, `element_*_test.go`, `minify_test.go`, `utf8_test.go`, policy scripts, workflow-contract tests) continue to pass existence, substance, and wiring checks; none were modified by the gap-closure plans.
 
 ### Key Link Verification
 
-`gsd-sdk verify.key-links` could not parse the PLANs' annotated `from` strings (for example, `element.go Element.AtPointer`) and emitted false “Source file not found” results. Each link was therefore traced manually.
+`gsd-sdk verify.key-links` again could not parse the PLANs' annotated `from` strings and would emit false "Source file not found" results; each link was traced manually, as in the prior verification.
 
 | From | To | Via | Status | Details |
 |---|---|---|---|---|
-| Go navigation/container methods | `internal/ffi` bindings | Typed wrapper calls + `runtime.KeepAlive` | ✓ WIRED | All methods call their intended bindings and consume returned values/statuses. |
-| Go utility functions | active library + kernel state + bindings | Preflight, `kernelMu`, binding call, status mapping | ✓ WIRED | Public utility and subprocess lock tests pass. |
-| Rust public navigation exports | registry | `runtime::registry::*` calls inside `ffi_wrap` | ✓ WIRED | Output pointers validated and registry results written. |
-| Registry navigation/container helpers | native C++ bridge | `native_*` wrappers | ✓ WIRED | Upstream results are returned/registered; no static fallback data. |
-| Wildcard C++ scratch | Rust-owned carrier | synchronous index copy under registry mutex | ✓ WIRED | Lifetime/concurrency/free tests pass. |
-| Minify C++ bridge | Rust runtime/public export | status + required-capacity handoff | ✗ PARTIAL | Status flows, but `written` is discarded on non-OK status. |
-| ABI source | cbindgen config/header/checkers | generated header + contract gate | ✓ WIRED | ABI/signature checks pass. |
-| Phase-2 workflow | D-14 verifier | push paths + run step | ✓ WIRED | Source link exists and verifier passes locally. |
-| Release workflow | native export smoke | existing `run_native_smoke.sh` path | ✓ WIRED | Fresh dynamic smoke passed on darwin/arm64. |
-| Loader version probe | mandatory binding | probe, bind, then cache | ✗ PARTIAL | Nine new symbols are mandatory, but earlier allocator telemetry bypasses fail-closed binding. |
+| Go navigation/container methods | `internal/ffi` bindings | Typed wrapper calls + `runtime.KeepAlive` | ✓ WIRED | Unaffected by gap closure; re-run clean. |
+| Go utility functions | active library + kernel state + bindings | Preflight, `kernelMu`, binding call, status mapping | ✓ WIRED | `TestMinify*` and `TestValidateUTF8*` re-run clean. |
+| Rust public navigation exports | registry | `runtime::registry::*` calls inside `ffi_wrap` | ✓ WIRED | Unaffected; navigation suite re-run clean. |
+| `src/lib.rs pure_simdjson_minify` | `src/runtime/mod.rs native_minify` | `let (rc, written) = runtime::native_minify(...)` tuple destructure | ✓ WIRED (was PARTIAL) | Confirmed by direct source read: no `Result::Ok/Err` match remains; tuple destructure feeds a guarded `ptr::write`. |
+| Minify C++ bridge | Rust runtime/public export | status + required-capacity handoff | ✓ WIRED (was PARTIAL) | `written` now travels for both `OK` and `BUFFER_TOO_SMALL`; adversarial `ctypes` call confirms `written=8` on status 6, `written=7` on status 0. |
+| ABI source | cbindgen config/header/checkers | generated header + contract gate | ✓ WIRED | Header diff empty; contract gate re-run clean. |
+| Loader version probe | mandatory binding | probe, bind, then cache | ✓ WIRED (was PARTIAL) | Both allocator-telemetry symbols now sit in the mandatory loop; missing either fails `Bind()`/`activeLibraryWithOps` before any `Bindings` value or cache write, confirmed by direct test execution and by adversarial revert-and-rerun. |
+| Release workflow | native export smoke | existing `run_native_smoke.sh` path | ✓ WIRED | Fresh dynamic smoke passed twice (once after a forced rebuild) on darwin/arm64. |
 
 ### Data-Flow Trace (Level 4)
 
@@ -163,74 +107,84 @@ All other declared artifacts (`internal/ffi/types*.go`, `internal/bootstrap/*`, 
 | `Element.AtPathAll` | Ordered `[]Element` | Upstream wildcard matches → doc scratch indices → Rust-owned views → Go copy | Yes | ✓ FLOWING |
 | `Array.At`, `Len`, `Object.Size` | Element/count | Native DOM tape | Yes | ✓ FLOWING |
 | `Minify` success | Compacted bytes + written count | Upstream SIMD minifier | Yes | ✓ FLOWING |
-| `Minify` short-destination error | Required capacity | C++ sets `src_len`, Rust discards it | No at public ABI | ✗ DISCONNECTED |
+| `Minify` short-destination error | Required capacity | C++ sets `src_len` → Rust tuple → Go export via guarded `ptr::write` | Yes (was No) | ✓ FLOWING (was DISCONNECTED) — adversarial `ctypes` proof: `written=8` on `rc=6` |
 | `ValidateUTF8` | Validity bit | Upstream SIMD validator | Yes | ✓ FLOWING |
-| ABI 1.3 loader gate | Required symbol set | Header/normative ABI → Go binding table → cache | Incomplete | ✗ HOLLOW |
+| ABI 1.3 loader gate | Required symbol set | Header/normative ABI → Go binding table (now complete) → cache | Yes (was Incomplete) | ✓ FLOWING (was HOLLOW) — both allocator-telemetry symbols mandatory; missing either blocks cache write, confirmed by adversarial revert |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |---|---|---|---|
-| Release library builds | `cargo build --release` | Exit 0 | ✓ PASS |
-| Native navigation/wildcard/minify/UTF-8 suites | `cargo test --test rust_shim_navigation --test rust_shim_minify --test rust_shim_utility_lock -- --test-threads=1` | 31 passed, 0 failed | ✓ PASS |
-| Public Phase 12 Go behavior under race detector | Focused `go test . -race -run ...` | Exit 0 | ✓ PASS |
+| Release library builds (forced rebuild via `touch src/lib.rs`) | `cargo build --release` | Exit 0, no warnings | ✓ PASS |
+| Native navigation/wildcard/minify/UTF-8 focused suites | `cargo test --test rust_shim_navigation --test rust_shim_minify --test rust_shim_utility_lock -- --test-threads=1` | 31 passed, 0 failed | ✓ PASS |
+| Complete Rust workspace test suite | `cargo test --release` | All 15 test binaries, 0 failed (regression sweep across the whole blast radius, not just the touched files) | ✓ PASS |
 | Complete Go tree under race detector | `go test ./... -race -count=1` | All 4 packages passed | ✓ PASS |
-| ABI/header contract | `make verify-contract` | All Rust tests, header diff/rules, and C layout passed | ✓ PASS |
+| Go build across whole module | `go build ./...` | Exit 0 | ✓ PASS |
+| ABI/header contract | `make verify-contract` | All Rust tests, header diff (empty), C layout, and Python ABI fixtures (26+14+17 tests) passed | ✓ PASS |
 | Documentation contract | `make verify-docs` | Exit 0 | ✓ PASS |
-| D-14 alias safety | `bash scripts/ci/verify_minify_buffer_safety.sh` | `kernels=arm64,fallback total=24 runs=3` | ✓ PASS |
-| Dynamic ABI surface smoke | `bash scripts/release/run_native_smoke.sh target/release/libpure_simdjson.dylib darwin-arm64` | `ffi export surface smoke passed` | ✓ PASS |
-| Minify status-6 required capacity | Direct `ctypes` call to built `pure_simdjson_minify` | `rc=6 written=18446744073709551615 dst_unchanged=True expected_written=8` | ✗ FAIL |
-| Header-required vs loader-mandatory set | `comm` over `tests/abi/check_header.py` and the mandatory binding table | Missing: allocator reset and snapshot | ✗ FAIL |
+| D-14 alias safety (ASan/UBSan) | `bash scripts/ci/verify_minify_buffer_safety.sh` | `kernels=arm64,fallback total=24 runs=3` | ✓ PASS |
+| Dynamic ABI surface smoke (run twice, once post-rebuild) | `bash scripts/release/run_native_smoke.sh target/release/libpure_simdjson.dylib darwin-arm64` | `ffi export surface smoke passed` (both runs) | ✓ PASS |
+| **Adversarial: minify status-6 required capacity** | Direct `ctypes` call to built `pure_simdjson_minify`, `SIZE_MAX` sentinel, `dst_len=7 < src_len=8` | `rc=6 written=8 dst_unchanged=True expected_written=8` | ✓ PASS (was FAIL) |
+| **Adversarial: minify success path unaffected** | Same `ctypes` harness, `dst_len=8` | `rc=0 written=7 out=b'{"a":1}'` | ✓ PASS |
+| **Adversarial: same-start aliasing still accepted** | Same harness, `dst_ptr == src_ptr` | `rc=0 written=7` | ✓ PASS |
+| **Adversarial: partial overlap still rejected** | Same harness, `dst_ptr = src_ptr + 2` (overlapping, different start) | `rc=1` (rejected, not silently truncated) | ✓ PASS |
+| **Adversarial: loader gap-2 regression proof (missing symbols)** | Revert `internal/ffi/bindings.go` to pre-fix optional registration; run `TestBindRequiresNativeAllocStatsSymbols`, `TestBindLooksUpCompleteABI13Surface` | Both fail as expected (`Bind() error = nil with ... missing`) | ✓ PASS (regression genuinely catches pre-fix bug) |
+| **Adversarial: loader gap-2 regression proof (fixture)** | Revert only `abi13MandatoryFixtureSymbols` fixture-list hunk in `library_loading_test.go` (keep new tests); run `TestABI13IncompleteMissingAllocStats{Reset,Snapshot}FailsClosed` | Both fail as expected (`activeLibrary() error = nil, want incomplete ABI 1.3 failure`) | ✓ PASS (fixture, not just new test code, was necessary) |
+| Header-required vs loader-mandatory set after fix | Direct file reads of `bindings.go`, `bindings_test.go`, `library_loading_test.go` | Both symbols present in all three mandatory lists at matching positions | ✓ PASS (was FAIL) |
+| Scope discipline: 12-12 touched zero C++ files | `git diff --stat` over `ab31d76..c870f3f` | `src/lib.rs`, `src/runtime/mod.rs`, `include/pure_simdjson.h`, `tests/rust_shim_minify.rs`, `tests/smoke/ffi_export_surface.c`, planning docs — no `.cpp`/`.h` under `src/native/` | ✓ PASS |
+| Scope discipline: 12-13 touched zero Rust/C/C++ files | `git diff --stat` over `910d09a..050f960` | `internal/ffi/bindings.go`, `internal/ffi/bindings_test.go`, `library_loading_test.go`, planning docs only | ✓ PASS |
+
+All adversarial checks were re-run against a library forced to rebuild from current source (`touch src/lib.rs && cargo build --release`), and the working tree was confirmed clean (`git status --short`) after every revert-and-restore cycle used for regression proof.
 
 ### Probe Execution
 
-No PLAN/SUMMARY declares a conventional `probe-*.sh`, and none exists under `scripts/**/tests`. The phase's probe-equivalent D-14 verifier was explicitly run and passed three sanitizer executions as shown above.
+No PLAN/SUMMARY declares a conventional `probe-*.sh`, and none exists under `scripts/**/tests`. The phase's probe-equivalent D-14 verifier was re-run and again passed three sanitizer executions, as shown above.
 
 ### Requirements Coverage
 
-All six IDs declared across PLAN frontmatter exactly match the six Phase 12 mappings in `REQUIREMENTS.md`; no orphaned Phase 12 requirement exists.
+All six IDs declared across PLAN frontmatter (including 12-12/12-13's `requirements: [UTIL-01]` and `[DOM-01, DOM-02, DOM-03, DOM-04, UTIL-01, UTIL-02]`) match the six Phase 12 mappings in `REQUIREMENTS.md`; no orphaned Phase 12 requirement exists.
 
 | Requirement | Source plans | Description | Status | Evidence |
 |---|---|---|---|---|
-| DOM-01 | 12-01, 12-05, 12-06, 12-09, 12-10, 12-11 | RFC 6901 `AtPointer` via upstream navigation | ✓ SATISFIED | Full native/Go chain and RFC/error tests pass. |
-| DOM-02 | 12-01, 12-05, 12-06, 12-09, 12-10, 12-11 | Documented simdjson dot/index `AtPath` subset | ✓ SATISFIED | Native delegation, honest docs, and behavior tests pass. |
-| DOM-03 | 12-03, 12-05, 12-06, 12-09, 12-10, 12-11 | Ordered wildcard `AtPathAll` with document lifetime | ✓ SATISFIED | Ordered/empty/partial/lifetime/free/concurrency paths pass. |
-| DOM-04 | 12-02, 12-05, 12-08, 12-09, 12-10, 12-11 | Indexed arrays and constant-time container counts | ✓ SATISFIED | Public/native behavior and edge cases pass. |
-| UTIL-01 | 12-04, 12-05, 12-06, 12-07, 12-09, 12-10, 12-11 | Allocation-conscious SIMD minify API | ✗ BLOCKED | Main API works, but its normative status-6 required-capacity behavior is broken at the public ABI. |
-| UTIL-02 | 12-04, 12-05, 12-07, 12-09, 12-10, 12-11 | Standalone SIMD UTF-8 validation | ✓ SATISFIED | Valid/invalid/empty/CPU/parse-regression tests pass. |
+| DOM-01 | 12-01, 12-05, 12-06, 12-09, 12-10, 12-11, 12-13 | RFC 6901 `AtPointer` via upstream navigation | ✓ SATISFIED | Full native/Go chain and RFC/error tests pass; unaffected by gap closure. |
+| DOM-02 | 12-01, 12-05, 12-06, 12-09, 12-10, 12-11, 12-13 | Documented simdjson dot/index `AtPath` subset | ✓ SATISFIED | Native delegation, honest docs, and behavior tests pass. |
+| DOM-03 | 12-03, 12-05, 12-06, 12-09, 12-10, 12-11, 12-13 | Ordered wildcard `AtPathAll` with document lifetime | ✓ SATISFIED | Ordered/empty/partial/lifetime/free/concurrency paths pass. |
+| DOM-04 | 12-02, 12-05, 12-08, 12-09, 12-10, 12-11, 12-13 | Indexed arrays and constant-time container counts | ✓ SATISFIED | Public/native behavior and edge cases pass. |
+| UTIL-01 | 12-04, 12-05, 12-06, 12-07, 12-09, 12-10, 12-11, 12-12, 12-13 | Allocation-conscious SIMD minify API | ✓ SATISFIED (was BLOCKED) | `pure_simdjson_minify`'s `BUFFER_TOO_SMALL` out-parameter contract is now upheld end-to-end, proven by a direct adversarial `ctypes` call against the built library, plus strengthened Rust and dynamic C smoke assertions. |
+| UTIL-02 | 12-04, 12-05, 12-07, 12-09, 12-10, 12-11, 12-13 | Standalone SIMD UTF-8 validation | ✓ SATISFIED | Valid/invalid/empty/CPU/parse-regression tests pass; unaffected by gap closure. |
 
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 |---|---:|---|---|---|
-| `src/runtime/mod.rs` | 328-340 | Error return discards a required out-parameter | 🛑 Blocker | Breaks public minify capacity negotiation. |
-| `tests/rust_shim_minify.rs` | 191-205 | Sentinel initialized but never asserted | 🛑 Blocker | Lets the broken out-parameter contract pass the full suite. |
-| `internal/ffi/bindings.go` | 148-159 | Public ABI symbols registered as optional | 🛑 Blocker | Allows incomplete ABI 1.3 artifacts to be cached. |
-| `src/lib.rs` | 960-968, 1006-1014 | Iterator lease allocated before null output is rejected | ⚠ Warning | A rejected iterator constructor consumes unreachable document bookkeeping. `git blame` shows this predates Phase 12. |
-| `.github/workflows/phase2-rust-shim-smoke.yml` | 5-16 | Contract gate paths omit `cbindgen.toml` and `tests/abi/**` | ⚠ Warning | Those contract inputs can change without scheduling this workflow. |
-| `.github/workflows/phase2-rust-shim-smoke.yml` | 41 | `cargo install cbindgen --locked` has no version | ⚠ Warning | Generator behavior/toolchain requirements can drift. |
-| `materializer_fastpath.go` | 217 | `go vet` unsafe-pointer diagnostic | ℹ Info | Fresh `go vet ./...` exits 1; blame and `deferred-items.md` confirm it predates Phase 12. |
+| `src/lib.rs` | 960-968, 1006-1014 | Iterator lease allocated before null output is rejected (WR-01) | ⚠ Warning | Predates Phase 12 (`git blame`); explicitly deferred during gap-closure planning per 12-12's scope note. Not touched by 12-12/12-13. |
+| `.github/workflows/phase2-rust-shim-smoke.yml` | 5-16 | Contract gate paths omit `cbindgen.toml` and `tests/abi/**` (WR-02) | ⚠ Warning | Explicitly deferred; workflow file untouched by gap closure. |
+| `.github/workflows/phase2-rust-shim-smoke.yml` | 41 | `cargo install cbindgen --locked` has no version (WR-03) | ⚠ Warning | Explicitly deferred; workflow file untouched by gap closure. |
+| `materializer_fastpath.go` | 217 | `go vet` unsafe-pointer diagnostic | ℹ Info | Predates Phase 12; recorded in `deferred-items.md`; fresh `go vet ./...` still exits 1 with only this single finding, confirmed unchanged. |
 
-No `TBD`, `FIXME`, or `XXX` debt markers were found in Phase 12 files. The `return NULL` matches in the C smoke are legitimate checked allocation-helper returns, not stubs.
+No `TBD`, `FIXME`, or `XXX` debt markers were found in any file touched by 12-12 or 12-13 (`src/runtime/mod.rs`, `src/lib.rs`, `tests/rust_shim_minify.rs`, `tests/smoke/ffi_export_surface.c`, `include/pure_simdjson.h`, `internal/ffi/bindings.go`, `internal/ffi/bindings_test.go`, `library_loading_test.go`). Both prior blockers (minify capacity discard, optional allocator-telemetry symbols) are resolved and no longer present in the code. Both prior WR items remain explicit, rationale-documented deferrals rather than new gaps.
 
 ### Human Verification Required
 
-None for this verdict. No deferred `<human-check>` blocks exist in the plans. Actual five-platform hosted release evidence remains explicitly owned by Phase 16; Phase 12's workflow wiring and local native execution were verified here.
+None. No deferred `<human-check>` blocks exist in any Phase 12 plan, including 12-12/12-13. Hosted five-platform release evidence remains explicitly owned by Phase 16.
 
 ### Deferred Items
 
-Neither blocker is specifically covered by a later phase goal or success criterion. Phase 16's general release stabilization is not specific enough to defer an observable Phase 12 contract violation, so both remain actionable gaps.
+Carried forward from the prior verification and gap-closure planning, with explicit rationale — not treated as gaps:
 
-### Gaps Summary
+| # | Item | Addressed In | Evidence |
+|---|------|--------------|----------|
+| 1 | WR-01 rejected-iterator-constructor lease ordering (`src/lib.rs:960-968,1006-1014`) | Deferred, no specific phase claims it yet | Predates Phase 12 per `git blame`; 12-12's plan scope note explicitly excludes it as unrelated-function scope creep. |
+| 2 | WR-02 contract workflow trigger paths (`.github/workflows/phase2-rust-shim-smoke.yml:5-16`) | Deferred, no specific phase claims it yet | Explicitly deferred during gap-closure planning; workflow file untouched by 12-12/12-13. |
+| 3 | WR-03 unpinned `cbindgen` version (`.github/workflows/phase2-rust-shim-smoke.yml:41`) | Deferred, no specific phase claims it yet | Explicitly deferred during gap-closure planning; workflow file untouched by 12-12/12-13. |
+| 4 | Hosted five-platform release evidence | Phase 16 | Phase 16 goal: "Validate the expanded ABI and APIs on all five targets, publish benchmark evidence, and ship a fresh-machine-tested v0.2 release through CI." |
+| 5 | `go vet ./...` `materializer_fastpath.go:217` unsafe-pointer diagnostic | Deferred, pre-existing | Recorded in `deferred-items.md`; predates Phase 12; not touched by any Phase 12 plan. |
 
-The feature breadth is real, not placeholder work: navigation, wildcard ownership, container helpers, public Go utilities, ABI generation, sanitizer checks, and dynamic smoke all execute successfully. The phase still cannot pass because its fail-closed edges are incomplete:
+## Gaps Summary
 
-1. Minify's native bridge computes the required destination capacity on status 6, but the Rust handoff discards it before the public caller can observe it; the test suite fails to assert the output.
-2. The ABI 1.3 loader's mandatory surface excludes two earlier public allocator-telemetry exports, contradicting the generated/header contract and allowing an incomplete library to bind and cache.
-
-These are not deferred roadmap work and no verification override exists.
+No gaps remain. Both blockers from the initial verification pass (2026-07-31T12:50:20Z) — the minify `BUFFER_TOO_SMALL` capacity discard and the ABI 1.3 loader's optional allocator-telemetry symbols — are closed and independently re-proven with fresh, adversarial evidence gathered directly against the built artifacts and reverted/restored source, not by trusting the gap-closure plans' SUMMARYs or their own test suites in isolation. All 55 plan must-have truths, all 4 roadmap success criteria, and all 6 Phase 12 requirements (DOM-01 through UTIL-02) are verified. Scope discipline was confirmed for both gap-closure plans (12-12 touched zero C++ files; 12-13 touched zero Rust/C/C++ files), and the header regeneration in 12-12 was confirmed to be doc-comment-only with no ABI-affecting change. Phase 12 achieves its stated goal and is ready to proceed.
 
 ---
 
-_Verified: 2026-07-31T12:50:20Z_
+_Verified: 2026-07-31T18:05:00Z_
 _Verifier: the agent (gsd-verifier)_
