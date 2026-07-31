@@ -91,7 +91,7 @@ Progress: [██████████] 100%
 ## Quick Tasks Completed
 
 | Date | Slug | Summary |
-| 2026-07-31 | address-the-release-workflow-contract-sa | Hardened PR smoke and prerelease release checks; native wildcard classification/free contracts; reserved utility kernel selection and frame-layout guards. |
+| 2026-07-31 | address-the-release-workflow-contract-sa | Hardened PR smoke and prerelease release checks; native wildcard classification/free contracts (including indexed and quoted literal spans); reserved utility kernel selection and frame-layout guards. |
 |------|------|---------|
 | 2026-04-24 | phase8-final-polish | Added executable depth-boundary fence, clarified ERR_INTERNAL split rationale at the ABI enum, expanded cross-ABI numeric comments, and rechecked benchmark gates. |
 | 2026-04-24 | phase8-depth-doc-followup | Clarified depth-limit defense-in-depth docs, strengthened user-actionable enum comments, pinned the current accepted nesting boundary, and rechecked benchmark gates. |

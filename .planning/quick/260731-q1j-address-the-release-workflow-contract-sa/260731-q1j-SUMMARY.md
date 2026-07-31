@@ -39,12 +39,14 @@ completed: 2026-07-31
 - Classified wildcard expressions in the C++ bridge before traversal, matching vendored simdjson literal behavior and preserving quoted-bracket key semantics.
 - Normalized native carrier/free sentinels, zeroed wildcard error outputs, and added a deterministic SetKernel-versus-utility reservation test.
 - Replaced delayed uintptr frame conversions with pointer-typed FFI fields, pinned all value-view field offsets, and tested bounded copied string spans.
+- Corrected the native wildcard evaluator so indexed and quoted dotted literal spans are resolved through vendored `AtPath` before each structural wildcard expansion.
 
 ## Task Commits
 
 1. **Plan 01: Release workflow contracts** — `e07a9c9`
 2. **Plan 02: Wildcard FFI contracts** — `3dd3697`
 3. **Plan 03: Utility kernel reservation and ABI guards** — `fb61fb7`
+4. **Verifier corrective slice: literal wildcard prefixes** — `0c74a54`
 
 ## Verification Evidence
 
@@ -54,6 +56,7 @@ completed: 2026-07-31
 - `cargo test -- --test-threads=1` and `make verify-contract` — passed, including generated-header and C ABI checks.
 - `go test ./internal/ffi ./... -race`, `go test ./... -race`, and `go vet ./...` — passed.
 - `cc -Iinclude tests/abi/handle_layout.c -c` — passed.
+- Corrective slice: `cargo test -- --test-threads=1`, `go test ./... -race`, `go vet ./...`, and `make verify-contract` — passed.
 
 ## Decisions Made
 
@@ -63,7 +66,14 @@ completed: 2026-07-31
 
 ## Deviations from Plan
 
-None - plans executed as specified. Existing frame tests already covered document-close lifetime; direct bounded-copy coverage was added alongside the pointer representation fix.
+### Auto-fixed Issues
+
+**1. [Rule 1 - Bug] Wildcard traversal lost indexed and quoted dotted literal prefixes**
+- **Found during:** Final verification after Plan 02.
+- **Issue:** Delegating a complete expression to upstream wildcard traversal made `.arr[0][*]` empty and stripped quotes from `.obj['foo.bar'][*]`.
+- **Fix:** Classify structural wildcard segments once, resolve every literal span with vendored `AtPath`, then expand only bare `.*` or `[*]` segments.
+- **Verification:** Added Rust ABI and public Go regressions for both paths plus indexed literals between wildcards.
+- **Committed in:** `0c74a54`.
 
 ## Known Stubs
 
