@@ -572,17 +572,19 @@ Plans:
 
 **Scope boundary:** No JSON encoder/builder, reflection-based `Unmarshal`, full JSONPath engine, file-loading wrapper, or mutable DOM API is added.
 
-**Plans:** 8 plans in 7 waves
+**Plans:** 10 plans in 8 waves
 
 Plans:
-- [ ] `12-01-PLAN.md` — ABI 0x00010003 + 2 new status codes; native AtPointer/AtPath (Wave 1)
-- [ ] `12-02-PLAN.md` — Native Array.At/Len and Object.Size (Wave 2)
-- [ ] `12-03-PLAN.md` — Native wildcard AtPathAll bulk-transport + tracked-allocation free (Wave 3)
-- [ ] `12-04-PLAN.md` — Native Minify/ValidateUTF8, exact overlap safety, durable D-14 CI probe, ABI 1.3 docs (Wave 4)
-- [ ] `12-05-PLAN.md` — ABI 1.3 bootstrap/loader policy and Go bindings for all 9 native exports (Wave 5)
-- [ ] `12-06-PLAN.md` — Go AtPointer/AtPath/AtPathAll API and typed public error mappings (Wave 6)
-- [ ] `12-07-PLAN.md` — Go Minify/MinifyInto/ValidateUTF8 API and kernel-state synchronization (Wave 7)
-- [ ] `12-08-PLAN.md` — Go Array.At/Len and Object.Size public API (Wave 7)
+- [ ] `12-09-PLAN.md` — ABI 0x00010003 and additive status-code foundation (Wave 1)
+- [ ] `12-01-PLAN.md` — Native AtPointer/AtPath over the ABI 1.3 foundation (Wave 2)
+- [ ] `12-02-PLAN.md` — Native Array.At/Len and Object.Size (Wave 3)
+- [ ] `12-03-PLAN.md` — Native wildcard AtPathAll bulk-transport + tracked-allocation free (Wave 4)
+- [ ] `12-04-PLAN.md` — Native Minify/ValidateUTF8 and exact alias/disjoint safety (Wave 5)
+- [ ] `12-05-PLAN.md` — ABI 1.3 bootstrap/loader policy, current source docs, and all 9 Go bindings (Wave 6)
+- [ ] `12-10-PLAN.md` — Durable D-14 gate, full ABI smoke, five-platform branch trigger, and ABI 1.3 docs (Wave 6)
+- [ ] `12-06-PLAN.md` — Go AtPointer/AtPath/AtPathAll API and typed public error mappings (Wave 7)
+- [ ] `12-07-PLAN.md` — Go Minify/MinifyInto/ValidateUTF8 API and kernel-state synchronization (Wave 8)
+- [ ] `12-08-PLAN.md` — Go Array.At/Len and Object.Size public API (Wave 8)
 
 ### Phase 13: Batched On-Demand path extraction
 

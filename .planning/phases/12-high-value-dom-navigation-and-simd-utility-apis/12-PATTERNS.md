@@ -23,21 +23,21 @@ pseudo-code, except where explicitly marked, since RESEARCH.md's own examples ar
 | `minify.go` (NEW) — `Minify`, `MinifyInto` | utility (standalone entry point) | transform (buffer-in/buffer-out) | `kernel.go` `SetKernel` (L36-69) + `parser.go` `newParserWithConfig` (L40-62) | exact |
 | `utf8.go` (NEW) — `ValidateUTF8` | utility (standalone entry point) | request-response | `kernel.go` `SetKernel` (L36-69) — `activeLibrary()`-first, error-returning standalone function | exact |
 | `internal/ffi/types.go` — 2 new `ErrorCode` consts, ABI bump | config | transform | `internal/ffi/types.go` existing `ErrorCode` block (L11-38) | exact |
-| `internal/ffi/bindings.go` — 8 new binding fields + required registration + typed wrapper methods | service (symbol-binding adapter) | request-response | `internal/ffi/bindings.go` `elementGetBigInt`/`ElementGetBigInt` (Phase 11 addition, L42,111,381-383) + `ObjectGetField` (L500-513) | exact |
-| `src/lib.rs` — 8 new `pure_simdjson_*` `extern "C"` exports | controller (FFI entry point) | request-response (batch for wildcard, transform for minify) | `src/lib.rs` `pure_simdjson_object_get_field` (L966-998) + `pure_simdjson_bytes_free` (L826-834) | exact |
-| `src/runtime/mod.rs` — 8 new `psimdjson_*` extern declarations + thin wrappers | service (thin native-call wrapper) | request-response | `src/runtime/mod.rs` `native_object_get_field_index` (L666-689) | exact |
+| `internal/ffi/bindings.go` — 9 new binding fields + required registration + typed wrapper methods | service (symbol-binding adapter) | request-response | `internal/ffi/bindings.go` `elementGetBigInt`/`ElementGetBigInt` (Phase 11 addition, L42,111,381-383) + `ObjectGetField` (L500-513) | exact |
+| `src/lib.rs` — 9 new `pure_simdjson_*` `extern "C"` exports | controller (FFI entry point) | request-response (batch for wildcard, transform for minify) | `src/lib.rs` `pure_simdjson_object_get_field` (L966-998) + `pure_simdjson_bytes_free` (L826-834) | exact |
+| `src/runtime/mod.rs` — 9 new `psimdjson_*` extern declarations + thin wrappers | service (thin native-call wrapper) | request-response | `src/runtime/mod.rs` `native_object_get_field_index` (L666-689) | exact |
 | `src/runtime/registry.rs` — `element_at_pointer`/`at_path`/`at_path_wildcard`, `array_at`, `array_len`, `object_size` | service (handle validation + business logic) | CRUD (single) / batch (wildcard) | `src/runtime/registry.rs` `object_get_field` (L1154-1168), `with_resolved_view` (L731-766), `encode_descendant_view_locked` (L768-786) | exact |
 | `src/runtime/registry.rs` — new `view_array_allocations` map + free fn | service (tracked-allocation ownership) | batch | `src/runtime/registry.rs` `byte_allocations` + `bytes_free` (L86, L895-927) | exact |
-| `src/native/simdjson_bridge.h` — 8 new `psimdjson_*` declarations | config (bridge header) | transform | `src/native/simdjson_bridge.h` `psimdjson_object_get_field_index` (L189-195) | exact |
+| `src/native/simdjson_bridge.h` — 9 new `psimdjson_*` declarations | config (bridge header) | transform | `src/native/simdjson_bridge.h` `psimdjson_object_get_field_index` (L189-195) | exact |
 | `src/native/simdjson_bridge.cpp` — new bridge fns; `map_error()` +2 cases; `dst_cap` pre-check for minify; CPU-gate for minify/validate_utf8 | service (native implementation) | CRUD/batch/transform (per fn) | `src/native/simdjson_bridge.cpp` `psimdjson_object_get_field_index` (L1508-1541), `copy_bytes` (L125-150), `parser_new_configured_with_selection_lock` (L716-758) | exact |
 | `src/native/simdjson_bridge.cpp` — `psimdjson_doc` gains `wildcard_indices`/`wildcard_in_progress` | model + service (scratch-buffer struct + guard) | batch | `src/native/simdjson_bridge.cpp` `psimdjson_doc.materialize_frames`/`materialize_in_progress` (L68-78) + `materialize_build_guard` (L799-824) | exact |
 | `include/pure_simdjson.h` (regenerated) | config (generated header) | transform | existing `pure_simdjson_object_get_field`/`pure_simdjson_element_get_bigint` entries (L454-456, L540-543) | exact (no manual edits — `cbindgen` regenerates) |
 | `docs/ffi-contract.md` — error codes 11/12, ABI 1.3 section, worked-call-sequence for view-array free | config (normative contract doc) | transform | `docs/ffi-contract.md` "String copy and free" worked sequence (L296-315), Error code space table (L31-57) | exact |
-| `tests/abi/check_header.py` — `REQUIRED_SYMBOLS` +8 names | test (ABI allowlist) | transform | `tests/abi/check_header.py` `REQUIRED_SYMBOLS` tuple (L48-80) | exact |
+| `tests/abi/check_header.py` — `REQUIRED_SYMBOLS` +9 names | test (ABI allowlist) | transform | `tests/abi/check_header.py` `REQUIRED_SYMBOLS` tuple (L48-80) | exact |
 | `tests/rust_shim_navigation.rs` (NEW) | test (Rust integration) | request-response/batch | `tests/rust_shim_accessors.rs` (L1-49 harness) + `tests/rust_shim_iterators.rs` (object-field-lookup tests) | exact |
 | `tests/rust_shim_minify.rs` (NEW) | test (Rust integration) | transform | `tests/rust_shim_accessors.rs` (L1-49 harness — same parser/doc setup, swap accessor under test) | exact |
 | Go `*_test.go` (extend `element_scalar_test.go` or new `element_pointer_test.go`/`array_test.go`/`minify_test.go`/`utf8_test.go`) | test (Go table test) | request-response | `element_scalar_test.go` `TestElementTypeClassification` (L40-85) | exact |
-| `.github/workflows/phase2-rust-shim-smoke.yml` — new D-14 x86-64 step | config (CI) | n/a | existing `linux-smoke` job steps (not excerpted; add one `run:` step invoking `.planning/spikes/004-minify-buffer-safety/verify.sh`) | exact |
+| `.github/workflows/phase2-rust-shim-smoke.yml` — durable D-14 x86-64 gate | config (CI) | n/a | existing `linux-smoke` job steps (not excerpted; add path filters and a step invoking `scripts/ci/verify_minify_buffer_safety.sh`, whose compiled probe lives under `tests/native/`) | exact |
 
 **Note on the two "partial" matches:** `AtPathAll`'s `[]Element` bulk return and the C++ wildcard
 scratch-vector transport are genuinely new shapes in this codebase (RESEARCH.md's own Architecture
@@ -217,7 +217,7 @@ function.
 ### Layer 3 — purego symbol binding (`internal/ffi/bindings.go`, `internal/ffi/types.go`)
 
 **Analog:** `pure_simdjson_element_get_bigint` / `ElementGetBigInt` — the most recent (Phase 11)
-required-symbol addition, structurally identical to what the 8 new Phase 12 exports need.
+required-symbol addition, structurally identical to what the 9 new Phase 12 exports need.
 
 **Struct field + required-symbol table entry** (`internal/ffi/bindings.go` L42, L111):
 ```go
@@ -226,7 +226,7 @@ elementGetBigInt         func(*ValueView, **byte, *uintptr) int32
 {name: "pure_simdjson_element_get_bigint", target: &b.elementGetBigInt},
 ```
 This confirms the required (not optional) registration path — DOM-01..04/UTIL-01/02 are public
-documented API, so all 8 new symbols go in the mandatory `symbols := []struct{...}{...}` slice
+documented API, so all 9 new symbols go in the mandatory `symbols := []struct{...}{...}` slice
 (L87-120), never through `registerOptionalFuncWithRegistrar` (that path is reserved for
 `pure_simdjson_native_alloc_stats_*`/`psdj_internal_materialize_build` — internal diagnostics
 allowed to be missing from released artifacts, per RESEARCH.md's explicit Anti-Pattern warning).
@@ -727,7 +727,7 @@ the existing `mustParseDoc` (`element_scalar_test.go` L17) / `mustNewParser` (`p
 
 ### Layer 8 — ABI/contract plumbing
 
-**`tests/abi/check_header.py` `REQUIRED_SYMBOLS` — closed allowlist, must gain exactly the 8 new
+**`tests/abi/check_header.py` `REQUIRED_SYMBOLS` — closed allowlist, must gain exactly the 9 new
 names or `make verify-contract` fails closed** (`tests/abi/check_header.py` L48-80):
 ```python
 REQUIRED_SYMBOLS = (
@@ -757,7 +757,7 @@ pure_simdjson_error_code_t pure_simdjson_object_get_field(const struct pure_simd
                                                           size_t key_len,
                                                           struct pure_simdjson_value_view_t *out_value);
 ```
-`cbindgen` will emit the 8 new declarations in this identical style purely from the `/// # Safety`
+`cbindgen` will emit the 9 new declarations in this identical style purely from the `/// # Safety`
 doc comments + signatures written in `src/lib.rs` (Layer 4) — no `cbindgen.toml` change expected.
 
 **`docs/ffi-contract.md` — Error code space table addition** (L31-57, current tail):
@@ -809,7 +809,7 @@ ErrIndexOutOfRange` arms — do not invent a parallel error-mapping path.
 
 ### `ffi_wrap`/`catch_unwind` FFI boundary (mandatory per `docs/ffi-contract.md`)
 **Source:** `src/lib.rs` L193-209
-**Apply to:** All 8 new `pure_simdjson_*` Rust exports, with zero exceptions — this is a normative,
+**Apply to:** All 9 new `pure_simdjson_*` Rust exports, with zero exceptions — this is a normative,
 not optional, project-wide rule (`docs/ffi-contract.md` "Panic and exception policy" section).
 
 ### `with_resolved_view` handle validation (generation + state-tag + descendant-membership check)
