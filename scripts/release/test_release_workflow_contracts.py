@@ -17,7 +17,12 @@ RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 PHASE2_RUST_SHIM_SMOKE = (
     REPO_ROOT / ".github" / "workflows" / "phase2-rust-shim-smoke.yml"
 )
+PHASE3_GO_WRAPPER_SMOKE = (
+    REPO_ROOT / ".github" / "workflows" / "phase3-go-wrapper-smoke.yml"
+)
 GO_BOOTSTRAP_SMOKE = REPO_ROOT / "tests" / "smoke" / "go_bootstrap_smoke.go"
+FFI_EXPORT_SURFACE = REPO_ROOT / "tests" / "smoke" / "ffi_export_surface.c"
+FFI_CONTRACT = REPO_ROOT / "docs" / "ffi-contract.md"
 RUN_GO_PACKAGED_SMOKE = REPO_ROOT / "scripts" / "release" / "run_go_packaged_smoke.sh"
 RUN_ALPINE_SMOKE = REPO_ROOT / "scripts" / "release" / "run_alpine_smoke.sh"
 RUN_NATIVE_SMOKE = REPO_ROOT / "scripts" / "release" / "run_native_smoke.sh"
@@ -66,6 +71,164 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             probe_text,
         )
         self.assertIn('"sanitizer_clean=1\\n"', probe_text)
+
+    def test_phase12_go_wrapper_smoke_keeps_five_platform_jobs(self) -> None:
+        workflow_text = PHASE3_GO_WRAPPER_SMOKE.read_text(encoding="utf-8")
+        push_section = workflow_text.split("  push:", 1)[1]
+        push_section = push_section.split("\n\npermissions:", 1)[0]
+
+        self.assertEqual(
+            tuple(
+                re.findall(r"^\s+- ([^\s]+)$", push_section, re.MULTILINE)
+            ),
+            (
+                "gsd/phase-03-go-public-api-purego-happy-path",
+                "gsd/phase-12-high-value-dom-navigation-and-simd-utility-apis",
+                "main",
+            ),
+        )
+        self.assertEqual(
+            tuple(
+                re.findall(
+                    r"^  ([a-z0-9-]+-go-race):\n    runs-on: ([^\n]+)$",
+                    workflow_text,
+                    re.MULTILINE,
+                )
+            ),
+            (
+                ("linux-amd64-go-race", "ubuntu-latest"),
+                ("linux-arm64-go-race", "ubuntu-24.04-arm"),
+                ("darwin-amd64-go-race", "macos-15-intel"),
+                ("darwin-arm64-go-race", "macos-15"),
+                ("windows-amd64-go-race", "windows-latest"),
+            ),
+        )
+
+    def test_phase12_ffi_smoke_invokes_all_abi_1_3_exports(self) -> None:
+        smoke_text = FFI_EXPORT_SURFACE.read_text(encoding="utf-8")
+        compact = re.sub(r"\s+", " ", smoke_text)
+        exports = (
+            (
+                "element_at_pointer",
+                "ELEMENT_AT_POINTER",
+                "typedef pure_simdjson_error_code_t (*fn_element_at_pointer)(const pure_simdjson_value_view_t *, const uint8_t *, size_t, pure_simdjson_value_view_t *);",
+            ),
+            (
+                "element_at_path",
+                "ELEMENT_AT_PATH",
+                "typedef pure_simdjson_error_code_t (*fn_element_at_path)(const pure_simdjson_value_view_t *, const uint8_t *, size_t, pure_simdjson_value_view_t *);",
+            ),
+            (
+                "element_at_path_wildcard",
+                "ELEMENT_AT_PATH_WILDCARD",
+                "typedef pure_simdjson_error_code_t (*fn_element_at_path_wildcard)( const pure_simdjson_value_view_t *, const uint8_t *, size_t, pure_simdjson_value_view_t **, size_t *);",
+            ),
+            (
+                "value_views_free",
+                "VALUE_VIEWS_FREE",
+                "typedef pure_simdjson_error_code_t (*fn_value_views_free)(pure_simdjson_value_view_t *, size_t);",
+            ),
+            (
+                "array_at",
+                "ARRAY_AT",
+                "typedef pure_simdjson_error_code_t (*fn_array_at)(const pure_simdjson_value_view_t *, uint64_t, pure_simdjson_value_view_t *);",
+            ),
+            (
+                "array_len",
+                "ARRAY_LEN",
+                "typedef pure_simdjson_error_code_t (*fn_array_len)(const pure_simdjson_value_view_t *, uint64_t *);",
+            ),
+            (
+                "object_size",
+                "OBJECT_SIZE",
+                "typedef pure_simdjson_error_code_t (*fn_object_size)(const pure_simdjson_value_view_t *, uint64_t *);",
+            ),
+            (
+                "minify",
+                "MINIFY",
+                "typedef pure_simdjson_error_code_t (*fn_minify)(const uint8_t *, size_t, uint8_t *, size_t, size_t *);",
+            ),
+            (
+                "validate_utf8",
+                "VALIDATE_UTF8",
+                "typedef pure_simdjson_error_code_t (*fn_validate_utf8)(const uint8_t *, size_t, uint8_t *);",
+            ),
+        )
+
+        for field, enum_suffix, typedef in exports:
+            with self.subTest(export=field):
+                self.assertIn(f'"pure_simdjson_{field}"', smoke_text)
+                self.assertIn(typedef, compact)
+                self.assertIn(f"fn_{field} {field};", compact)
+                self.assertIn(
+                    f"RESOLVE({field}, EXPORT_{enum_suffix}, fn_{field});",
+                    compact,
+                )
+                self.assertIn(
+                    f"mark_called(&exports, EXPORT_{enum_suffix});",
+                    compact,
+                )
+                self.assertIn(f"exports.{field}(", compact)
+
+        for semantic_check in (
+            'static const uint8_t pointer_int[] = "/int";',
+            'static const uint8_t path_obj_x[] = ".obj.x";',
+            'static const uint8_t wildcard_arr[] = ".arr[*]";',
+            "wildcard_count != 2",
+            "array_len != 2",
+            "object_size != 8",
+            '"{\\"a\\":[1,2]}"',
+            "static const uint8_t invalid_utf8[] = {0x80};",
+            "utf8_valid != 1",
+            "utf8_valid != 0",
+        ):
+            self.assertIn(semantic_check, smoke_text)
+
+    def test_phase12_ffi_contract_requires_complete_abi_1_3_surface(self) -> None:
+        contract_text = FFI_CONTRACT.read_text(encoding="utf-8")
+        required_exports = (
+            "pure_simdjson_element_at_pointer",
+            "pure_simdjson_element_at_path",
+            "pure_simdjson_element_at_path_wildcard",
+            "pure_simdjson_value_views_free",
+            "pure_simdjson_array_at",
+            "pure_simdjson_array_len",
+            "pure_simdjson_object_size",
+            "pure_simdjson_minify",
+            "pure_simdjson_validate_utf8",
+        )
+
+        self.assertIn(
+            "normative FFI contract for `pure-simdjson` ABI 1.3 (`0x00010003`)",
+            contract_text,
+        )
+        self.assertIn(
+            "ABI 1.3 is the strict minimum for the current wrapper",
+            contract_text,
+        )
+        self.assertIn("The ABI 1.3 build policy", contract_text)
+        for symbol in required_exports:
+            self.assertIn(f"- `{symbol}`", contract_text)
+
+        for paragraph in contract_text.split("\n\n"):
+            if "ABI 1.2" in paragraph or "0x00010002" in paragraph:
+                classification = paragraph.lower()
+                self.assertTrue(
+                    "historical" in classification or "rejected" in classification,
+                    f"ABI 1.2 reference is not historical/rejected: {paragraph}",
+                )
+
+        for contract in (
+            "release the carrier array exactly once",
+            "Exact same-start aliasing (`dst_ptr == src_ptr`) is supported",
+            "must be fully disjoint; either partial-overlap direction",
+            "minify is not JSON validation",
+            "reject an automatically selected `fallback` implementation with status 64",
+            "locks process-global selection before the empty-input return or SIMD scan",
+            "Later additive ABI 1.x values may be accepted only after every wrapper-required symbol binds successfully",
+            "## Wildcard copy and free",
+        ):
+            self.assertIn(contract, contract_text)
 
     def test_release_matrix_keeps_five_targets_and_native_smoke(self) -> None:
         workflow_text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
