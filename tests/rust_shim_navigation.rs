@@ -378,6 +378,24 @@ fn wildcard_paths_follow_spike_005_truth_table() {
             b".items[*][0]",
             &[1, 2],
         ),
+        (
+            "indexed prefix before wildcard",
+            br#"{"arr":[[1,2]]}"#,
+            b".arr[0][*]",
+            &[1, 2],
+        ),
+        (
+            "quoted dotted prefix remains AtPath literal",
+            br#"{"obj":{"'foo.bar'":[1,2],"foo.bar":[3]}}"#,
+            b".obj['foo.bar'][*]",
+            &[1, 2],
+        ),
+        (
+            "literal index between wildcards",
+            br#"{"groups":[[[1,2]],[[3,4]]]}"#,
+            b".groups[*][0][*]",
+            &[1, 2, 3, 4],
+        ),
     ];
 
     for &(name, json, path, expected) in cases {

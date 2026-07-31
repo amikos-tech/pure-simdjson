@@ -220,7 +220,7 @@ func TestElement_AtPathAll(t *testing.T) {
 	})
 
 	t.Run("quoted bracket keys preserve AtPath semantics around wildcard", func(t *testing.T) {
-		_, doc := mustParseDoc(t, `{"obj":{"'foo'":[1,2],"foo":[3]},"items":[{"'foo'":4,"foo":5}]}`)
+		_, doc := mustParseDoc(t, `{"obj":{"'foo'":[1,2],"foo":[3],"'foo.bar'":[1,2],"foo.bar":[3]},"items":[{"'foo'":4,"foo":5}],"arr":[[1,2]]}`)
 
 		for _, tc := range []struct {
 			path string
@@ -228,6 +228,8 @@ func TestElement_AtPathAll(t *testing.T) {
 		}{
 			{path: ".obj['foo'][*]", want: []int64{1, 2}},
 			{path: ".items[*]['foo']", want: []int64{4}},
+			{path: ".obj['foo.bar'][*]", want: []int64{1, 2}},
+			{path: ".arr[0][*]", want: []int64{1, 2}},
 		} {
 			got, err := doc.Root().AtPathAll(tc.path)
 			if err != nil {
