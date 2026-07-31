@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 12-05-PLAN.md
-last_updated: "2026-07-31T11:06:55.640Z"
+stopped_at: Completed 12-10-PLAN.md
+last_updated: "2026-07-31T11:27:17.706Z"
 last_activity: 2026-07-31
 progress:
   total_phases: 22
   completed_phases: 13
   total_plans: 80
-  completed_plans: 75
+  completed_plans: 76
   percent: 59
 ---
 
@@ -26,11 +26,11 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 ## Current Position
 
 Phase: 12 (High-value DOM navigation and SIMD utility APIs) — EXECUTING
-Plan: 7 of 11
+Plan: 8 of 11
 Status: Ready to execute
 Last activity: 2026-07-31
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
-Progress: [█████████░] 94%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -78,6 +78,7 @@ Progress: [█████████░] 94%
 | Phase 12 P03 | 9min | 2 tasks | 10 files |
 | Phase 12 P04 | 10min | 2 tasks | 10 files |
 | Phase 12 P05 | 3min | 1 tasks | 5 files |
+| Phase 12 P10 | 15min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -220,6 +221,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 12]: Keep utility lock evidence narrow: Rust forced-fallback rejection proves native state remains untouched, while a separate successful native call proves selection locks. — The available test override does not force the C++ implicit-fallback branch.
 - [Phase 12]: Use unpublished 0.2.0-dev as the ABI 1.3 source identity — Prevents the current wrapper from requesting the published ABI 1.2 compatibility artifact.
 - [Phase 12]: Keep v0.1.7/ABI 1.2 as historical documentation only — Phase 16 retains final 0.2.0 publication and fresh-machine bootstrap proof.
+- [Phase 12]: Derive D-14 totals from 12 cases times the ordered host-supported kernel set — Require fallback plus haswell or westmere on Linux x86-64.
+- [Phase 12]: Treat all nine navigation and utility additions as mandatory ABI 1.3 symbols — ABI 1.2 is historical and rejected by the current loader contract.
+- [Phase 12]: Extend the existing shared native release smoke and five-platform Go workflow — Avoid parallel release machinery.
 
 ### Pending Todos
 
@@ -233,8 +237,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-31T11:06:55.631Z
-Stopped at: Completed 12-05-PLAN.md
+Last session: 2026-07-31T11:27:17.697Z
+Stopped at: Completed 12-10-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
