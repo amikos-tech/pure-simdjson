@@ -194,6 +194,20 @@ unsafe extern "C" {
         key_len: usize,
         out_value_json_index: *mut u64,
     ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_at_pointer_index(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        pointer_ptr: *const u8,
+        pointer_len: usize,
+        out_value_json_index: *mut u64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_at_path_index(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        path_ptr: *const u8,
+        path_len: usize,
+        out_value_json_index: *mut u64,
+    ) -> pure_simdjson_error_code_t;
     fn psimdjson_materialize_build(
         doc: *mut psimdjson_doc,
         json_index: u64,
@@ -676,6 +690,56 @@ pub(crate) fn native_object_get_field_index(
             json_index,
             key_ptr,
             key.len(),
+            &mut value_json_index,
+        )
+    };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    if value_json_index == 0 {
+        return Err(err_internal());
+    }
+    Ok(value_json_index)
+}
+
+pub(crate) fn native_element_at_pointer_index(
+    doc_ptr: usize,
+    json_index: u64,
+    pointer: &[u8],
+) -> Result<u64, pure_simdjson_error_code_t> {
+    let pointer_ptr = pointer.as_ptr();
+    let mut value_json_index = 0_u64;
+    let rc = unsafe {
+        psimdjson_element_at_pointer_index(
+            doc_ptr as *const psimdjson_doc,
+            json_index,
+            pointer_ptr,
+            pointer.len(),
+            &mut value_json_index,
+        )
+    };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    if value_json_index == 0 {
+        return Err(err_internal());
+    }
+    Ok(value_json_index)
+}
+
+pub(crate) fn native_element_at_path_index(
+    doc_ptr: usize,
+    json_index: u64,
+    path: &[u8],
+) -> Result<u64, pure_simdjson_error_code_t> {
+    let path_ptr = path.as_ptr();
+    let mut value_json_index = 0_u64;
+    let rc = unsafe {
+        psimdjson_element_at_path_index(
+            doc_ptr as *const psimdjson_doc,
+            json_index,
+            path_ptr,
+            path.len(),
             &mut value_json_index,
         )
     };

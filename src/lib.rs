@@ -999,6 +999,74 @@ pub unsafe extern "C" fn pure_simdjson_object_get_field(
     })
 }
 
+/// Resolve an RFC 6901 JSON Pointer from `view` and return the descendant through `out_value`.
+///
+/// # Safety
+/// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+/// When `pointer_len` is non-zero, `pointer_ptr` must be readable for `pointer_len` bytes.
+/// `out_value` must point to writable storage.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_element_at_pointer(
+    view: *const pure_simdjson_value_view_t,
+    pointer_ptr: *const u8,
+    pointer_len: usize,
+    out_value: *mut pure_simdjson_value_view_t,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_element_at_pointer", || unsafe {
+        if out_value.is_null() {
+            return err_invalid_argument();
+        }
+        if pointer_len != 0 && pointer_ptr.is_null() {
+            return err_invalid_argument();
+        }
+
+        let pointer = if pointer_len == 0 {
+            &[][..]
+        } else {
+            slice::from_raw_parts(pointer_ptr, pointer_len)
+        };
+
+        match runtime::registry::element_at_pointer(view, pointer) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Resolve a simdjson dot/index path from `view` and return the descendant through `out_value`.
+///
+/// # Safety
+/// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+/// When `path_len` is non-zero, `path_ptr` must be readable for `path_len` bytes. `out_value` must
+/// point to writable storage.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_element_at_path(
+    view: *const pure_simdjson_value_view_t,
+    path_ptr: *const u8,
+    path_len: usize,
+    out_value: *mut pure_simdjson_value_view_t,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_element_at_path", || unsafe {
+        if out_value.is_null() {
+            return err_invalid_argument();
+        }
+        if path_len != 0 && path_ptr.is_null() {
+            return err_invalid_argument();
+        }
+
+        let path = if path_len == 0 {
+            &[][..]
+        } else {
+            slice::from_raw_parts(path_ptr, path_len)
+        };
+
+        match runtime::registry::element_at_path(view, path) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

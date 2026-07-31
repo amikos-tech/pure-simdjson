@@ -1167,6 +1167,28 @@ pub(crate) fn object_get_field(
     })
 }
 
+pub(crate) fn element_at_pointer(
+    view: *const pure_simdjson_value_view_t,
+    pointer: &[u8],
+) -> Result<pure_simdjson_value_view_t, pure_simdjson_error_code_t> {
+    with_resolved_view(view, |entry, json_index, doc| {
+        let value_json_index =
+            super::native_element_at_pointer_index(entry.native_ptr, json_index, pointer)?;
+        encode_descendant_view_locked(entry, doc, value_json_index)
+    })
+}
+
+pub(crate) fn element_at_path(
+    view: *const pure_simdjson_value_view_t,
+    path: &[u8],
+) -> Result<pure_simdjson_value_view_t, pure_simdjson_error_code_t> {
+    with_resolved_view(view, |entry, json_index, doc| {
+        let value_json_index =
+            super::native_element_at_path_index(entry.native_ptr, json_index, path)?;
+        encode_descendant_view_locked(entry, doc, value_json_index)
+    })
+}
+
 pub(crate) fn materialize_build(
     view: *const pure_simdjson_value_view_t,
 ) -> Result<(*const super::psdj_internal_frame_t, usize), pure_simdjson_error_code_t> {

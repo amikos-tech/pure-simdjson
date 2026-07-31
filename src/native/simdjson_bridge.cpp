@@ -176,15 +176,17 @@ pure_simdjson_error_code_t map_error(simdjson::error_code error) noexcept {
       return PURE_SIMDJSON_ERR_INVALID_JSON;
     case simdjson::DEPTH_ERROR:
       return PURE_SIMDJSON_ERR_DEPTH_LIMIT;
+    case simdjson::INVALID_JSON_POINTER:
+      return PURE_SIMDJSON_ERR_INVALID_PATH;
+    case simdjson::INDEX_OUT_OF_BOUNDS:
+      return PURE_SIMDJSON_ERR_INDEX_OUT_OF_RANGE;
     case simdjson::CAPACITY:
     case simdjson::MEMALLOC:
     case simdjson::IO_ERROR:
-    case simdjson::INVALID_JSON_POINTER:
     case simdjson::INVALID_URI_FRAGMENT:
     case simdjson::UNEXPECTED_ERROR:
     case simdjson::PARSER_IN_USE:
     case simdjson::UNINITIALIZED:
-    case simdjson::INDEX_OUT_OF_BOUNDS:
     case simdjson::OUT_OF_ORDER_ITERATION:
     case simdjson::INSUFFICIENT_PADDING:
     case simdjson::SCALAR_DOCUMENT_AS_VALUE:
@@ -1533,6 +1535,64 @@ pure_simdjson_error_code_t psimdjson_object_get_field_index(
     const auto field_error = object.at_key(key).get(value);
     if (field_error != simdjson::SUCCESS) {
       return map_error(field_error);
+    }
+
+    *out_value_json_index = element_json_index(value);
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_element_at_pointer_index(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t *pointer_ptr,
+    size_t pointer_len,
+    uint64_t *out_value_json_index
+) noexcept {
+  try {
+    if (doc == nullptr || out_value_json_index == nullptr) {
+      return invalid_argument();
+    }
+    if (pointer_len != 0 && pointer_ptr == nullptr) {
+      return invalid_argument();
+    }
+
+    const auto pointer = pointer_len == 0
+        ? std::string_view{}
+        : std::string_view(reinterpret_cast<const char *>(pointer_ptr), pointer_len);
+    simdjson::dom::element value;
+    const auto pointer_error = element_at(doc, json_index).at_pointer(pointer).get(value);
+    if (pointer_error != simdjson::SUCCESS) {
+      return map_error(pointer_error);
+    }
+
+    *out_value_json_index = element_json_index(value);
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_element_at_path_index(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t *path_ptr,
+    size_t path_len,
+    uint64_t *out_value_json_index
+) noexcept {
+  try {
+    if (doc == nullptr || out_value_json_index == nullptr) {
+      return invalid_argument();
+    }
+    if (path_len != 0 && path_ptr == nullptr) {
+      return invalid_argument();
+    }
+
+    const auto path = path_len == 0
+        ? std::string_view{}
+        : std::string_view(reinterpret_cast<const char *>(path_ptr), path_len);
+    simdjson::dom::element value;
+    const auto path_error = element_at(doc, json_index).at_path(path).get(value);
+    if (path_error != simdjson::SUCCESS) {
+      return map_error(path_error);
     }
 
     *out_value_json_index = element_json_index(value);
