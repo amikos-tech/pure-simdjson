@@ -30,6 +30,8 @@ exclude = [
   "psimdjson_lock_implementation_selection",
   "psimdjson_get_implementation_name_len",
   "psimdjson_copy_implementation_name",
+  "psimdjson_minify",
+  "psimdjson_validate_utf8",
   "psimdjson_native_alloc_stats_reset",
   "psimdjson_native_alloc_stats_snapshot",
   "psimdjson_padding_bytes",

@@ -84,6 +84,8 @@ REQUIRED_SYMBOLS = (
     "pure_simdjson_array_at",
     "pure_simdjson_array_len",
     "pure_simdjson_object_size",
+    "pure_simdjson_minify",
+    "pure_simdjson_validate_utf8",
 )
 
 
@@ -281,6 +283,18 @@ def rule_diag_surface(
             "uint8_t *dst",
             "size_t dst_cap",
             "size_t *out_written",
+        ],
+        "pure_simdjson_minify": [
+            "const uint8_t *src_ptr",
+            "size_t src_len",
+            "uint8_t *dst_ptr",
+            "size_t dst_cap",
+            "size_t *out_written",
+        ],
+        "pure_simdjson_validate_utf8": [
+            "const uint8_t *data_ptr",
+            "size_t data_len",
+            "uint8_t *out_valid",
         ],
         "pure_simdjson_parser_new": ["pure_simdjson_parser_t *out_parser"],
         "pure_simdjson_parser_new_configured": [

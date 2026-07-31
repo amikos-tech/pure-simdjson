@@ -23,6 +23,18 @@ SURFACE_SIGNATURES = {
         "size_t dst_cap",
         "size_t *out_written",
     ],
+    "pure_simdjson_minify": [
+        "const uint8_t *src_ptr",
+        "size_t src_len",
+        "uint8_t *dst_ptr",
+        "size_t dst_cap",
+        "size_t *out_written",
+    ],
+    "pure_simdjson_validate_utf8": [
+        "const uint8_t *data_ptr",
+        "size_t data_len",
+        "uint8_t *out_valid",
+    ],
     "pure_simdjson_native_alloc_stats_reset": [],
     "pure_simdjson_native_alloc_stats_snapshot": [
         "struct pure_simdjson_native_alloc_stats_t *out_stats",
@@ -166,6 +178,10 @@ PHASE_11_SYMBOLS = (
     "pure_simdjson_element_get_bigint",
     "pure_simdjson_set_implementation",
     "pure_simdjson_lock_implementation_selection",
+)
+PHASE_12_UTILITY_SYMBOLS = (
+    "pure_simdjson_minify",
+    "pure_simdjson_validate_utf8",
 )
 SURFACE_COMMENTS = {
     "pure_simdjson_doc_root": (
@@ -522,6 +538,19 @@ class DiagSurfaceRuleTests(unittest.TestCase):
 
     def test_rejects_each_wrong_phase_11_signature(self) -> None:
         for symbol in PHASE_11_SYMBOLS:
+            with self.subTest(symbol=symbol):
+                header_text = make_surface_header(
+                    overrides={symbol: ["uint32_t wrong_parameter"]}
+                )
+                prototypes = check_header.parse_prototypes(header_text)
+
+                with self.assertRaises(SystemExit) as excinfo:
+                    check_header.rule_diag_surface(prototypes, header_text)
+
+                self.assertIn(symbol, str(excinfo.exception))
+
+    def test_rejects_each_wrong_phase_12_utility_signature(self) -> None:
+        for symbol in PHASE_12_UTILITY_SYMBOLS:
             with self.subTest(symbol=symbol):
                 header_text = make_surface_header(
                     overrides={symbol: ["uint32_t wrong_parameter"]}

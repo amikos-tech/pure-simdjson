@@ -233,6 +233,38 @@ pure_simdjson_error_code_t pure_simdjson_copy_implementation_name(uint8_t *dst,
                                                                   size_t *out_written);
 
 /**
+ * Minify JSON bytes into caller-owned storage.
+ *
+ * `dst_cap` must be at least `src_len`. Exact same-start aliasing (`dst_ptr == src_ptr`) is
+ * supported; otherwise the caller-declared source and destination ranges must be disjoint.
+ * Successful minification removes whitespace but does not prove that the input is valid JSON:
+ * the upstream scanner reports unclosed strings but does not perform full JSON validation.
+ * A successful call permanently locks process-global implementation selection.
+ *
+ * # Safety
+ * `out_written` must point to writable `usize` storage. For non-empty input, `src_ptr` must be
+ * readable for `src_len` bytes and `dst_ptr` must be writable for `dst_cap` bytes.
+ */
+pure_simdjson_error_code_t pure_simdjson_minify(const uint8_t *src_ptr,
+                                                size_t src_len,
+                                                uint8_t *dst_ptr,
+                                                size_t dst_cap,
+                                                size_t *out_written);
+
+/**
+ * Check whether caller-owned bytes are valid UTF-8 using the active simdjson implementation.
+ *
+ * A successful call permanently locks process-global implementation selection.
+ *
+ * # Safety
+ * `out_valid` must point to writable `u8` storage. For non-empty input, `data_ptr` must be
+ * readable for `data_len` bytes.
+ */
+pure_simdjson_error_code_t pure_simdjson_validate_utf8(const uint8_t *data_ptr,
+                                                       size_t data_len,
+                                                       uint8_t *out_valid);
+
+/**
  * Reset the diagnostic native allocator telemetry epoch.
  *
  * Existing live native allocations remain valid, but future snapshots exclude them from the
