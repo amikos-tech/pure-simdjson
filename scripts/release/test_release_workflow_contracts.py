@@ -14,14 +14,59 @@ BUILD_SHARED_LIBRARY_ACTION = (
 BUILD_RS = REPO_ROOT / "build.rs"
 SETUP_RUST_ACTION = REPO_ROOT / ".github" / "actions" / "setup-rust" / "action.yml"
 RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
+PHASE2_RUST_SHIM_SMOKE = (
+    REPO_ROOT / ".github" / "workflows" / "phase2-rust-shim-smoke.yml"
+)
 GO_BOOTSTRAP_SMOKE = REPO_ROOT / "tests" / "smoke" / "go_bootstrap_smoke.go"
 RUN_GO_PACKAGED_SMOKE = REPO_ROOT / "scripts" / "release" / "run_go_packaged_smoke.sh"
 RUN_ALPINE_SMOKE = REPO_ROOT / "scripts" / "release" / "run_alpine_smoke.sh"
 RUN_NATIVE_SMOKE = REPO_ROOT / "scripts" / "release" / "run_native_smoke.sh"
 VERIFY_GLIBC_FLOOR = REPO_ROOT / "scripts" / "release" / "verify_glibc_floor.sh"
+MINIFY_BUFFER_SAFETY_PROBE = (
+    REPO_ROOT / "tests" / "native" / "minify_buffer_safety_probe.cpp"
+)
+VERIFY_MINIFY_BUFFER_SAFETY = (
+    REPO_ROOT / "scripts" / "ci" / "verify_minify_buffer_safety.sh"
+)
 
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
+    def test_phase12_native_smoke_gate_tracks_durable_minify_probe(self) -> None:
+        workflow_text = PHASE2_RUST_SHIM_SMOKE.read_text(encoding="utf-8")
+        verifier_text = VERIFY_MINIFY_BUFFER_SAFETY.read_text(encoding="utf-8")
+        probe_text = MINIFY_BUFFER_SAFETY_PROBE.read_text(encoding="utf-8")
+
+        self.assertIn("- scripts/ci/verify_minify_buffer_safety.sh", workflow_text)
+        self.assertIn("- tests/native/**", workflow_text)
+        linux_smoke = workflow_text.split("  linux-smoke:", 1)[1]
+        linux_smoke = linux_smoke.split("  windows-smoke:", 1)[0]
+        self.assertIn(
+            "bash scripts/ci/verify_minify_buffer_safety.sh",
+            linux_smoke,
+        )
+
+        for production_text in (workflow_text, verifier_text, probe_text):
+            self.assertNotIn(".planning/spikes", production_text)
+            self.assertNotIn("total=24", production_text)
+
+        self.assertIn("for run_number in 1 2 3", verifier_text)
+        self.assertIn(
+            "expected_total=$((expected_cases_per_kernel * kernel_count))",
+            verifier_text,
+        )
+        self.assertIn("Linux:x86_64|Linux:amd64", verifier_text)
+        for kernel_name in ("fallback", "haswell", "westmere"):
+            self.assertIn(kernel_name, verifier_text)
+        self.assertIn("-fsanitize=address,undefined", verifier_text)
+
+        self.assertIn("constexpr size_t kCasesPerKernel = 12;", probe_text)
+        self.assertIn("std::sort(supported.begin(), supported.end()", probe_text)
+        self.assertIn(
+            '"SUMMARY kernels=%s cases_per_kernel=%zu total=%zu failures=%zu "',
+            probe_text,
+        )
+        self.assertIn('"sanitizer_clean=1\\n"', probe_text)
+
     def test_release_matrix_keeps_five_targets_and_native_smoke(self) -> None:
         workflow_text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
 

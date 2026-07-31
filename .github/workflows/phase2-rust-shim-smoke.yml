@@ -9,8 +9,10 @@ on:
       - Makefile
       - build.rs
       - include/pure_simdjson.h
+      - scripts/ci/verify_minify_buffer_safety.sh
       - src/**
       - tests/*.rs
+      - tests/native/**
       - tests/smoke/**
 
 permissions:
@@ -42,6 +44,11 @@ jobs:
         run: |
           set -euo pipefail
           make verify-contract
+
+      - name: Verify minify buffer safety across supported kernels
+        run: |
+          set -euo pipefail
+          bash scripts/ci/verify_minify_buffer_safety.sh
 
       - name: Build release library
         run: |
