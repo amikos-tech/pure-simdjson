@@ -1,5 +1,7 @@
 package ffi
 
+import "unsafe"
+
 const (
 	// ABIVersion encodes the expected native ABI as 0xMMMMmmmm (16-bit major,
 	// 16-bit minor). It must match PURE_SIMDJSON_ABI_VERSION exported by the
@@ -71,9 +73,9 @@ type InternalFrame struct {
 	Flags        uint32
 	ChildCount   uint32
 	Reserved     uint32
-	KeyPtr       uintptr
+	KeyPtr       unsafe.Pointer
 	KeyLen       uintptr
-	StringPtr    uintptr
+	StringPtr    unsafe.Pointer
 	StringLen    uintptr
 	Int64Value   int64
 	Uint64Value  uint64

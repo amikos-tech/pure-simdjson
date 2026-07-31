@@ -207,14 +207,14 @@ func buildAnyFromFrame(frames []ffi.InternalFrame, index int) (any, int, error) 
 	}
 }
 
-func copyFrameString(ptr uintptr, length uintptr, index int, kind uint32, label string) (string, error) {
+func copyFrameString(ptr unsafe.Pointer, length uintptr, index int, kind uint32, label string) (string, error) {
 	if length == 0 {
 		return "", nil
 	}
-	if ptr == 0 {
+	if ptr == nil {
 		return "", frameProtocolError(index, kind, label+" span has nil pointer")
 	}
-	return string(unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))), nil
+	return string(unsafe.Slice((*byte)(ptr), int(length))), nil
 }
 
 func frameProtocolError(index int, kind uint32, detail string) error {

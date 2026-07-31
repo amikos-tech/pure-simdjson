@@ -77,6 +77,16 @@ static_assert(sizeof(pure_simdjson_doc_t) == 8, "pure_simdjson_doc_t must stay 8
 static_assert(sizeof(pure_simdjson_handle_parts_t) == 8, "pure_simdjson_handle_parts_t must stay 8 bytes");
 static_assert(offsetof(pure_simdjson_handle_parts_t, generation) == 4, "generation offset must stay stable");
 static_assert(sizeof(pure_simdjson_value_view_t) == 32, "pure_simdjson_value_view_t must stay 32 bytes");
+static_assert(offsetof(pure_simdjson_value_view_t, doc) == 0,
+              "pure_simdjson_value_view_t.doc offset must stay stable");
+static_assert(offsetof(pure_simdjson_value_view_t, state0) == 8,
+              "pure_simdjson_value_view_t.state0 offset must stay stable");
+static_assert(offsetof(pure_simdjson_value_view_t, state1) == 16,
+              "pure_simdjson_value_view_t.state1 offset must stay stable");
+static_assert(offsetof(pure_simdjson_value_view_t, kind_hint) == 24,
+              "pure_simdjson_value_view_t.kind_hint offset must stay stable");
+static_assert(offsetof(pure_simdjson_value_view_t, reserved) == 28,
+              "pure_simdjson_value_view_t.reserved offset must stay stable");
 static_assert(sizeof(pure_simdjson_array_iter_t) == 32, "pure_simdjson_array_iter_t must stay 32 bytes");
 static_assert(offsetof(pure_simdjson_array_iter_t, index) == 24,
               "pure_simdjson_array_iter_t.index offset must stay stable");

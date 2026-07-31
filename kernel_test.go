@@ -153,6 +153,82 @@ func TestKernelInvalidOptionsDoNotLock(t *testing.T) {
 	})
 }
 
+func TestKernelUtilityStatusGateExcludesOnlyPreGateStatuses(t *testing.T) {
+	runKernelScenario(t, "utility-status-gate", func(t *testing.T) {
+		for _, tc := range []struct {
+			name string
+			rc   int32
+			want bool
+		}{
+			{name: "cpu unsupported", rc: int32(ffi.ErrCPUUnsupported), want: false},
+			{name: "buffer too small", rc: int32(ffi.ErrBufferTooSmall), want: false},
+			{name: "invalid argument", rc: int32(ffi.ErrInvalidArg), want: false},
+			{name: "invalid JSON after gate", rc: int32(ffi.ErrInvalidJSON), want: true},
+			{name: "success", rc: int32(ffi.OK), want: true},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				kernelMu.Lock()
+				kernelSelectionLocked = false
+				markKernelSelectionAfterUtility(tc.rc)
+				got := kernelSelectionLocked
+				kernelMu.Unlock()
+				if got != tc.want {
+					t.Fatalf("markKernelSelectionAfterUtility(%d) locked = %t, want %t", tc.rc, got, tc.want)
+				}
+			})
+		}
+	})
+}
+
+func TestKernelUtilityReservationBlocksSetKernelUntilFinalStatus(t *testing.T) {
+	runKernelScenario(t, "utility-reservation", func(t *testing.T) {
+		if err := SetKernel(""); err != nil {
+			t.Fatalf("SetKernel(automatic) error = %v", err)
+		}
+
+		reserved := make(chan struct{})
+		releaseUtility := make(chan struct{})
+		setBindingEntered := make(chan struct{}, 1)
+		utilityReservationHook = func() {
+			close(reserved)
+			<-releaseUtility
+		}
+		setImplementationHook = func() { setBindingEntered <- struct{}{} }
+		defer func() {
+			utilityReservationHook = nil
+			setImplementationHook = nil
+		}()
+
+		utilityResult := make(chan error, 1)
+		go func() {
+			_, err := Minify([]byte(` { "x" : 1 } `))
+			utilityResult <- err
+		}()
+		<-reserved
+
+		setResult := make(chan error, 1)
+		go func() { setResult <- SetKernel("") }()
+		select {
+		case <-setBindingEntered:
+			t.Fatal("SetKernel entered native binding while utility reservation was active")
+		default:
+		}
+
+		close(releaseUtility)
+		if err := <-utilityResult; err != nil {
+			t.Fatalf("Minify() error = %v", err)
+		}
+		if err := <-setResult; !errors.Is(err, ErrKernelLocked) {
+			t.Fatalf("SetKernel() after successful reserved utility error = %v, want ErrKernelLocked", err)
+		}
+		select {
+		case <-setBindingEntered:
+			t.Fatal("SetKernel entered native binding after the utility locked selection")
+		default:
+		}
+	})
+}
+
 func TestKernelParserCreationLocksSelection(t *testing.T) {
 	runKernelScenario(t, "parser-lock", func(t *testing.T) {
 		parser, err := NewParser()

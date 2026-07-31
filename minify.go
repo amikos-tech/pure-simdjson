@@ -44,16 +44,15 @@ func MinifyInto(dst, src []byte) (int, error) {
 		return 0, ErrInvalidOption
 	}
 
-	kernelMu.Lock()
-	defer kernelMu.Unlock()
-
+	beginUtilityKernel()
 	library, err := activeLibrary()
 	if err != nil {
+		cancelUtilityKernel()
 		return 0, err
 	}
 
 	written, rc := library.bindings.Minify(dst, src)
-	markKernelSelectionAfterUtility(rc)
+	finishUtilityKernel(rc)
 	if err := wrapStatus(rc); err != nil {
 		return 0, err
 	}

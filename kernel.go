@@ -9,7 +9,14 @@ import (
 
 var (
 	kernelMu              sync.Mutex
+	kernelCond            = sync.NewCond(&kernelMu)
 	kernelSelectionLocked bool
+	utilityKernelReserved bool
+
+	// Test-only hooks make the reservation boundary observable without using
+	// scheduler timing or a real bootstrap path. They are nil in production.
+	utilityReservationHook func()
+	setImplementationHook  func()
 )
 
 // Kernel returns the active process-wide native implementation name. It
@@ -42,6 +49,9 @@ func SetKernel(name string) error {
 	kernelMu.Lock()
 	defer kernelMu.Unlock()
 
+	for utilityKernelReserved {
+		kernelCond.Wait()
+	}
 	if kernelSelectionLocked {
 		return ErrKernelLocked
 	}
@@ -51,6 +61,9 @@ func SetKernel(name string) error {
 		return err
 	}
 
+	if setImplementationHook != nil {
+		setImplementationHook()
+	}
 	rc := library.bindings.SetImplementation(name)
 	if statusErr := wrapStatus(rc); statusErr != nil {
 		if rc == int32(ffi.ErrInvalidArg) {
@@ -80,7 +93,45 @@ func lockKernelSelection() {
 // The caller must hold kernelMu. CPU rejection happens before native selection
 // locks; every other returned status follows a successful gate.
 func markKernelSelectionAfterUtility(rc int32) {
-	if rc != int32(ffi.ErrCPUUnsupported) {
+	if rc != int32(ffi.ErrCPUUnsupported) &&
+		rc != int32(ffi.ErrBufferTooSmall) &&
+		rc != int32(ffi.ErrInvalidArg) {
 		kernelSelectionLocked = true
 	}
+}
+
+// beginUtilityKernel reserves process-wide implementation selection before a
+// utility resolves the library or calls native code. The expensive work must
+// happen after this function returns, with kernelMu unlocked.
+func beginUtilityKernel() {
+	kernelMu.Lock()
+	for utilityKernelReserved {
+		kernelCond.Wait()
+	}
+	utilityKernelReserved = true
+	hook := utilityReservationHook
+	kernelMu.Unlock()
+	if hook != nil {
+		hook()
+	}
+}
+
+// cancelUtilityKernel releases a reservation when bootstrap or preflight
+// fails before native code can pass its CPU gate. Such failures never lock
+// selection.
+func cancelUtilityKernel() {
+	kernelMu.Lock()
+	utilityKernelReserved = false
+	kernelCond.Broadcast()
+	kernelMu.Unlock()
+}
+
+// finishUtilityKernel records the native utility status before allowing a
+// waiter to select an implementation.
+func finishUtilityKernel(rc int32) {
+	kernelMu.Lock()
+	markKernelSelectionAfterUtility(rc)
+	utilityKernelReserved = false
+	kernelCond.Broadcast()
+	kernelMu.Unlock()
 }

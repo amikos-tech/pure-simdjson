@@ -37,7 +37,7 @@ const (
 	// TypeObject reports a JSON object value.
 	TypeObject ElementType = ElementType(ffi.ValueKindObject)
 	// TypeBigInt reports an integer outside the int64 and uint64 ranges.
-	TypeBigInt ElementType = 9
+	TypeBigInt ElementType = ElementType(ffi.ValueKindBigInt)
 )
 
 // Array wraps an Element verified to represent a JSON array. Construct via
@@ -212,7 +212,7 @@ func (e Element) TypeErr() (ElementType, error) {
 		return TypeArray, nil
 	case ffi.ValueKindObject:
 		return TypeObject, nil
-	case ffi.ValueKind(TypeBigInt):
+	case ffi.ValueKindBigInt:
 		return TypeBigInt, nil
 	default:
 		return TypeInvalid, nil
