@@ -361,6 +361,12 @@ fn wildcard_paths_follow_spike_005_truth_table() {
             &[1, 2],
         ),
         (
+            "leading quoted bracket prefix remains literal",
+            br#"{"'obj'":{"first":1,"second":2}}"#,
+            b"['obj'].*",
+            &[1, 2],
+        ),
+        (
             "quoted bracket suffix remains literal",
             br#"{"items":[{"'foo'":4,"foo":5}]}"#,
             b".items[*]['foo']",
@@ -414,11 +420,11 @@ fn wildcard_paths_follow_spike_005_truth_table() {
 #[test]
 fn malformed_wildcard_paths_return_invalid_path() {
     let parser = parser_new();
-    let doc = parser_parse_literal(parser, br#"{"items":[{"id":1}]}"#);
+    let doc = parser_parse_literal(parser, br#"{"items":[{"id":1}],"rows":[[1]]}"#);
     let root = doc_root(doc);
 
     for path in [
-        b"a.b".as_slice(), b"*", b".a[0", b".items[*].", b".items[*][", b"", b"['*'][*]", b".items.thing*", b"\xff",
+        b"a.b".as_slice(), b"*", b".a[0", b".items[*].", b".items[*][", b"", b"['*'][*]", b".items.thing*", b".items[*]junk[0]", b".a[*]b[0]", b".rows[01][*]", b"\xff",
     ] {
         let (rc, views, count) = wildcard_call(&root, path);
         assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_PATH, "path {path:?}");

@@ -11,15 +11,15 @@ package purejson
 // selection, even when the data is invalid UTF-8, so SetKernel returns
 // ErrKernelLocked afterward.
 func ValidateUTF8(data []byte) (bool, error) {
-	beginUtilityKernel()
+	reservation := beginUtilityKernel()
+	defer reservation.cancel()
 	library, err := activeLibrary()
 	if err != nil {
-		cancelUtilityKernel()
 		return false, err
 	}
 
 	valid, rc := library.bindings.ValidateUTF8(data)
-	finishUtilityKernel(rc)
+	reservation.finish(rc)
 	if err := wrapStatus(rc); err != nil {
 		return false, err
 	}

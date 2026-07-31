@@ -8,10 +8,10 @@ import (
 )
 
 var (
-	kernelMu              sync.Mutex
-	kernelCond            = sync.NewCond(&kernelMu)
-	kernelSelectionLocked bool
-	utilityKernelReserved bool
+	kernelMu                  sync.RWMutex
+	kernelCond                = sync.NewCond(&kernelMu)
+	kernelSelectionLocked     bool
+	utilityKernelReservations uint
 
 	// Test-only hooks make the reservation boundary observable without using
 	// scheduler timing or a real bootstrap path. They are nil in production.
@@ -23,8 +23,8 @@ var (
 // returns an empty string until a native library has already been loaded and
 // never triggers library resolution or bootstrap work.
 func Kernel() string {
-	kernelMu.Lock()
-	defer kernelMu.Unlock()
+	kernelMu.RLock()
+	defer kernelMu.RUnlock()
 
 	libraryMu.Lock()
 	library := cachedLibrary
@@ -49,7 +49,7 @@ func SetKernel(name string) error {
 	kernelMu.Lock()
 	defer kernelMu.Unlock()
 
-	for utilityKernelReserved {
+	for utilityKernelReservations != 0 {
 		kernelCond.Wait()
 	}
 	if kernelSelectionLocked {
@@ -90,8 +90,9 @@ func lockKernelSelection() {
 }
 
 // markKernelSelectionAfterUtility mirrors the native utility gate ordering.
-// The caller must hold kernelMu. CPU rejection happens before native selection
-// locks; every other returned status follows a successful gate.
+// The caller must hold kernelMu. CPU rejection, a too-small destination, and
+// invalid arguments happen before native selection locks; every other returned
+// status follows a successful gate.
 func markKernelSelectionAfterUtility(rc int32) {
 	if rc != int32(ffi.ErrCPUUnsupported) &&
 		rc != int32(ffi.ErrBufferTooSmall) &&
@@ -100,38 +101,55 @@ func markKernelSelectionAfterUtility(rc int32) {
 	}
 }
 
+// utilityKernelReservation keeps SetKernel out until a utility has published
+// its native gate result. Multiple utilities may run concurrently; only
+// SetKernel waits for all of them to finish.
+type utilityKernelReservation struct {
+	released bool
+}
+
 // beginUtilityKernel reserves process-wide implementation selection before a
 // utility resolves the library or calls native code. The expensive work must
 // happen after this function returns, with kernelMu unlocked.
-func beginUtilityKernel() {
+func beginUtilityKernel() (reservation *utilityKernelReservation) {
+	reservation = &utilityKernelReservation{}
 	kernelMu.Lock()
-	for utilityKernelReserved {
-		kernelCond.Wait()
-	}
-	utilityKernelReserved = true
+	utilityKernelReservations++
 	hook := utilityReservationHook
 	kernelMu.Unlock()
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			reservation.cancel()
+			panic(recovered)
+		}
+	}()
 	if hook != nil {
 		hook()
 	}
+	return reservation
 }
 
-// cancelUtilityKernel releases a reservation when bootstrap or preflight
-// fails before native code can pass its CPU gate. Such failures never lock
-// selection.
-func cancelUtilityKernel() {
+// cancel releases a reservation when bootstrap or preflight fails before
+// native code can pass its CPU gate. It is safe to defer after finish.
+func (reservation *utilityKernelReservation) cancel() {
 	kernelMu.Lock()
-	utilityKernelReserved = false
-	kernelCond.Broadcast()
+	if !reservation.released {
+		reservation.released = true
+		utilityKernelReservations--
+		kernelCond.Broadcast()
+	}
 	kernelMu.Unlock()
 }
 
-// finishUtilityKernel records the native utility status before allowing a
-// waiter to select an implementation.
-func finishUtilityKernel(rc int32) {
+// finish records the native utility status before allowing SetKernel to select
+// an implementation. It is safe to pair with a deferred cancel.
+func (reservation *utilityKernelReservation) finish(rc int32) {
 	kernelMu.Lock()
-	markKernelSelectionAfterUtility(rc)
-	utilityKernelReserved = false
-	kernelCond.Broadcast()
+	if !reservation.released {
+		markKernelSelectionAfterUtility(rc)
+		reservation.released = true
+		utilityKernelReservations--
+		kernelCond.Broadcast()
+	}
 	kernelMu.Unlock()
 }

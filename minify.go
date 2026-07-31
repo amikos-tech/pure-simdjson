@@ -44,15 +44,15 @@ func MinifyInto(dst, src []byte) (int, error) {
 		return 0, ErrInvalidOption
 	}
 
-	beginUtilityKernel()
+	reservation := beginUtilityKernel()
+	defer reservation.cancel()
 	library, err := activeLibrary()
 	if err != nil {
-		cancelUtilityKernel()
 		return 0, err
 	}
 
 	written, rc := library.bindings.Minify(dst, src)
-	finishUtilityKernel(rc)
+	reservation.finish(rc)
 	if err := wrapStatus(rc); err != nil {
 		return 0, err
 	}

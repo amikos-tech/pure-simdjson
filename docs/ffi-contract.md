@@ -35,7 +35,7 @@ Historical ABI 1.2 (`0x00010002`) extended the original typed DOM surface with c
 | `PURE_SIMDJSON_OK` | 0 | Success |
 | `PURE_SIMDJSON_ERR_INVALID_ARGUMENT` | 1 | Null pointer, inconsistent out-param set, or other caller contract violation |
 | `PURE_SIMDJSON_ERR_INVALID_HANDLE` | 2 | Handle generation mismatch, stale handle, or already-freed slot |
-| `PURE_SIMDJSON_ERR_PARSER_BUSY` | 3 | Parser already owns a live `Doc` |
+| `PURE_SIMDJSON_ERR_PARSER_BUSY` | 3 | A parser has a live `Doc`, or a document rejects reentrant guarded work |
 | `PURE_SIMDJSON_ERR_WRONG_TYPE` | 4 | Value kind does not match the requested accessor |
 | `PURE_SIMDJSON_ERR_ELEMENT_NOT_FOUND` | 5 | Requested object field is absent |
 | `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL` | 6 | Caller-provided destination buffer is too small |
@@ -162,7 +162,7 @@ Busy-state rule:
 - `pure_simdjson_parser_parse` returns `PURE_SIMDJSON_ERR_PARSER_BUSY` while a live `Doc` exists for that parser.
 - `pure_simdjson_parser_free` also returns `PURE_SIMDJSON_ERR_PARSER_BUSY` while a live `Doc` exists for that parser.
 - Re-parse never discards, replaces, or mutates the old `Doc` as a side effect.
-- Only `pure_simdjson_doc_free` clears the busy state.
+- Only `pure_simdjson_doc_free` clears parser-lifecycle busy state; a per-document operation guard clears when the conflicting operation returns.
 - Generation checks remain the mechanism that turns stale parser/doc/view use into `PURE_SIMDJSON_ERR_INVALID_HANDLE`.
 
 The lifecycle is explicit by design so later phases do not introduce hidden reuse semantics.
@@ -246,8 +246,9 @@ Navigation and container rules:
 
 - `pure_simdjson_element_at_pointer` delegates RFC 6901 parsing and traversal to simdjson. Malformed pointers return status 11, missing object segments return status 5, type mismatches return status 4, and out-of-range array segments return status 12.
 - `pure_simdjson_element_at_path` delegates simdjson's dot/index subset. It does not claim full RFC 9535 JSONPath support and uses the same typed status mapping as pointer navigation.
-- `pure_simdjson_element_at_path_wildcard` returns matches in document order. Only a structurally valid path containing `.*` or `[*]` can succeed with no matches; that result uses `out_views == NULL` and `out_count == 0`. Once both output locations are writable, every error (including malformed input and `PARSER_BUSY`) clears them to that sentinel.
+- `pure_simdjson_element_at_path_wildcard` returns matches in document order. Only a structurally valid path containing `.*` or `[*]` can succeed with no matches; that result uses `*out_views == NULL` and `*out_count == 0`. Once both output locations are writable, every error (including malformed input and `PARSER_BUSY`) clears them to that sentinel. A wildcard call can return `PARSER_BUSY` when the same document is already building wildcard results.
 - A non-empty wildcard result is one Rust-owned allocation of `pure_simdjson_value_view_t` structs. The caller may copy those structs, then must release the carrier array exactly once with `pure_simdjson_value_views_free(ptr, count)`. `bytes_free` and `value_views_free` accept only the null/zero empty sentinel or an exact issued nonempty pointer/count pair; null/nonzero and nonnull/zero are invalid arguments and mismatched/double frees retain or reject registry ownership safely. Releasing the carrier does not invalidate copied views; their owning `Doc` still controls their lifetime.
+- Each successful non-empty `AtPathAll` call adds one native descendant-index entry per returned view until `Doc.Close`, so repeated large wildcard traversals grow document bookkeeping proportionally.
 - `pure_simdjson_array_at` is bounds checked and returns status 12 for an index beyond the array. It follows upstream's linear scan, so repeated indexed traversal is not constant time.
 - `pure_simdjson_array_len` and `pure_simdjson_object_size` report direct children in constant time. The upstream tape stores a 24-bit direct-child count, so values saturate at `0xFFFFFF` (16,777,215).
 

@@ -120,6 +120,11 @@ def check_state(repo_root: pathlib.Path, requested_version: str) -> tuple[str, s
     if minimum_version is None:
         raise BootstrapABIStateError(f"unknown ABI policy: {go_abi}")
 
+    if parse_semver(bootstrap_version)[3]:
+        raise BootstrapABIStateError(
+            f"unpublished prerelease bootstrap.Version: {bootstrap_version}"
+        )
+
     if compare_semver(bootstrap_version, minimum_version) < 0:
         raise BootstrapABIStateError(
             f"stale bootstrap.Version: {bootstrap_version} is below minimum "
@@ -139,6 +144,9 @@ def check_state(repo_root: pathlib.Path, requested_version: str) -> tuple[str, s
             f"stale ABI policy: {go_abi} is below required {required_abi} "
             f"for bootstrap.Version {bootstrap_version}"
         )
+
+    if parse_semver(requested_version)[3]:
+        raise BootstrapABIStateError(f"release version must not be a prerelease: {requested_version}")
 
     if bootstrap_version != requested_version:
         raise BootstrapABIStateError(

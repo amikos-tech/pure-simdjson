@@ -135,7 +135,7 @@ class BootstrapABIStateTest(unittest.TestCase):
             rust_abi="0x0001_0003",
         )
 
-        self.assert_failed_with(result, "stale bootstrap.Version")
+        self.assert_failed_with(result, "unpublished prerelease bootstrap.Version")
 
     def test_rejects_0_2_0_rc_at_abi_1_3_floor(self) -> None:
         result = self.run_checker(
@@ -145,7 +145,7 @@ class BootstrapABIStateTest(unittest.TestCase):
             rust_abi="0x0001_0003",
         )
 
-        self.assert_failed_with(result, "stale bootstrap.Version")
+        self.assert_failed_with(result, "unpublished prerelease bootstrap.Version")
 
     def test_accepts_0_2_0_final_abi_1_3_state(self) -> None:
         result = self.run_checker(
@@ -157,7 +157,7 @@ class BootstrapABIStateTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result)
 
-    def test_accepts_later_prerelease_above_abi_1_3_floor(self) -> None:
+    def test_rejects_later_prerelease_above_abi_1_3_floor(self) -> None:
         result = self.run_checker(
             requested_version="0.2.1-dev",
             bootstrap_version="0.2.1-dev",
@@ -165,7 +165,7 @@ class BootstrapABIStateTest(unittest.TestCase):
             rust_abi="0x0001_0003",
         )
 
-        self.assertEqual(result.returncode, 0, result)
+        self.assert_failed_with(result, "unpublished prerelease bootstrap.Version")
 
     def test_rejects_malformed_semver(self) -> None:
         result = self.run_checker(
@@ -237,7 +237,7 @@ class BootstrapABIStateTest(unittest.TestCase):
             requested_version="0.1.2-dev", bootstrap_version="0.1.2-dev"
         )
 
-        self.assert_failed_with(result, "stale bootstrap.Version")
+        self.assert_failed_with(result, "unpublished prerelease bootstrap.Version")
 
 
 if __name__ == "__main__":

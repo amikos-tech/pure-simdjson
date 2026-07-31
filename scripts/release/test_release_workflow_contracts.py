@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import pathlib
 import re
-import tempfile
 import unittest
+
+try:
+    from scripts.release.workflow_yaml import load_workflow_definition
+except ModuleNotFoundError:  # pragma: no cover - direct script invocation
+    from workflow_yaml import load_workflow_definition
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -39,95 +43,40 @@ VERIFY_MINIFY_BUFFER_SAFETY = (
 def read_workflow_contract(
     path: pathlib.Path,
 ) -> tuple[dict[str, tuple[str, ...]], tuple[tuple[str, str], ...]]:
-    """Parse only the workflow mapping subset used by these contract tests.
+    """Extract workflow events and runners through the shared YAML loader."""
+    workflow = load_workflow_definition(path, REPO_ROOT)
+    on = workflow.get("on")
+    jobs_mapping = workflow.get("jobs")
+    if not isinstance(on, dict) or not isinstance(jobs_mapping, dict):
+        raise AssertionError(f"missing on/jobs mappings in {path}")
 
-    This is deliberately not a general YAML parser: aliases, merge keys, and
-    block scalars are rejected rather than silently accepted. It recognizes
-    only a literal ``on:`` mapping, scalar/list ``branches``, named top-level
-    jobs, and scalar ``runs-on`` values.
-    """
-    lines = path.read_text(encoding="utf-8").splitlines()
     events: dict[str, tuple[str, ...]] = {}
+    for event, configuration in on.items():
+        branches = configuration.get("branches", ()) if isinstance(configuration, dict) else ()
+        if isinstance(branches, str):
+            branches = (branches,)
+        if not isinstance(branches, list | tuple) or not all(isinstance(branch, str) for branch in branches):
+            raise AssertionError(f"invalid branches for {event!r} in {path}")
+        events[str(event)] = tuple(branches)
+
     jobs: list[tuple[str, str]] = []
-    in_on = False
-    in_jobs = False
-    current_event: str | None = None
-    current_job: str | None = None
-
-    for index, raw_line in enumerate(lines):
-        line_number = index + 1
-        if "\t" in raw_line:
-            raise ValueError(f"tabs are unsupported at {path}:{line_number}")
-        stripped = raw_line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        indent = len(raw_line) - len(raw_line.lstrip(" "))
-
-        if (in_on or in_jobs) and indent <= 4:
-            if re.search(r"(^|\s)(?:<<:|[&*][A-Za-z_])", stripped):
-                raise ValueError(
-                    f"YAML aliases and merge keys are unsupported at {path}:{line_number}"
-                )
-            if re.search(r":\s*[>|]", stripped):
-                raise ValueError(f"block scalars are unsupported at {path}:{line_number}")
-
-        if indent == 0:
-            in_on = stripped == "on:"
-            in_jobs = stripped == "jobs:"
-            current_event = None
-            current_job = None
-            continue
-
-        if in_on:
-            if indent == 2:
-                match = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_-]*):", stripped)
-                if match is None:
-                    raise ValueError(f"unsupported event mapping at {path}:{line_number}")
-                current_event = match.group(1)
-                events[current_event] = ()
-                continue
-            if indent == 4 and stripped.startswith("branches:"):
-                if current_event is None:
-                    raise ValueError(f"branch mapping without event at {path}:{line_number}")
-                scalar = stripped.removeprefix("branches:").strip()
-                if scalar:
-                    events[current_event] = (scalar,)
-                    continue
-                branches: list[str] = []
-                for child in lines[index + 1 :]:
-                    child_stripped = child.strip()
-                    child_indent = len(child) - len(child.lstrip(" "))
-                    if not child_stripped or child_stripped.startswith("#"):
-                        continue
-                    if child_indent <= 4:
-                        break
-                    if child_indent != 6 or not child_stripped.startswith("- "):
-                        raise ValueError(f"unsupported branch list at {path}:{line_number}")
-                    branches.append(child_stripped[2:])
-                events[current_event] = tuple(branches)
-                continue
-
-        if in_jobs:
-            if indent == 2:
-                match = re.fullmatch(r"([A-Za-z0-9_-]+):", stripped)
-                if match is None:
-                    raise ValueError(f"unsupported job mapping at {path}:{line_number}")
-                current_job = match.group(1)
-                continue
-            if indent == 4 and stripped.startswith("runs-on:"):
-                if current_job is None:
-                    raise ValueError(f"runs-on without job at {path}:{line_number}")
-                runner = stripped.removeprefix("runs-on:").strip()
-                if not runner:
-                    raise ValueError(f"empty runs-on at {path}:{line_number}")
-                jobs.append((current_job, runner))
-
-    if not events or not jobs:
-        raise ValueError(f"missing literal on/jobs mappings in {path}")
+    for name, configuration in jobs_mapping.items():
+        if not isinstance(configuration, dict):
+            raise AssertionError(f"invalid job mapping for {name!r} in {path}")
+        runner = configuration.get("runs-on")
+        if not isinstance(runner, str):
+            raise AssertionError(f"missing scalar runs-on for {name!r} in {path}")
+        jobs.append((str(name), runner))
     return events, tuple(jobs)
 
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
+    def test_release_accepts_only_final_semver_tags_and_checks_abi_state(self) -> None:
+        workflow_text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn('^v[0-9]+(\\.[0-9]+){2}$', workflow_text)
+        self.assertIn("scripts/release/check_bootstrap_abi_state.py", workflow_text)
+
     def test_phase12_native_smoke_gate_tracks_durable_minify_probe(self) -> None:
         workflow_text = PHASE2_RUST_SHIM_SMOKE.read_text(encoding="utf-8")
         verifier_text = VERIFY_MINIFY_BUFFER_SAFETY.read_text(encoding="utf-8")
@@ -182,16 +131,6 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
     def test_phase2_rust_shim_smoke_runs_for_pull_requests_to_main(self) -> None:
         events, _ = read_workflow_contract(PHASE2_RUST_SHIM_SMOKE)
         self.assertEqual(events["pull_request"], ("main",))
-
-    def test_workflow_contract_parser_rejects_unsupported_yaml_constructs(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            workflow = pathlib.Path(tmp) / "workflow.yml"
-            workflow.write_text(
-                "on:\n  pull_request: &event\njobs:\n  smoke:\n    runs-on: ubuntu-latest\n",
-                encoding="utf-8",
-            )
-            with self.assertRaisesRegex(ValueError, "aliases"):
-                read_workflow_contract(workflow)
 
     def test_phase12_ffi_smoke_invokes_all_abi_1_3_exports(self) -> None:
         smoke_text = FFI_EXPORT_SURFACE.read_text(encoding="utf-8")
