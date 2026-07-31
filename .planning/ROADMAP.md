@@ -572,7 +572,7 @@ Plans:
 
 **Scope boundary:** No JSON encoder/builder, reflection-based `Unmarshal`, full JSONPath engine, file-loading wrapper, or mutable DOM API is added.
 
-**Plans:** 9/11 plans executed
+**Plans:** 10/11 plans executed
 
 Plans:
 - [ ] `12-09-PLAN.md` — ABI 0x00010003 and additive status-code foundation (Wave 1)
