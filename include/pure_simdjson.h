@@ -544,6 +544,32 @@ pure_simdjson_error_code_t pure_simdjson_object_get_field(const struct pure_simd
                                                           size_t key_len,
                                                           struct pure_simdjson_value_view_t *out_value);
 
+/**
+ * Resolve an RFC 6901 JSON Pointer from `view` and return the descendant through `out_value`.
+ *
+ * # Safety
+ * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+ * When `pointer_len` is non-zero, `pointer_ptr` must be readable for `pointer_len` bytes.
+ * `out_value` must point to writable storage.
+ */
+pure_simdjson_error_code_t pure_simdjson_element_at_pointer(const struct pure_simdjson_value_view_t *view,
+                                                            const uint8_t *pointer_ptr,
+                                                            size_t pointer_len,
+                                                            struct pure_simdjson_value_view_t *out_value);
+
+/**
+ * Resolve a simdjson dot/index path from `view` and return the descendant through `out_value`.
+ *
+ * # Safety
+ * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+ * When `path_len` is non-zero, `path_ptr` must be readable for `path_len` bytes. `out_value` must
+ * point to writable storage.
+ */
+pure_simdjson_error_code_t pure_simdjson_element_at_path(const struct pure_simdjson_value_view_t *view,
+                                                         const uint8_t *path_ptr,
+                                                         size_t path_len,
+                                                         struct pure_simdjson_value_view_t *out_value);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus

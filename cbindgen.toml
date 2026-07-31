@@ -59,6 +59,8 @@ exclude = [
   "psimdjson_object_iter_bounds",
   "psimdjson_materialize_build",
   "psimdjson_object_get_field_index",
+  "psimdjson_element_at_pointer_index",
+  "psimdjson_element_at_path_index",
   "psimdjson_test_hold_materialize_guard",
   "psimdjson_test_force_cpp_exception",
 ]

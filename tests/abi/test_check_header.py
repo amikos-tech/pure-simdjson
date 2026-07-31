@@ -123,6 +123,18 @@ SURFACE_SIGNATURES = {
         "size_t key_len",
         "struct pure_simdjson_value_view_t *out_value",
     ],
+    "pure_simdjson_element_at_pointer": [
+        "const struct pure_simdjson_value_view_t *view",
+        "const uint8_t *pointer_ptr",
+        "size_t pointer_len",
+        "struct pure_simdjson_value_view_t *out_value",
+    ],
+    "pure_simdjson_element_at_path": [
+        "const struct pure_simdjson_value_view_t *view",
+        "const uint8_t *path_ptr",
+        "size_t path_len",
+        "struct pure_simdjson_value_view_t *out_value",
+    ],
 }
 PHASE_11_SYMBOLS = (
     "pure_simdjson_parser_new_configured",
