@@ -469,6 +469,17 @@ pure_simdjson_error_code_t pure_simdjson_element_get_bigint(const struct pure_si
 pure_simdjson_error_code_t pure_simdjson_bytes_free(uint8_t *ptr, size_t len);
 
 /**
+ * Release an array previously returned by `pure_simdjson_element_at_path_wildcard`.
+ * The empty-result sentinel is `ptr == NULL && len == 0`.
+ *
+ * # Safety
+ * `ptr` and `len` must describe an allocation previously returned by
+ * `pure_simdjson_element_at_path_wildcard`.
+ */
+pure_simdjson_error_code_t pure_simdjson_value_views_free(struct pure_simdjson_value_view_t *ptr,
+                                                          size_t len);
+
+/**
  * Decode the referenced value as a C `uint8_t` boolean.
  *
  * # Safety
@@ -600,6 +611,22 @@ pure_simdjson_error_code_t pure_simdjson_element_at_path(const struct pure_simdj
                                                          const uint8_t *path_ptr,
                                                          size_t path_len,
                                                          struct pure_simdjson_value_view_t *out_value);
+
+/**
+ * Resolve a simdjson wildcard path from `view` and return ordered document-tied views.
+ * A valid path with no matches succeeds with `*out_views == NULL` and `*out_count == 0`.
+ *
+ * # Safety
+ * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+ * When `path_len` is non-zero, `path_ptr` must be readable for `path_len` bytes. `out_views` and
+ * `out_count` must point to writable storage. A non-empty returned array must be released with
+ * `pure_simdjson_value_views_free`.
+ */
+pure_simdjson_error_code_t pure_simdjson_element_at_path_wildcard(const struct pure_simdjson_value_view_t *view,
+                                                                  const uint8_t *path_ptr,
+                                                                  size_t path_len,
+                                                                  struct pure_simdjson_value_view_t **out_views,
+                                                                  size_t *out_count);
 
 #ifdef __cplusplus
 }  // extern "C"

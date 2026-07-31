@@ -64,6 +64,7 @@ exclude = [
   "psimdjson_object_size",
   "psimdjson_element_at_pointer_index",
   "psimdjson_element_at_path_index",
+  "psimdjson_element_at_path_wildcard_indices",
   "psimdjson_test_hold_materialize_guard",
   "psimdjson_test_force_cpp_exception",
 ]

@@ -90,6 +90,10 @@ SURFACE_SIGNATURES = {
         "size_t *out_len",
     ],
     "pure_simdjson_bytes_free": ["uint8_t *ptr", "size_t len"],
+    "pure_simdjson_value_views_free": [
+        "struct pure_simdjson_value_view_t *ptr",
+        "size_t len",
+    ],
     "pure_simdjson_element_get_bool": [
         "const struct pure_simdjson_value_view_t *view",
         "uint8_t *out_value",
@@ -134,6 +138,13 @@ SURFACE_SIGNATURES = {
         "const uint8_t *path_ptr",
         "size_t path_len",
         "struct pure_simdjson_value_view_t *out_value",
+    ],
+    "pure_simdjson_element_at_path_wildcard": [
+        "const struct pure_simdjson_value_view_t *view",
+        "const uint8_t *path_ptr",
+        "size_t path_len",
+        "struct pure_simdjson_value_view_t **out_views",
+        "size_t *out_count",
     ],
     "pure_simdjson_array_at": [
         "const struct pure_simdjson_value_view_t *array_view",
