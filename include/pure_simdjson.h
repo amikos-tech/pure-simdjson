@@ -240,6 +240,8 @@ pure_simdjson_error_code_t pure_simdjson_copy_implementation_name(uint8_t *dst,
  * Successful minification removes whitespace but does not prove that the input is valid JSON:
  * the upstream scanner reports unclosed strings but does not perform full JSON validation.
  * A successful call permanently locks process-global implementation selection.
+ * `out_written` receives the compact byte count on success and the required `src_len` capacity
+ * on `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL`.
  *
  * # Safety
  * `out_written` must point to writable `usize` storage. For non-empty input, `src_ptr` must be
