@@ -105,6 +105,8 @@ func bindWithRegistrar(handle uintptr, lookup SymbolLookup, registrar symbolRegi
 		{name: "pure_simdjson_lock_implementation_selection", target: &b.lockImplementationSelection},
 		{name: "pure_simdjson_get_implementation_name_len", target: &b.getImplementationNameLen},
 		{name: "pure_simdjson_copy_implementation_name", target: &b.copyImplementationName},
+		{name: "pure_simdjson_native_alloc_stats_reset", target: &b.nativeAllocStatsReset},
+		{name: "pure_simdjson_native_alloc_stats_snapshot", target: &b.nativeAllocStatsSnapshot},
 		{name: "pure_simdjson_parser_new", target: &b.parserNew},
 		{name: "pure_simdjson_parser_new_configured", target: &b.parserNewConfigured},
 		{name: "pure_simdjson_parser_free", target: &b.parserFree},
@@ -145,19 +147,8 @@ func bindWithRegistrar(handle uintptr, lookup SymbolLookup, registrar symbolRegi
 			return nil, err
 		}
 	}
-	resetRegistered, err := registerOptionalFuncWithRegistrar(handle, lookup, registrar, "pure_simdjson_native_alloc_stats_reset", &b.nativeAllocStatsReset)
-	if err != nil {
-		return nil, err
-	}
-	snapshotRegistered, err := registerOptionalFuncWithRegistrar(handle, lookup, registrar, "pure_simdjson_native_alloc_stats_snapshot", &b.nativeAllocStatsSnapshot)
-	if err != nil {
-		return nil, err
-	}
-	b.hasNativeAllocStats = resetRegistered && snapshotRegistered
-	if !b.hasNativeAllocStats {
-		b.nativeAllocStatsReset = nil
-		b.nativeAllocStatsSnapshot = nil
-	}
+	b.hasNativeAllocStats = true
+
 	registered, err := registerOptionalFuncWithRegistrar(handle, lookup, registrar, "psdj_internal_materialize_build", &b.internalMaterializeBuild)
 	if err != nil {
 		return nil, err

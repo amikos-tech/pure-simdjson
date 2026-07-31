@@ -28,6 +28,8 @@ var abi13RequiredSymbols = []string{
 	"pure_simdjson_lock_implementation_selection",
 	"pure_simdjson_get_implementation_name_len",
 	"pure_simdjson_copy_implementation_name",
+	"pure_simdjson_native_alloc_stats_reset",
+	"pure_simdjson_native_alloc_stats_snapshot",
 	"pure_simdjson_parser_new",
 	"pure_simdjson_parser_new_configured",
 	"pure_simdjson_parser_free",
@@ -149,6 +151,42 @@ func TestProbeABIErrorsNameTheProbeStage(t *testing.T) {
 
 func TestBindRequiresEveryPhase12Symbol(t *testing.T) {
 	for _, missing := range phase12RequiredSymbols {
+		t.Run(missing, func(t *testing.T) {
+			var lookups []string
+			bindings, err := bindWithRegistrar(
+				1,
+				func(_ uintptr, name string) (uintptr, error) {
+					lookups = append(lookups, name)
+					if name == missing {
+						return 0, errors.New("symbol not found")
+					}
+					return 1, nil
+				},
+				func(string, any, uintptr) error {
+					return nil
+				},
+			)
+			if err == nil {
+				t.Fatalf("Bind() error = nil with %s missing", missing)
+			}
+			if bindings != nil {
+				t.Fatalf("Bind() bindings = %#v, want nil", bindings)
+			}
+			if !strings.Contains(err.Error(), missing) {
+				t.Fatalf("Bind() error = %q, want missing symbol %q", err, missing)
+			}
+			if !containsString(lookups, missing) {
+				t.Fatalf("Bind() lookups = %v, want %q", lookups, missing)
+			}
+		})
+	}
+}
+
+func TestBindRequiresNativeAllocStatsSymbols(t *testing.T) {
+	for _, missing := range []string{
+		"pure_simdjson_native_alloc_stats_reset",
+		"pure_simdjson_native_alloc_stats_snapshot",
+	} {
 		t.Run(missing, func(t *testing.T) {
 			var lookups []string
 			bindings, err := bindWithRegistrar(
