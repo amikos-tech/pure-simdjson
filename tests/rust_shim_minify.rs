@@ -202,6 +202,7 @@ fn minify_undersized_dst_returns_buffer_too_small_before_writing() {
 
     assert_eq!(rc, PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL);
     assert_eq!(output, before);
+    assert_eq!(written, input.len());
 }
 
 #[test]

@@ -166,7 +166,6 @@ const fn err_invalid_argument() -> pure_simdjson_error_code_t {
 }
 
 #[inline]
-#[cfg_attr(not(test), allow(dead_code))]
 const fn err_buffer_too_small() -> pure_simdjson_error_code_t {
     pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL
 }
@@ -418,6 +417,8 @@ pub unsafe extern "C" fn pure_simdjson_copy_implementation_name(
 /// Successful minification removes whitespace but does not prove that the input is valid JSON:
 /// the upstream scanner reports unclosed strings but does not perform full JSON validation.
 /// A successful call permanently locks process-global implementation selection.
+/// `out_written` receives the compact byte count on success and the required `src_len` capacity
+/// on `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL`.
 ///
 /// # Safety
 /// `out_written` must point to writable `usize` storage. For non-empty input, `src_ptr` must be
@@ -439,10 +440,11 @@ pub unsafe extern "C" fn pure_simdjson_minify(
             return rc;
         }
 
-        match runtime::native_minify(src_ptr, src_len, dst_ptr, dst_cap) {
-            Ok(written) => write_out(out_written, written),
-            Err(rc) => rc,
+        let (rc, written) = runtime::native_minify(src_ptr, src_len, dst_ptr, dst_cap);
+        if rc == err_ok() || rc == err_buffer_too_small() {
+            ptr::write(out_written, written);
         }
+        rc
     })
 }
 

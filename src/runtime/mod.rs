@@ -330,14 +330,10 @@ pub(crate) unsafe fn native_minify(
     src_len: usize,
     dst_ptr: *mut u8,
     dst_cap: usize,
-) -> Result<usize, pure_simdjson_error_code_t> {
+) -> (pure_simdjson_error_code_t, usize) {
     let mut written = 0_usize;
     let rc = unsafe { psimdjson_minify(src_ptr, src_len, dst_ptr, dst_cap, &mut written) };
-    if rc == err_ok() {
-        Ok(written)
-    } else {
-        Err(rc)
-    }
+    (rc, written)
 }
 
 pub(crate) unsafe fn native_validate_utf8(
