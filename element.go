@@ -391,6 +391,99 @@ func (e Element) AsObject() (Object, error) {
 	return Object{element: e}, nil
 }
 
+// At returns the element at the zero-based index. Negative indices are not
+// supported, and any out-of-range index returns ErrIndexOutOfRange rather than
+// a zero-value Element.
+//
+// At performs an O(n) linear scan of the simdjson tape because arrays do not
+// have a random-access offset table. Repeated At calls over a full array are
+// therefore O(n^2); use Iter for a full traversal.
+func (a Array) At(index int) (Element, error) {
+	doc, err := a.element.usableDoc()
+	if err != nil {
+		return Element{}, err
+	}
+	if ffi.ValueKind(a.element.view.KindHint) != ffi.ValueKindArray {
+		return Element{}, ErrWrongType
+	}
+	if index < 0 {
+		return Element{}, ErrIndexOutOfRange
+	}
+
+	view, rc := doc.parser.library.bindings.ArrayAt(&a.element.view, uint64(index))
+	runtime.KeepAlive(doc)
+	if err := wrapStatus(rc); err != nil {
+		return Element{}, err
+	}
+	return Element{doc: doc, view: view}, nil
+}
+
+// Len returns the array's direct-child count in O(1), or zero when LenErr
+// reports an error. The count comes from a 24-bit tape field and silently
+// saturates at 16,777,215 (0xFFFFFF) direct children. Use Object.Size for the
+// corresponding object field count.
+func (a Array) Len() int {
+	length, err := a.LenErr()
+	if err != nil {
+		return 0
+	}
+	return length
+}
+
+// LenErr returns the array's direct-child count in O(1) while preserving
+// lifecycle and type errors. It distinguishes an empty array, which returns
+// (0, nil), from failure. The 24-bit tape count silently saturates at
+// 16,777,215 (0xFFFFFF) direct children. See Object.Size for object fields.
+func (a Array) LenErr() (int, error) {
+	doc, err := a.element.usableDoc()
+	if err != nil {
+		return 0, err
+	}
+	if ffi.ValueKind(a.element.view.KindHint) != ffi.ValueKindArray {
+		return 0, ErrWrongType
+	}
+
+	length, rc := doc.parser.library.bindings.ArrayLen(&a.element.view)
+	runtime.KeepAlive(doc)
+	if err := wrapStatus(rc); err != nil {
+		return 0, err
+	}
+	return int(length), nil
+}
+
+// Size returns the object's direct-field count in O(1), or zero when SizeErr
+// reports an error. The count comes from a 24-bit tape field and silently
+// saturates at 16,777,215 (0xFFFFFF) direct fields. Use Array.Len for the
+// corresponding array child count.
+func (o Object) Size() int {
+	size, err := o.SizeErr()
+	if err != nil {
+		return 0
+	}
+	return size
+}
+
+// SizeErr returns the object's direct-field count in O(1) while preserving
+// lifecycle and type errors. It distinguishes an empty object, which returns
+// (0, nil), from failure. The 24-bit tape count silently saturates at
+// 16,777,215 (0xFFFFFF) direct fields. See Array.Len for array children.
+func (o Object) SizeErr() (int, error) {
+	doc, err := o.element.usableDoc()
+	if err != nil {
+		return 0, err
+	}
+	if ffi.ValueKind(o.element.view.KindHint) != ffi.ValueKindObject {
+		return 0, ErrWrongType
+	}
+
+	size, rc := doc.parser.library.bindings.ObjectSize(&o.element.view)
+	runtime.KeepAlive(doc)
+	if err := wrapStatus(rc); err != nil {
+		return 0, err
+	}
+	return int(size), nil
+}
+
 // Iter returns a scanner-style iterator over the array contents in document
 // order. Creating many descendant views or iterators on a long-lived document
 // grows native bookkeeping proportionally; Doc.Close releases all of it at
