@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 12-12-PLAN.md
-last_updated: "2026-07-31T14:21:46.422Z"
+stopped_at: Completed 12-13-PLAN.md
+last_updated: "2026-07-31T14:33:38.591Z"
 last_activity: 2026-07-31
 progress:
   total_phases: 22
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 82
-  completed_plans: 81
-  percent: 59
+  completed_plans: 82
+  percent: 64
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 ## Current Position
 
 Phase: 12 (high-value-dom-navigation-and-simd-utility-apis) — EXECUTING
-Plan: 2 of 13
+Plan: 3 of 13
 Status: Ready to execute
 Last activity: 2026-07-31
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
-Progress: [██████████] 99%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -84,6 +84,7 @@ Progress: [██████████] 99%
 | Phase 12 P07 | 9min | 2 tasks | 5 files |
 | Phase 12 P08 | 6 min | 2 tasks | 3 files |
 | Phase 12 P12 | 10min | 2 tasks | 5 files |
+| Phase 12 P13 | 7min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -239,6 +240,7 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 12]: Keep Array.At error-returning only while Array.Len and Object.Size use panic-safe and error-preserving method pairs. — Element lookup errors must stay visible; scalar count failures have a safe zero fallback.
 - [Phase 12]: native_minify returns (status, written) as one tuple so BUFFER_TOO_SMALL never discards the required capacity — The single call site in src/lib.rs needs status and written together for both OK and BUFFER_TOO_SMALL, matching the already-documented ffi-contract
 - [Phase 12]: pure_simdjson_minify writes out_written via a direct ptr::write guarded by an OK-or-BUFFER_TOO_SMALL status allowlist, never through write_out — write_out always returns PURE_SIMDJSON_OK, which would silently mask a genuine BUFFER_TOO_SMALL status
+- [Phase 12]: Moved pure_simdjson_native_alloc_stats_reset/_snapshot from optional to mandatory purego bindings — An ABI 1.3 artifact missing either symbol previously still bound and got cached, contradicting the documented mandatory ABI 1.3 surface
 
 ### Pending Todos
 
@@ -252,8 +254,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-31T14:21:46.411Z
-Stopped at: Completed 12-12-PLAN.md
+Last session: 2026-07-31T14:33:38.583Z
+Stopped at: Completed 12-13-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
