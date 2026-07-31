@@ -354,8 +354,19 @@ pure_simdjson_error_code_t traverse_wildcard_path(
     std::vector<simdjson::dom::element> next;
     for (const auto &element : current) {
       std::vector<simdjson::dom::element> children;
-      if (element.at_path_with_wildcard(segment.path).get(children) == simdjson::SUCCESS) {
+      const auto error = element.at_path_with_wildcard(segment.path).get(children);
+      if (error == simdjson::SUCCESS) {
         next.insert(next.end(), children.begin(), children.end());
+      } else {
+        switch (error) {
+          case simdjson::INVALID_JSON_POINTER:
+          case simdjson::NO_SUCH_FIELD:
+          case simdjson::INCORRECT_TYPE:
+          case simdjson::INDEX_OUT_OF_BOUNDS:
+            break;
+          default:
+            return map_error(error);
+        }
       }
     }
     current = std::move(next);
