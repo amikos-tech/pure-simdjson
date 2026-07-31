@@ -6,13 +6,13 @@ nyquist_compliant: true
 wave_0_complete: false
 created: 2026-07-30
 revised: 2026-07-31
-plan_count: 10
-wave_count: 8
+plan_count: 11
+wave_count: 9
 ---
 
 # Phase 12 — Validation Strategy
 
-> Regenerated from the revision-1 plans after checker feedback. This is the authoritative
+> Regenerated from the revision-2 plans after checker feedback. This is the authoritative
 > task/wave map; the planning-local Spike 004 script is not an execution dependency.
 
 ## Test Infrastructure
@@ -22,7 +22,7 @@ wave_count: 8
 | **Frameworks** | Go `testing` (stdlib), Rust integration tests, C smoke, Python `unittest`, ASan/UBSan native probe |
 | **Task feedback target** | Focused commands below, normally under 30 seconds on an incremental checkout |
 | **Native wave gate** | `make verify-contract` after Waves 1–5 |
-| **Go integration gate** | One `cargo build --release && go test ./... -race` after both Wave 6 plans |
+| **Go integration gate** | One `make verify-contract && make verify-docs && cargo build --release && go test ./... -race` after Wave 7 binding/loader integration |
 | **Phase gate** | `make verify-contract`, `make verify-docs`, release build, Go race suite, native smoke, workflow contracts, and hosted five-platform/D-14 jobs |
 | **Full-gate budget** | 60–120 seconds locally; intentionally reserved for wave/phase boundaries |
 
@@ -31,11 +31,12 @@ wave_count: 8
 - **After every task:** run that task's focused `<verify><automated>` command. No task command pipes
   a compiler through `tail`; compiler exit status is authoritative.
 - **After Waves 1–5:** run `make verify-contract` once per completed native wave.
-- **After Wave 6:** run `make verify-contract && make verify-docs`, then one fresh
-  `cargo build --release && go test ./... -race`. Also run
+- **After Wave 6:** run `make verify-contract && make verify-docs` and
   `python3 scripts/release/test_release_workflow_contracts.py`.
-- **After Wave 7:** run the focused public-navigation suite against the Wave 6 release library.
-- **After Wave 8 / before verification:** run the complete phase gate and require the current
+- **After Wave 7:** run the release-policy and binding/loader regressions, then one fresh
+  `cargo build --release && go test ./... -race`.
+- **After Wave 8:** run the focused public-navigation suite against the Wave 7 release library.
+- **After Wave 9 / before verification:** run the complete phase gate and require the current
   Phase 12 branch's five-platform Go workflow plus Linux D-14 job to be green.
 
 ## Execution Waves
@@ -47,9 +48,10 @@ wave_count: 8
 | 3 | 12-02 | Native Array.At/Len/Object.Size |
 | 4 | 12-03 | Native wildcard transport |
 | 5 | 12-04 | Native Minify/ValidateUTF8 |
-| 6 | 12-05, 12-10 | Go bindings/bootstrap docs and CI/smoke/docs closeout; zero file overlap |
-| 7 | 12-06 | Public navigation API |
-| 8 | 12-07, 12-08 | Public utilities and indexed/container API; zero file overlap |
+| 6 | 12-05, 12-10 | ABI/bootstrap identity/docs and CI/smoke/docs closeout; zero file overlap |
+| 7 | 12-11 | Required Go bindings, release-policy enforcement, and loader compatibility |
+| 8 | 12-06 | Public navigation API |
+| 9 | 12-07, 12-08 | Public utilities and indexed/container API; zero file overlap |
 
 ## Per-Task Verification Map
 
@@ -65,18 +67,18 @@ wave_count: 8
 | 12-03-T2 | 4 | DOM-03 | Ordered wildcard, free discipline, lifetime, and concurrency | Rust navigation test + focused header rules | navigation test W0 |
 | 12-04-T1 | 5 | UTIL-01/02 | Capacity/overlap/CPU gate precedes scanning | `cargo build` | existing sources |
 | 12-04-T2 | 5 | UTIL-01/02 | Raw boundaries, exact alias, Rust pre-FFI fallback, successful native lock | Rust minify + utility-lock tests + focused header rules | two Rust tests W0 |
-| 12-05-T1 | 6 | all | Go ABI/bootstrap identity and current source docs agree | focused internal Go tests + `make verify-docs` | existing |
-| 12-05-T2 | 6 | all | All nine bindings marshal pointer/count/capacity safely | `go build ./... && go vet ./...` | existing |
-| 12-05-T3 | 6 | all | ABI 1.2 rejects; complete 1.3 binds; 1.4 remains additive | release-policy unittest + focused binding/loader tests | existing |
+| 12-05-T1 | 6 | all | Go ABI/bootstrap identity and current source docs agree before binding integration | focused numeric/bootstrap Go tests + `make verify-docs` | existing |
 | 12-10-T1 | 6 | UTIL-01 D-14 | Durable probe is dynamic and its own paths trigger Linux smoke | shell syntax + focused workflow-contract test | probe/script W0 |
 | 12-10-T2 | 6 | all | C smoke invokes all nine exports; Phase 12 runs five-platform Go gate | C compile + workflow contracts + `make verify-docs` | existing C/workflows |
-| 12-06-T1 | 7 | DOM-01/02/03, UTIL-01 | Public sentinels map 1:1 | `go build . && go vet .` | existing |
-| 12-06-T2 | 7 | DOM-01/02/03 | Public methods enforce documented grammar/branch behavior | `go build . && go vet .` | existing |
-| 12-06-T3 | 7 | DOM-01/02/03 | RFC edges, proven ErrWrongType traversal, wildcard/lifetime cases | focused root navigation tests | `element_pointer_test.go` W0 |
-| 12-07-T1 | 8 | UTIL-01/02 | Go prechecks and native lock state remain aligned | `go build . && go vet .` | three Go sources W0 |
-| 12-07-T2 | 8 | UTIL-01/02 | Alias/capacity/UTF-8/CPU states are public-test pinned | focused root utility tests | two Go tests W0 |
-| 12-08-T1 | 8 | DOM-04 | Negative/out-of-range/type/lifecycle behavior is explicit | `go build . && go vet .` | existing |
-| 12-08-T2 | 8 | DOM-04 | Direct forged wrong-kind At/LenErr/SizeErr guards are exercised | focused root indexed/container tests | `element_indexed_test.go` W0 |
+| 12-11-T1 | 7 | all | All nine required bindings marshal pointer/count/capacity safely | `go build ./... && go vet ./...` | existing |
+| 12-11-T2 | 7 | all | ABI 1.2 rejects; complete 1.3 binds; 1.4 remains additive | release-policy unittest + focused binding/loader tests | existing |
+| 12-06-T1 | 8 | DOM-01/02/03, UTIL-01 | Public sentinels map 1:1 | `go build . && go vet .` | existing |
+| 12-06-T2 | 8 | DOM-01/02/03 | Public methods enforce documented grammar/branch behavior | `go build . && go vet .` | existing |
+| 12-06-T3 | 8 | DOM-01/02/03 | RFC edges, proven ErrWrongType traversal, wildcard/lifetime cases | focused root navigation tests | `element_pointer_test.go` W0 |
+| 12-07-T1 | 9 | UTIL-01/02 | Go prechecks and native lock state remain aligned | `go build . && go vet .` | three Go sources W0 |
+| 12-07-T2 | 9 | UTIL-01/02 | Alias/capacity/UTF-8/CPU states are public-test pinned | focused root utility tests | two Go tests W0 |
+| 12-08-T1 | 9 | DOM-04 | Negative/out-of-range/type/lifecycle behavior is explicit | `go build . && go vet .` | existing |
+| 12-08-T2 | 9 | DOM-04 | Direct forged wrong-kind At/LenErr/SizeErr guards are exercised | focused root indexed/container tests | `element_indexed_test.go` W0 |
 
 ## Wave 0 Requirements
 
@@ -113,21 +115,21 @@ wave_count: 8
 
 | Source | ID | Feature / constraint | Plans | Status |
 |--------|----|----------------------|-------|--------|
-| GOAL | — | Thin high-value DOM navigation, indexed/container helpers, wildcard, minify, UTF-8 validation | 01–10 | COVERED |
-| REQ | DOM-01 | RFC 6901 AtPointer | 01, 05, 06, 09, 10 | COVERED |
-| REQ | DOM-02 | simdjson dot/index AtPath subset | 01, 05, 06, 09, 10 | COVERED |
-| REQ | DOM-03 | ordered document-tied wildcard results | 03, 05, 06, 09, 10 | COVERED |
-| REQ | DOM-04 | indexed array access plus array/object size | 02, 05, 08, 09, 10 | COVERED |
-| REQ | UTIL-01 | allocation-conscious minify with explicit alias contract | 04, 05, 06, 07, 09, 10 | COVERED |
-| REQ | UTIL-02 | standalone ValidateUTF8 with parser validation unchanged | 04, 05, 07, 09, 10 | COVERED |
-| CONTEXT | D-01 | Two new navigation sentinels; reuse missing/wrong-type | 09, 01, 05, 06 | COVERED |
-| CONTEXT | D-02 | AtPathAll requires `*`; valid branch misses become non-nil empty | 03, 05, 06 | COVERED |
+| GOAL | — | Thin high-value DOM navigation, indexed/container helpers, wildcard, minify, UTF-8 validation | 01–11 | COVERED |
+| REQ | DOM-01 | RFC 6901 AtPointer | 01, 05, 06, 09, 10, 11 | COVERED |
+| REQ | DOM-02 | simdjson dot/index AtPath subset | 01, 05, 06, 09, 10, 11 | COVERED |
+| REQ | DOM-03 | ordered document-tied wildcard results | 03, 05, 06, 09, 10, 11 | COVERED |
+| REQ | DOM-04 | indexed array access plus array/object size | 02, 05, 08, 09, 10, 11 | COVERED |
+| REQ | UTIL-01 | allocation-conscious minify with explicit alias contract | 04, 05, 06, 07, 09, 10, 11 | COVERED |
+| REQ | UTIL-02 | standalone ValidateUTF8 with parser validation unchanged | 04, 05, 07, 09, 10, 11 | COVERED |
+| CONTEXT | D-01 | Two new navigation sentinels; reuse missing/wrong-type | 09, 01, 05, 06, 11 | COVERED |
+| CONTEXT | D-02 | AtPathAll requires `*`; valid branch misses become non-nil empty | 03, 06, 11 | COVERED |
 | CONTEXT | D-03 | Shared out-of-range sentinel and document-tied views | 01, 02, 03, 06, 08 | COVERED |
 | CONTEXT | D-04 | Array.At returns `(Element,error)` only | 08 | COVERED |
 | CONTEXT | D-05 | Go int index; negative rejected | 08 | COVERED |
 | CONTEXT | D-06 | Len/LenErr and Size/SizeErr dual methods | 08 | COVERED |
 | CONTEXT | D-07 | Array.At out-of-range uses ErrIndexOutOfRange | 02, 08 | COVERED |
-| CONTEXT | D-08 | Allocating Minify plus MinifyInto | 04, 05, 07 | COVERED |
+| CONTEXT | D-08 | Allocating Minify plus MinifyInto | 04, 07, 11 | COVERED |
 | CONTEXT | D-09 | dst==src tested; short destination errors | 04, 07, 10 | COVERED |
 | CONTEXT | D-10 | Utility buffers are not Phase 14 borrowed views | 07 | COVERED |
 | CONTEXT | D-11 | ValidateUTF8 returns `(bool,error)` | 07 | COVERED |
@@ -136,12 +138,12 @@ wave_count: 8
 | CONTEXT | D-14 | Durable x86-64 aliasing proof | 10 | COVERED |
 | CONTEXT | D-15 | CPU rejection and selection-lock timing | 04, 07, 10 | COVERED |
 | RESEARCH | R-01 | Delegate pointer/path grammar to vendored simdjson | 01, 06 | COVERED |
-| RESEARCH | R-02 | Wildcard scratch indices -> Rust owned tracked array | 03, 05, 10 | COVERED |
+| RESEARCH | R-02 | Wildcard scratch indices -> Rust owned tracked array | 03, 10, 11 | COVERED |
 | RESEARCH | R-03 | Array.At O(n); size helpers saturate at 0xFFFFFF | 02, 08 | COVERED |
 | RESEARCH | R-04 | Native minify must enforce dst_cap and overlap before write | 04, 07 | COVERED |
 | RESEARCH | R-05 | Minify is non-validating except UNCLOSED_STRING | 04, 07, 10 | COVERED |
 | RESEARCH | R-06 | Standalone utilities share CPU/selection policy | 04, 07 | COVERED |
-| RESEARCH | R-07 | ABI growth is additive and all public symbols are mandatory | 09, 01–05, 10 | COVERED |
+| RESEARCH | R-07 | ABI growth is additive and all public symbols are mandatory | 09, 01–05, 10, 11 | COVERED |
 | RESEARCH | R-08 | Bracket quoting, leading separator, trailing empty key are documented/tested | 06 | COVERED |
 | RESEARCH | R-09 | No new dependency/package install | all | COVERED |
 | RESEARCH | R-10 | D-14 proof must be durable and host-count-independent | 10 | COVERED |
@@ -154,11 +156,14 @@ mutable DOM, file wrapper, and Phase 14 borrowed views do not appear in any plan
 - [x] Every task has a focused automated command.
 - [x] Compiler commands are not hidden behind non-pipefail pipelines.
 - [x] Full contract/release/race suites are wave or phase gates, not repeated task feedback.
-- [x] Actual waves and dependencies match all ten plan frontmatters.
+- [x] Actual waves and dependencies match all eleven plan frontmatters.
+- [x] Plans 12-05 and 12-11 each own exactly five files; ABI/bootstrap policy precedes
+  binding/loader integration through the explicit 12-05 -> 12-11 dependency.
+- [x] Same-wave file-overlap audit reports zero conflicts.
 - [x] D-14 uses `scripts/ci/verify_minify_buffer_safety.sh`; no execution gate depends on
   `.planning/spikes`.
 - [x] Phase 12 branch automatically schedules the five-platform Go workflow.
-- [x] Source audit covers GOAL, all six requirements, D-01..D-15, and required research constraints.
+- [x] Source audit covers GOAL, all six requirements, D-01..D-15, and R-01..R-10.
 - [x] `nyquist_compliant: true`.
 
-**Approval:** revised and re-approved 2026-07-31 after checker iteration 1.
+**Approval:** revised and re-approved 2026-07-31 after checker iteration 2.

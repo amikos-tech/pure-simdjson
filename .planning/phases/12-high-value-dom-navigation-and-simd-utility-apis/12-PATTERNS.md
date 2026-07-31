@@ -1,6 +1,8 @@
 # Phase 12: High-value DOM navigation and SIMD utility APIs - Pattern Map
 
 **Mapped:** 2026-07-30
+**Planning ownership revised:** 2026-07-31 — checker iteration 2 split ABI/bootstrap identity
+from bindings/loader integration without changing implementation patterns
 **Files analyzed:** 20 (11 modified + 9 new, across Go/Rust/C++/contract/test layers)
 **Analogs found:** 18 / 20 (2 files — the Go `AtPathAll` bulk-`[]Element` transport and the C++
 wildcard scratch-vector transport — have no exact existing analog; closest partial analogs given)
@@ -10,6 +12,19 @@ this exact codebase. Nothing here needs external research — the job is "which 
 I clone." All excerpts below are read directly from the current repo (not RESEARCH.md's illustrative
 pseudo-code, except where explicitly marked, since RESEARCH.md's own examples are themselves already
 *modeled on* the excerpts given here).
+
+## Revision 2 Plan Ownership
+
+The Layer 3 patterns remain unchanged, but their execution ownership is now dependency-linked so no
+plan crosses the 5–8 file target:
+
+| Plan | Wave | Exact file group | Pattern responsibility |
+|------|------|------------------|------------------------|
+| 12-05 | 6 | `internal/ffi/types.go`, `internal/ffi/types_test.go`, `internal/bootstrap/version.go`, `internal/bootstrap/abi_assertion.go`, `docs/bootstrap.md` | Establish the Go ABI 1.3/status identity and honest unpublished 0.2.0-dev bootstrap contract |
+| 12-11 | 7 | `internal/ffi/bindings.go`, `internal/ffi/bindings_test.go`, `scripts/release/check_bootstrap_abi_state.py`, `scripts/release/test_check_bootstrap_abi_state.py`, `library_loading_test.go` | Consume 12-05 through required symbol binding, marshaling/ownership tests, release-policy enforcement, and loader compatibility |
+
+Plan 12-11 depends on 12-05. Public navigation moves to Wave 8, and the independent public utility
+and indexed/container plans move together to Wave 9. No same-wave plan shares a modified file.
 
 ## File Classification
 
