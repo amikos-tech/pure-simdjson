@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-07-31T10:15:59.739Z"
+stopped_at: Completed 12-02-PLAN.md
+last_updated: "2026-07-31T10:26:53.636Z"
 last_activity: 2026-07-31
 progress:
   total_phases: 22
   completed_phases: 13
   total_plans: 80
-  completed_plans: 71
+  completed_plans: 72
   percent: 59
 ---
 
@@ -26,11 +26,11 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 ## Current Position
 
 Phase: 12 (High-value DOM navigation and SIMD utility APIs) — EXECUTING
-Plan: 3 of 11
+Plan: 4 of 11
 Status: Ready to execute
 Last activity: 2026-07-31
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
-Progress: [█████████░] 89%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -74,6 +74,7 @@ Progress: [█████████░] 89%
 | Phase 10 P04 | 3min | 2 tasks | 3 files |
 | Phase 12 P09 | 5min | 2 tasks | 7 files |
 | Phase 12 P01 | 7min | 2 tasks | 10 files |
+| Phase 12 P02 | 6 min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -205,6 +206,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 12]: Delegate pointer and dot/index path grammar to vendored simdjson. — Keeps the wrapper thin and avoids parser drift.
 - [Phase 12]: Reuse resolved-view validation and descendant registration without a container-kind pre-check. — Preserves upstream empty-pointer behavior while retaining document lifetime checks.
 - [Phase 12]: Exclude private navigation bridge declarations from cbindgen output. — Keeps the public ABI limited to pure_simdjson exports.
+- [Phase 12]: Preserve upstream array::at behavior — Indexed lookup remains a bounds-checked linear scan, and INDEX_OUT_OF_BOUNDS maps through ABI status 12.
+- [Phase 12]: Treat zero as a valid container count — Only resolved descendant tape indices use the nonzero invariant.
+- [Phase 12]: Require 64-bit size_t for Array.At — A compile-time assertion prevents future targets from narrowing the uint64_t index.
 
 ### Pending Todos
 
@@ -218,8 +222,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-31T10:15:59.730Z
-Stopped at: Completed 12-01-PLAN.md
+Last session: 2026-07-31T10:26:53.628Z
+Stopped at: Completed 12-02-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
