@@ -207,8 +207,7 @@ int main() {
 
   const std::string kernels = kernel_list(implementations);
   std::printf(
-      "SUMMARY kernels=%s cases_per_kernel=%zu total=%zu failures=%zu "
-      "sanitizer_clean=1\n",
+      "SUMMARY kernels=%s cases_per_kernel=%zu total=%zu failures=%zu\n",
       kernels.c_str(), kCasesPerKernel, total, failures);
   return failures == 0 ? 0 : 1;
 }
