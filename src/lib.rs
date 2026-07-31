@@ -14,7 +14,7 @@ use std::{
 ///
 /// This constant is part of the public C header and stays numerically pinned alongside
 /// `pure_simdjson_get_abi_version`.
-pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0002;
+pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0003;
 
 /// Public error codes for the stable ABI v0.1 surface.
 ///
@@ -43,6 +43,8 @@ pub enum pure_simdjson_error_code_t {
     /// Process-global implementation selection is permanently locked after
     /// explicit locking or the first valid parser construction attempt.
     PURE_SIMDJSON_ERR_KERNEL_LOCKED = 10,
+    PURE_SIMDJSON_ERR_INVALID_PATH = 11,
+    PURE_SIMDJSON_ERR_INDEX_OUT_OF_RANGE = 12,
     PURE_SIMDJSON_ERR_INVALID_JSON = 32,
     PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE = 33,
     PURE_SIMDJSON_ERR_PRECISION_LOSS = 34,
@@ -1023,8 +1025,8 @@ mod tests {
         let rc = unsafe { pure_simdjson_get_abi_version(&mut abi_version) };
 
         assert_eq!(rc, err_ok());
-        assert_eq!(PURE_SIMDJSON_ABI_VERSION, 0x0001_0002);
-        assert_eq!(abi_version, 0x0001_0002);
+        assert_eq!(PURE_SIMDJSON_ABI_VERSION, 0x0001_0003);
+        assert_eq!(abi_version, 0x0001_0003);
     }
 
     #[test]
@@ -1070,6 +1072,14 @@ mod tests {
             (
                 pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_KERNEL_LOCKED,
                 10,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INVALID_PATH,
+                11,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INDEX_OUT_OF_RANGE,
+                12,
             ),
             (
                 pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INVALID_JSON,

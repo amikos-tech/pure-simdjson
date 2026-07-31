@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#define PURE_SIMDJSON_ABI_VERSION 0x00010002
+#define PURE_SIMDJSON_ABI_VERSION 0x00010003
 
 /**
  * Public error codes for the stable ABI v0.1 surface.
@@ -46,6 +46,8 @@ enum pure_simdjson_error_code_t
    * explicit locking or the first valid parser construction attempt.
    */
   PURE_SIMDJSON_ERR_KERNEL_LOCKED = 10,
+  PURE_SIMDJSON_ERR_INVALID_PATH = 11,
+  PURE_SIMDJSON_ERR_INDEX_OUT_OF_RANGE = 12,
   PURE_SIMDJSON_ERR_INVALID_JSON = 32,
   PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE = 33,
   PURE_SIMDJSON_ERR_PRECISION_LOSS = 34,
