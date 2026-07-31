@@ -1026,6 +1026,27 @@ int main(int argc, char **argv)
     goto cleanup;
   }
 
+  {
+    uint8_t undersized_dst[sizeof(minify_source) - 2];
+    size_t undersized_written = SIZE_MAX;
+    if (expect_status("pure_simdjson_minify(undersized-dst)",
+                      exports.minify(minify_source,
+                                     sizeof(minify_source) - 1,
+                                     undersized_dst,
+                                     sizeof(undersized_dst),
+                                     &undersized_written),
+                      PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL) != 0) {
+      goto cleanup;
+    }
+    if (undersized_written != sizeof(minify_source) - 1) {
+      rc = failf("pure_simdjson_minify(undersized-dst)",
+                 "expected out_written=%zu, got %zu",
+                 sizeof(minify_source) - 1,
+                 undersized_written);
+      goto cleanup;
+    }
+  }
+
   mark_called(&exports, EXPORT_VALIDATE_UTF8);
   if (expect_status("pure_simdjson_validate_utf8(valid)",
                     exports.validate_utf8(valid_utf8, sizeof(valid_utf8), &utf8_valid),
