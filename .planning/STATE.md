@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 12-10-PLAN.md
-last_updated: "2026-07-31T11:27:17.706Z"
+stopped_at: Completed 12-11-PLAN.md
+last_updated: "2026-07-31T11:41:54.173Z"
 last_activity: 2026-07-31
 progress:
   total_phases: 22
   completed_phases: 13
   total_plans: 80
-  completed_plans: 76
+  completed_plans: 77
   percent: 59
 ---
 
@@ -26,11 +26,11 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 ## Current Position
 
 Phase: 12 (High-value DOM navigation and SIMD utility APIs) — EXECUTING
-Plan: 8 of 11
+Plan: 9 of 11
 Status: Ready to execute
 Last activity: 2026-07-31
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
-Progress: [██████████] 95%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -79,6 +79,7 @@ Progress: [██████████] 95%
 | Phase 12 P04 | 10min | 2 tasks | 10 files |
 | Phase 12 P05 | 3min | 1 tasks | 5 files |
 | Phase 12 P10 | 15min | 2 tasks | 7 files |
+| Phase 12 P11 | 9min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -224,6 +225,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 12]: Derive D-14 totals from 12 cases times the ordered host-supported kernel set — Require fallback plus haswell or westmere on Linux x86-64.
 - [Phase 12]: Treat all nine navigation and utility additions as mandatory ABI 1.3 symbols — ABI 1.2 is historical and rejected by the current loader contract.
 - [Phase 12]: Extend the existing shared native release smoke and five-platform Go workflow — Avoid parallel release machinery.
+- [Phase 12]: Require all nine Phase 12 exports before an ABI 1.3 library can be cached. — Version compatibility alone must not admit an incomplete native artifact.
+- [Phase 12]: Copy wildcard ValueView arrays into Go-owned memory before one native free. — Native scratch ownership never escapes the binding layer, and cleanup failures use a distinct warning.
+- [Phase 12]: Map ABI 1.3 to minimum version 0.2.0 while accepting exact 0.2.0-dev source identity. — The source tree stays honest without consuming Phase 16 publication work.
 
 ### Pending Todos
 
@@ -237,8 +241,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-31T11:27:17.697Z
-Stopped at: Completed 12-10-PLAN.md
+Last session: 2026-07-31T11:41:54.166Z
+Stopped at: Completed 12-11-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
