@@ -6,29 +6,67 @@ import (
 )
 
 func TestArray_At(t *testing.T) {
-	_, doc := mustParseDoc(t, `[10,20,30]`)
-	array, err := doc.Root().AsArray()
-	if err != nil {
-		t.Fatalf("AsArray() error = %v", err)
+	testCases := []struct {
+		name       string
+		json       string
+		index      int
+		forge      bool
+		poisonView bool
+		want       int64
+		wantErr    error
+	}{
+		{name: "valid index", json: `[10,20,30]`, index: 1, want: 20},
+		{name: "out of range", json: `[10,20,30]`, index: 5, wantErr: ErrIndexOutOfRange},
+		{
+			name:       "negative index rejected before native validation",
+			json:       `[10,20,30]`,
+			index:      -1,
+			poisonView: true,
+			wantErr:    ErrIndexOutOfRange,
+		},
+		{name: "forged wrong kind", json: `{"a":1}`, index: 0, forge: true, wantErr: ErrWrongType},
 	}
 
-	element, err := array.At(1)
-	if err != nil {
-		t.Fatalf("At(1) error = %v", err)
-	}
-	value, err := element.GetInt64()
-	if err != nil {
-		t.Fatalf("At(1).GetInt64() error = %v", err)
-	}
-	if value != 20 {
-		t.Fatalf("At(1).GetInt64() = %d, want 20", value)
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, doc := mustParseDoc(t, tc.json)
+			root := doc.Root()
 
-	if _, err := array.At(5); !errors.Is(err, ErrIndexOutOfRange) {
-		t.Fatalf("At(5) error = %v, want ErrIndexOutOfRange", err)
-	}
-	if _, err := array.At(-1); !errors.Is(err, ErrIndexOutOfRange) {
-		t.Fatalf("At(-1) error = %v, want ErrIndexOutOfRange", err)
+			var array Array
+			if tc.forge {
+				array = Array{element: root}
+			} else {
+				var err error
+				array, err = root.AsArray()
+				if err != nil {
+					t.Fatalf("AsArray() error = %v", err)
+				}
+			}
+			if tc.poisonView {
+				// Native validation would reject this descendant state. Receiving the
+				// range sentinel proves the negative-index guard ran before the FFI call.
+				array.element.view.State0 = 1
+				array.element.view.State1 = descendantViewTag
+			}
+
+			element, err := array.At(tc.index)
+			if tc.wantErr != nil {
+				if !errors.Is(err, tc.wantErr) {
+					t.Fatalf("At(%d) error = %v, want %v", tc.index, err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("At(%d) error = %v", tc.index, err)
+			}
+			value, err := element.GetInt64()
+			if err != nil {
+				t.Fatalf("At(%d).GetInt64() error = %v", tc.index, err)
+			}
+			if value != tc.want {
+				t.Fatalf("At(%d).GetInt64() = %d, want %d", tc.index, value, tc.want)
+			}
+		})
 	}
 }
 
@@ -62,6 +100,59 @@ func TestArray_Len(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("forged wrong kind", func(t *testing.T) {
+		_, doc := mustParseDoc(t, `{}`)
+		array := Array{element: doc.Root()}
+
+		if got := array.Len(); got != 0 {
+			t.Fatalf("Len() = %d, want 0", got)
+		}
+		got, err := array.LenErr()
+		if got != 0 {
+			t.Fatalf("LenErr() = %d, want 0", got)
+		}
+		if !errors.Is(err, ErrWrongType) {
+			t.Fatalf("LenErr() error = %v, want ErrWrongType", err)
+		}
+	})
+
+	t.Run("closed", func(t *testing.T) {
+		_, doc := mustParseDoc(t, `[1]`)
+		array, err := doc.Root().AsArray()
+		if err != nil {
+			t.Fatalf("AsArray() error = %v", err)
+		}
+		if err := doc.Close(); err != nil {
+			t.Fatalf("doc.Close() error = %v", err)
+		}
+
+		if got := array.Len(); got != 0 {
+			t.Fatalf("Len() after Close = %d, want 0", got)
+		}
+		got, err := array.LenErr()
+		if got != 0 {
+			t.Fatalf("LenErr() after Close = %d, want 0", got)
+		}
+		if !errors.Is(err, ErrClosed) {
+			t.Fatalf("LenErr() after Close error = %v, want ErrClosed", err)
+		}
+	})
+
+	t.Run("zero value", func(t *testing.T) {
+		var array Array
+
+		if got := array.Len(); got != 0 {
+			t.Fatalf("zero-value Len() = %d, want 0", got)
+		}
+		got, err := array.LenErr()
+		if got != 0 {
+			t.Fatalf("zero-value LenErr() = %d, want 0", got)
+		}
+		if !errors.Is(err, ErrInvalidHandle) {
+			t.Fatalf("zero-value LenErr() error = %v, want ErrInvalidHandle", err)
+		}
+	})
 }
 
 func TestObject_Size(t *testing.T) {
@@ -94,4 +185,57 @@ func TestObject_Size(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("forged wrong kind", func(t *testing.T) {
+		_, doc := mustParseDoc(t, `[]`)
+		object := Object{element: doc.Root()}
+
+		if got := object.Size(); got != 0 {
+			t.Fatalf("Size() = %d, want 0", got)
+		}
+		got, err := object.SizeErr()
+		if got != 0 {
+			t.Fatalf("SizeErr() = %d, want 0", got)
+		}
+		if !errors.Is(err, ErrWrongType) {
+			t.Fatalf("SizeErr() error = %v, want ErrWrongType", err)
+		}
+	})
+
+	t.Run("closed", func(t *testing.T) {
+		_, doc := mustParseDoc(t, `{"a":1}`)
+		object, err := doc.Root().AsObject()
+		if err != nil {
+			t.Fatalf("AsObject() error = %v", err)
+		}
+		if err := doc.Close(); err != nil {
+			t.Fatalf("doc.Close() error = %v", err)
+		}
+
+		if got := object.Size(); got != 0 {
+			t.Fatalf("Size() after Close = %d, want 0", got)
+		}
+		got, err := object.SizeErr()
+		if got != 0 {
+			t.Fatalf("SizeErr() after Close = %d, want 0", got)
+		}
+		if !errors.Is(err, ErrClosed) {
+			t.Fatalf("SizeErr() after Close error = %v, want ErrClosed", err)
+		}
+	})
+
+	t.Run("zero value", func(t *testing.T) {
+		var object Object
+
+		if got := object.Size(); got != 0 {
+			t.Fatalf("zero-value Size() = %d, want 0", got)
+		}
+		got, err := object.SizeErr()
+		if got != 0 {
+			t.Fatalf("zero-value SizeErr() = %d, want 0", got)
+		}
+		if !errors.Is(err, ErrInvalidHandle) {
+			t.Fatalf("zero-value SizeErr() error = %v, want ErrInvalidHandle", err)
+		}
+	})
 }
