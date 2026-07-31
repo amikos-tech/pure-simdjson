@@ -27,7 +27,7 @@ The v0.2 extension keeps the safe, re-readable DOM API as the default while addi
 - [ ] **Phase 09.1: Bootstrap artifact and ABI alignment for default installs (INSERTED)** — Align the bootstrap-pinned public artifact/version/checksum state with the current ABI and validate the default-install path after Phase 9 locks the benchmark/release story
 - [x] **Phase 10: Lightweight PR benchmark regression signal** — Add a cheap pull-request benchmark workflow covering Tier 1/2/3 so every PR gets a useful regression signal without waiting for the heavier release-grade benchmark capture path (completed 2026-07-30)
 - [x] **Phase 11: Upstream simdjson refresh, exact big integers, and production diagnostics** — Upgrade the audited upstream base, preserve oversized integers exactly, expose kernel/limit controls, and make parser diagnostics truthful (completed 2026-07-29)
-- [ ] **Phase 12: High-value DOM navigation and SIMD utility APIs** — Add JSON Pointer/path navigation, indexed/container helpers, wildcard path lookup, minification, and standalone UTF-8 validation without growing into a query or encoding engine
+- [x] **Phase 12: High-value DOM navigation and SIMD utility APIs** — Add JSON Pointer/path navigation, indexed/container helpers, wildcard path lookup, minification, and standalone UTF-8 validation without growing into a query or encoding engine (completed 2026-07-31)
 - [ ] **Phase 13: Batched On-Demand path extraction** — Extract a typed, predeclared path set in one native traversal while guarding simdjson's single-consumption semantics
 - [ ] **Phase 14: Zero-copy pinned input and borrowed value views** — Add opt-in pinned input plus lifetime-bound string/raw JSON views while retaining copied values as the safe default
 - [ ] **Phase 15: NDJSON and JSONL streaming cursor with parallel parse-many** — Expose upstream multi-document parsing through a callback-free Go cursor with cancellation, backpressure, and per-document errors
@@ -572,7 +572,7 @@ Plans:
 
 **Scope boundary:** No JSON encoder/builder, reflection-based `Unmarshal`, full JSONPath engine, file-loading wrapper, or mutable DOM API is added.
 
-**Plans:** 10/11 plans executed
+**Plans:** 11/11 plans complete
 
 Plans:
 - [ ] `12-09-PLAN.md` — ABI 0x00010003 and additive status-code foundation (Wave 1)

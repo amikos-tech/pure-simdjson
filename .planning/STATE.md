@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: executing
-stopped_at: Completed 12-07-PLAN.md
-last_updated: "2026-07-31T12:06:35.909Z"
+status: verifying
+stopped_at: Completed 12-08-PLAN.md
+last_updated: "2026-07-31T12:18:06.747Z"
 last_activity: 2026-07-31
 progress:
   total_phases: 22
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 80
-  completed_plans: 79
-  percent: 59
+  completed_plans: 80
+  percent: 64
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 Phase: 12 (High-value DOM navigation and SIMD utility APIs) — EXECUTING
 Plan: 11 of 11
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-31
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
-Progress: [██████████] 99%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -82,6 +82,7 @@ Progress: [██████████] 99%
 | Phase 12 P11 | 9min | 2 tasks | 5 files |
 | Phase 12 P06 | 7 min | 3 tasks | 3 files |
 | Phase 12 P07 | 9min | 2 tasks | 5 files |
+| Phase 12 P08 | 6 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -233,6 +234,8 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 12]: Require a literal wildcard before AtPathAll crosses the FFI boundary. — Wildcard-free traversal belongs to AtPath and retains precise branch errors.
 - [Phase 12]: Preserve upstream path grammar and surprising key semantics without a second Go parser. — This keeps the wrapper thin and prevents drift from pinned simdjson behavior.
 - [Phase 12]: Return invalid UTF-8 as false with nil error while preserving loader, ABI, CPU, and native operational failures as typed errors. — Keeps data invalidity distinct from utility execution failure.
+- [Phase 12]: Reject negative Array.At indices in Go before crossing the FFI boundary. — Returns ErrIndexOutOfRange without unsigned reinterpretation or native work.
+- [Phase 12]: Keep Array.At error-returning only while Array.Len and Object.Size use panic-safe and error-preserving method pairs. — Element lookup errors must stay visible; scalar count failures have a safe zero fallback.
 
 ### Pending Todos
 
@@ -246,8 +249,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-31T12:06:35.901Z
-Stopped at: Completed 12-07-PLAN.md
+Last session: 2026-07-31T12:18:06.740Z
+Stopped at: Completed 12-08-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
