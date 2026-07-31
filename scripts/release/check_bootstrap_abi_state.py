@@ -13,6 +13,7 @@ ABI_MINIMUM_VERSION = {
     "0x00010000": "0.1.0",
     "0x00010001": "0.1.2",
     "0x00010002": "0.1.5",
+    "0x00010003": "0.2.0",
 }
 
 VERSION_RE = re.compile(r'const\s+Version\s*=\s*"([^"]+)"')

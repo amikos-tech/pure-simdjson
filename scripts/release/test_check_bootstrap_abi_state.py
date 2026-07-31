@@ -127,6 +127,30 @@ class BootstrapABIStateTest(unittest.TestCase):
             result.stdout,
         )
 
+    def test_accepts_0_2_0_dev_abi_1_3_source_state(self) -> None:
+        result = self.run_checker(
+            requested_version="0.2.0-dev",
+            bootstrap_version="0.2.0-dev",
+            go_abi="0x00010003",
+            rust_abi="0x0001_0003",
+        )
+
+        self.assertEqual(result.returncode, 0, result)
+        self.assertIn(
+            "bootstrap ABI state ok: version 0.2.0-dev, abi 0x00010003",
+            result.stdout,
+        )
+
+    def test_rejects_0_1_7_as_stale_for_abi_1_3(self) -> None:
+        result = self.run_checker(
+            requested_version="0.1.7",
+            bootstrap_version="0.1.7",
+            go_abi="0x00010003",
+            rust_abi="0x0001_0003",
+        )
+
+        self.assert_failed_with(result, "stale bootstrap.Version")
+
     def test_rejects_0_1_4_as_stale_for_abi_1_2(self) -> None:
         result = self.run_checker(
             requested_version="0.1.4",
@@ -163,7 +187,7 @@ class BootstrapABIStateTest(unittest.TestCase):
         self.assert_failed_with(result, "Go/Rust ABI mismatch")
 
     def test_rejects_unknown_abi_policy(self) -> None:
-        result = self.run_checker(go_abi="0x00010003", rust_abi="0x0001_0003")
+        result = self.run_checker(go_abi="0x00010004", rust_abi="0x0001_0004")
 
         self.assert_failed_with(result, "unknown ABI policy")
 
