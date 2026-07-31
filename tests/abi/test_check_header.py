@@ -9,7 +9,7 @@ import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 CHECK_HEADER_PATH = REPO_ROOT / "tests" / "abi" / "check_header.py"
-ABI_VERSION_DEFINE = "#define PURE_SIMDJSON_ABI_VERSION 0x00010002"
+ABI_VERSION_DEFINE = "#define PURE_SIMDJSON_ABI_VERSION 0x00010003"
 SURFACE_SIGNATURES = {
     "pure_simdjson_get_abi_version": ["uint32_t *out_version"],
     "pure_simdjson_set_implementation": [

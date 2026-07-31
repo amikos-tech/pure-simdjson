@@ -1,6 +1,6 @@
 # Scope
 
-This document is the normative FFI contract for `pure-simdjson` ABI 1.2 (`0x00010002`). It defines the public C ABI exported in [include/pure_simdjson.h](../include/pure_simdjson.h).
+This document is the normative FFI contract for `pure-simdjson` ABI 1.3 (`0x00010003`). It defines the public C ABI exported in [include/pure_simdjson.h](../include/pure_simdjson.h).
 
 The `v0.1.x` product line remains DOM-only. On-Demand APIs, pinned-input parsing, and borrowed string-view APIs remain deferred work and are not part of this contract.
 
@@ -43,6 +43,8 @@ ABI 1.2 extends the original typed DOM surface with configured parser constructi
 | `PURE_SIMDJSON_ERR_DEPTH_LIMIT` | 8 | Input exceeds the parser's immutable maximum depth |
 | `PURE_SIMDJSON_ERR_CAPACITY_LIMIT` | 9 | Input exceeds the parser's immutable maximum capacity |
 | `PURE_SIMDJSON_ERR_KERNEL_LOCKED` | 10 | Process-global implementation selection is permanently locked |
+| `PURE_SIMDJSON_ERR_INVALID_PATH` | 11 | Malformed RFC 6901 pointer or simdjson dot/index path syntax |
+| `PURE_SIMDJSON_ERR_INDEX_OUT_OF_RANGE` | 12 | Syntactically valid array index or path segment exceeds container bounds |
 | `PURE_SIMDJSON_ERR_INVALID_JSON` | 32 | Parse failure, including malformed JSON and invalid UTF-8 in DOM mode |
 | `PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE` | 33 | Numeric value cannot fit the requested integer domain |
 | `PURE_SIMDJSON_ERR_PRECISION_LOSS` | 34 | Requested numeric conversion would lose precision |
@@ -54,7 +56,7 @@ ABI 1.2 extends the original typed DOM surface with configured parser constructi
 
 These values are part of the public ABI. Downstream wrappers may map them to richer errors, but they must preserve the numeric meaning.
 
-The numeric gaps between assigned values (11–31, 35–63, 66–95, 98–126) are reserved for future additive ABI values. Consumers that range-check, bucket, or exhaustively map these codes must tolerate new values appearing in reserved bands.
+The numeric gaps between assigned values (13–31, 35–63, 66–95, 98–126) are reserved for future additive ABI values. Consumers that range-check, bucket, or exhaustively map these codes must tolerate new values appearing in reserved bands.
 
 # Handle format
 
@@ -270,7 +272,7 @@ Rules:
 
 The ABI version export is `pure_simdjson_get_abi_version`.
 
-- The current packed ABI version is `0x00010002`.
+- The current packed ABI version is `0x00010003`.
 - ABI 1.2 is the strict minimum for the Phase 11 wrapper. ABI 1.1 is rejected with an ABI-version mismatch before any ABI 1.2-only lookup.
 - ABI 1.2 makes `pure_simdjson_set_implementation`, `pure_simdjson_lock_implementation_selection`, `pure_simdjson_parser_new_configured`, `pure_simdjson_parser_get_last_error_has_offset`, and `pure_simdjson_element_get_bigint` mandatory.
 - After the one-symbol version probe succeeds, the loader must bind its complete required surface before cache installation. An artifact claiming compatible ABI 1.2 (or a later additive ABI 1.x) but missing any required symbol is corrupt/incomplete and must fail closed with that symbol named; optional downgrade is forbidden.

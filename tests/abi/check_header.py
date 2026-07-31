@@ -16,7 +16,7 @@ PROTO_RE = re.compile(
 )
 COMMENT_RE = re.compile(r"(?s)/\*.*?\*/|//[^\n]*")
 ABI_VERSION_DEFINE_RE = re.compile(
-    r"(?m)^#define\s+PURE_SIMDJSON_ABI_VERSION\s+0x00010002\s*$"
+    r"(?m)^#define\s+PURE_SIMDJSON_ABI_VERSION\s+0x00010003\s*$"
 )
 FORBIDDEN_INTERNAL_SYMBOL_PREFIXES = ("psdj_internal_", "psimdjson_")
 HEADER_SYMBOL_PREFIXES = ("pure_simdjson_",) + FORBIDDEN_INTERNAL_SYMBOL_PREFIXES
@@ -260,7 +260,7 @@ def rule_diag_surface(
     prototypes: dict[str, tuple[str, list[str]]], header_text: str
 ) -> None:
     if not ABI_VERSION_DEFINE_RE.search(header_text):
-        fail("missing ABI version macro: #define PURE_SIMDJSON_ABI_VERSION 0x00010002")
+        fail("missing ABI version macro: #define PURE_SIMDJSON_ABI_VERSION 0x00010003")
 
     expected_signatures = {
         "pure_simdjson_get_abi_version": ["uint32_t *out_version"],
