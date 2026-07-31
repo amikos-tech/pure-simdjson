@@ -194,6 +194,15 @@ fn bytes_free_rejects_null_pointer_with_length() {
 }
 
 #[test]
+fn bytes_free_rejects_nonnull_pointer_with_zero_length() {
+    let mut byte = 0_u8;
+    assert_eq!(
+        unsafe { pure_simdjson_bytes_free(&mut byte, 0) },
+        PURE_SIMDJSON_ERR_INVALID_ARGUMENT
+    );
+}
+
+#[test]
 fn bytes_free_rejects_non_issued_pointer() {
     let mut bogus = vec![1_u8, 2, 3];
     let ptr = bogus.as_mut_ptr();

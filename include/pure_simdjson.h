@@ -494,20 +494,22 @@ pure_simdjson_error_code_t pure_simdjson_element_get_bigint(const struct pure_si
 /**
  * Release memory previously returned by `pure_simdjson_element_get_string` or
  * `pure_simdjson_element_get_bigint`.
- * The empty-string sentinel is `ptr == NULL && len == 0`.
+ * The only empty-string sentinel is `ptr == NULL && len == 0`; null/nonzero
+ * and nonnull/zero pairs are invalid.
  *
  * # Safety
- * `ptr` and `len` must describe an allocation previously returned by
+ * A nonempty pair must exactly describe an allocation previously returned by
  * `pure_simdjson_element_get_string` or `pure_simdjson_element_get_bigint`.
  */
 pure_simdjson_error_code_t pure_simdjson_bytes_free(uint8_t *ptr, size_t len);
 
 /**
  * Release an array previously returned by `pure_simdjson_element_at_path_wildcard`.
- * The empty-result sentinel is `ptr == NULL && len == 0`.
+ * The only empty sentinel is `ptr == NULL && len == 0`; null/nonzero and
+ * nonnull/zero pairs are invalid.
  *
  * # Safety
- * `ptr` and `len` must describe an allocation previously returned by
+ * A nonempty pair must exactly describe an allocation previously returned by
  * `pure_simdjson_element_at_path_wildcard`.
  */
 pure_simdjson_error_code_t pure_simdjson_value_views_free(struct pure_simdjson_value_view_t *ptr,
@@ -652,8 +654,10 @@ pure_simdjson_error_code_t pure_simdjson_element_at_path(const struct pure_simdj
  *
  * # Safety
  * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
- * When `path_len` is non-zero, `path_ptr` must be readable for `path_len` bytes. `out_views` and
- * `out_count` must point to writable storage. A non-empty returned array must be released with
+ * When `path_len` is non-zero, `path_ptr` must be readable for `path_len` bytes. `out_views` is
+ * writable storage for a value-view pointer and `out_count` is writable storage for its element
+ * count. Once both are writable, every error clears them to null/zero, including `PARSER_BUSY`.
+ * A non-empty returned carrier array must be released exactly once with
  * `pure_simdjson_value_views_free`.
  */
 pure_simdjson_error_code_t pure_simdjson_element_at_path_wildcard(const struct pure_simdjson_value_view_t *view,

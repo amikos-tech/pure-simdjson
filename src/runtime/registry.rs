@@ -939,7 +939,7 @@ pub(crate) fn value_views_free(
         };
     }
     if len == 0 {
-        return err_invalid_handle();
+        return err_invalid_argument();
     }
 
     {

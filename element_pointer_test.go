@@ -212,8 +212,36 @@ func TestElement_AtPathAll(t *testing.T) {
 	t.Run("malformed wildcard path", func(t *testing.T) {
 		_, doc := mustParseDoc(t, `{"a":1}`)
 
-		if _, err := doc.Root().AtPathAll("*"); !errors.Is(err, ErrInvalidPath) {
-			t.Fatalf("AtPathAll(%q) error = %v, want ErrInvalidPath", "*", err)
+		for _, path := range []string{"*", ".items[*].", ".items[*][", "['*'][*]"} {
+			if _, err := doc.Root().AtPathAll(path); !errors.Is(err, ErrInvalidPath) {
+				t.Fatalf("AtPathAll(%q) error = %v, want ErrInvalidPath", path, err)
+			}
+		}
+	})
+
+	t.Run("quoted bracket keys preserve AtPath semantics around wildcard", func(t *testing.T) {
+		_, doc := mustParseDoc(t, `{"obj":{"'foo'":[1,2],"foo":[3]},"items":[{"'foo'":4,"foo":5}]}`)
+
+		for _, tc := range []struct {
+			path string
+			want []int64
+		}{
+			{path: ".obj['foo'][*]", want: []int64{1, 2}},
+			{path: ".items[*]['foo']", want: []int64{4}},
+		} {
+			got, err := doc.Root().AtPathAll(tc.path)
+			if err != nil {
+				t.Fatalf("AtPathAll(%q) error = %v", tc.path, err)
+			}
+			if len(got) != len(tc.want) {
+				t.Fatalf("AtPathAll(%q) len = %d, want %d", tc.path, len(got), len(tc.want))
+			}
+			for i, want := range tc.want {
+				value, err := got[i].GetInt64()
+				if err != nil || value != want {
+					t.Fatalf("AtPathAll(%q)[%d] = (%d, %v), want (%d, nil)", tc.path, i, value, err, want)
+				}
+			}
 		}
 	})
 }

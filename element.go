@@ -3,7 +3,6 @@ package purejson
 import (
 	"math/bits"
 	"runtime"
-	"strings"
 
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
@@ -125,10 +124,10 @@ func (e Element) AtPath(path string) (Element, error) {
 }
 
 // AtPathAll returns document-order matches for simdjson's dot/index path
-// subset with '*' or '[*]' wildcard segments. The path must contain at least
-// one literal '*'; wildcard-free paths return ErrInvalidPath before native
-// traversal. The two wildcard forms are aliases and are not container-type
-// checks.
+// subset with structural `.*` or `[*]` wildcard segments. Native validation
+// distinguishes malformed paths and literal-star keys from a valid traversal
+// with no surviving branches. The two wildcard forms are aliases and are not
+// container-type checks.
 //
 // Missing, out-of-range, and non-container branches are skipped. A valid path
 // with no surviving branches returns a non-nil empty slice and no error. The
@@ -139,16 +138,8 @@ func (e Element) AtPathAll(path string) ([]Element, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !strings.Contains(path, "*") {
-		return nil, ErrInvalidPath
-	}
-
 	views, rc := doc.parser.library.bindings.ElementAtPathWildcard(&e.view, path)
 	runtime.KeepAlive(doc)
-	switch ffi.ErrorCode(rc) {
-	case ffi.ErrElementNotFound, ffi.ErrWrongType, ffi.ErrIndexOutOfRange:
-		return make([]Element, 0), nil
-	}
 	if err := wrapStatus(rc); err != nil {
 		return nil, err
 	}

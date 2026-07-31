@@ -12,6 +12,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Fixed
 - Release workflow contracts now cover pull requests to `main`, sanitizer summaries only report measured probe results, and bootstrap ABI checks order prereleases below their final release.
+- Wildcard navigation now separates invalid expressions from valid empty matches and clears ABI output sentinels on failure; native carrier and byte releases enforce exact pointer/count pairs.
 
 ## [0.1.7] - 2026-07-23
 

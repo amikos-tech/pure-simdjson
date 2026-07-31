@@ -354,6 +354,30 @@ fn wildcard_paths_follow_spike_005_truth_table() {
             b".groups[*].items[*].id",
             &[1, 2, 3],
         ),
+        (
+            "quoted bracket prefix remains literal",
+            br#"{"obj":{"'foo'":[1,2],"foo":[3]}}"#,
+            b".obj['foo'][*]",
+            &[1, 2],
+        ),
+        (
+            "quoted bracket suffix remains literal",
+            br#"{"items":[{"'foo'":4,"foo":5}]}"#,
+            b".items[*]['foo']",
+            &[4],
+        ),
+        (
+            "root-dollar dot wildcard",
+            br#"{"items":[1,2]}"#,
+            b"$.items.*",
+            &[1, 2],
+        ),
+        (
+            "wildcard followed by index",
+            br#"{"items":[[1],[2]]}"#,
+            b".items[*][0]",
+            &[1, 2],
+        ),
     ];
 
     for &(name, json, path, expected) in cases {
@@ -375,13 +399,34 @@ fn malformed_wildcard_paths_return_invalid_path() {
     let doc = parser_parse_literal(parser, br#"{"items":[{"id":1}]}"#);
     let root = doc_root(doc);
 
-    for path in [b"a.b".as_slice(), b"*", b".a[0", b""] {
+    for path in [
+        b"a.b".as_slice(), b"*", b".a[0", b".items[*].", b".items[*][", b"", b"['*'][*]", b".items.thing*", b"\xff",
+    ] {
         let (rc, views, count) = wildcard_call(&root, path);
         assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_PATH, "path {path:?}");
         assert!(views.is_null(), "failed call must not issue an allocation");
         assert_eq!(count, 0, "failed call must not issue elements");
     }
 
+    cleanup(parser, doc);
+}
+
+#[test]
+fn wildcard_failures_clear_writable_output_sentinels() {
+    let parser = parser_new();
+    let doc = parser_parse_literal(parser, br#"{"items":[1]}"#);
+    let root = doc_root(doc);
+    let mut views = 1_usize as *mut pure_simdjson_value_view_t;
+    let mut count = 99_usize;
+    let path = b".items[*].";
+    let rc = unsafe {
+        pure_simdjson_element_at_path_wildcard(
+            &root, path.as_ptr(), path.len(), &mut views, &mut count,
+        )
+    };
+    assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_PATH);
+    assert!(views.is_null());
+    assert_eq!(count, 0);
     cleanup(parser, doc);
 }
 
@@ -411,7 +456,7 @@ fn value_views_free_enforces_exact_pointer_count_pairs() {
     );
     assert_eq!(
         unsafe { pure_simdjson_value_views_free(views, 0) },
-        PURE_SIMDJSON_ERR_INVALID_HANDLE,
+        PURE_SIMDJSON_ERR_INVALID_ARGUMENT,
         "nonnull/zero must not reconstruct the allocation"
     );
     assert_eq!(

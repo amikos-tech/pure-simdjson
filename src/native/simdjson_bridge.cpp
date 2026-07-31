@@ -202,6 +202,94 @@ pure_simdjson_error_code_t map_error(simdjson::error_code error) noexcept {
   }
 }
 
+// simdjson's wildcard traversal intentionally suppresses child errors so a
+// missing branch can produce an empty result. Classify the complete expression
+// before entering that traversal: literal path syntax is validated by the
+// vendored json_path_to_pointer_conversion implementation, while this small
+// scan recognizes only the two wildcard tokens the public ABI supports.
+bool classify_wildcard_path(std::string_view path, std::string *canonical) {
+  if (canonical == nullptr || path.empty() || !simdjson::validate_utf8(path)) {
+    return false;
+  }
+
+  canonical->clear();
+  std::string validation_path;
+  size_t index = 0;
+  if (path.front() == '$') {
+    canonical->push_back('$');
+    validation_path.push_back('$');
+    index = 1;
+  }
+  if (index == path.size() || (path[index] != '.' && path[index] != '[')) {
+    return false;
+  }
+
+  bool saw_wildcard = false;
+  while (index < path.size()) {
+    if (path[index] == '.') {
+      const size_t segment_start = ++index;
+      while (index < path.size() && path[index] != '.' && path[index] != '[') {
+        ++index;
+      }
+      const auto segment = path.substr(segment_start, index - segment_start);
+      if (segment.empty()) {
+        return false;
+      }
+      if (segment == "*") {
+        saw_wildcard = true;
+        canonical->append(".*");
+        validation_path.append(".wildcard");
+      } else {
+        if (segment.find('*') != std::string_view::npos) {
+          return false;
+        }
+        canonical->push_back('.');
+        canonical->append(segment.data(), segment.size());
+        validation_path.push_back('.');
+        validation_path.append(segment.data(), segment.size());
+      }
+      continue;
+    }
+
+    const size_t segment_start = index;
+    const size_t close = path.find(']', index + 1);
+    if (close == std::string_view::npos) {
+      return false;
+    }
+    const auto segment = path.substr(index + 1, close - index - 1);
+    if (segment.empty()) {
+      return false;
+    }
+    index = close + 1;
+    if (segment == "*") {
+      saw_wildcard = true;
+      canonical->append("[*]");
+      validation_path.append("[wildcard]");
+      continue;
+    }
+    if (segment.find('*') != std::string_view::npos) {
+      return false;
+    }
+
+    // at_path treats bracket quotes as literal key bytes, while upstream
+    // wildcard segmentation strips them. For the compatible quoted-key form,
+    // rewrite only traversal input to an equivalent dot key that retains the
+    // quote characters; validation still uses the original vendored syntax.
+    if (segment.size() >= 2 && (segment.front() == '\'' || segment.front() == '"') &&
+        segment.back() == segment.front() && segment.find('.') == std::string_view::npos) {
+      canonical->push_back('.');
+      canonical->append(segment.data(), segment.size());
+    } else {
+      canonical->append(path.data() + segment_start, close - segment_start + 1);
+    }
+    validation_path.append(path.data() + segment_start, close - segment_start + 1);
+  }
+
+  // This is the vendored simdjson source of truth for dot/bracket literals.
+  return saw_wildcard &&
+      simdjson::json_path_to_pointer_conversion(validation_path) != "-1";
+}
+
 pure_simdjson_value_kind_t map_element_type(simdjson::dom::element_type type) noexcept {
   switch (type) {
     case simdjson::dom::element_type::ARRAY:
@@ -1819,26 +1907,34 @@ pure_simdjson_error_code_t psimdjson_element_at_path_wildcard_indices(
     size_t *out_count
 ) noexcept {
   try {
-    if (doc == nullptr || out_indices == nullptr || out_count == nullptr) {
+    if (out_indices == nullptr || out_count == nullptr) {
+      return invalid_argument();
+    }
+    *out_indices = nullptr;
+    *out_count = 0;
+    if (doc == nullptr) {
       return invalid_argument();
     }
     if (path_len != 0 && path_ptr == nullptr) {
       return invalid_argument();
     }
-    *out_indices = nullptr;
-    *out_count = 0;
+
+    const auto path = path_len == 0
+        ? std::string_view{}
+        : std::string_view(reinterpret_cast<const char *>(path_ptr), path_len);
+    std::string canonical_path;
+    if (!classify_wildcard_path(path, &canonical_path)) {
+      return PURE_SIMDJSON_ERR_INVALID_PATH;
+    }
 
     wildcard_build_guard guard(doc);
     if (!guard.acquired()) {
       return PURE_SIMDJSON_ERR_PARSER_BUSY;
     }
 
-    const auto path = path_len == 0
-        ? std::string_view{}
-        : std::string_view(reinterpret_cast<const char *>(path_ptr), path_len);
     std::vector<simdjson::dom::element> matches;
     const auto error =
-        element_at(doc, json_index).at_path_with_wildcard(path).get(matches);
+        element_at(doc, json_index).at_path_with_wildcard(canonical_path).get(matches);
     if (error != simdjson::SUCCESS) {
       return map_error(error);
     }
