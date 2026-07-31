@@ -3,6 +3,7 @@ package purejson
 import (
 	"math/bits"
 	"runtime"
+	"strings"
 
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
@@ -77,6 +78,86 @@ func (e Element) usableDoc() (*Doc, error) {
 		return nil, ErrClosed
 	}
 	return e.doc, nil
+}
+
+// AtPointer resolves an RFC 6901 JSON Pointer from the current element.
+// Malformed syntax returns ErrInvalidPath, missing object keys or segments
+// return ErrElementNotFound, out-of-range array indices return
+// ErrIndexOutOfRange, and traversal type mismatches return ErrWrongType.
+//
+// A trailing separator names an empty-string key on the child; it is not a
+// no-op. For example, AtPointer("/a/") on {"a":1} returns
+// ErrElementNotFound, while the same pointer on {"a":{"":"x"}} resolves to
+// "x".
+func (e Element) AtPointer(pointer string) (Element, error) {
+	doc, err := e.usableDoc()
+	if err != nil {
+		return Element{}, err
+	}
+
+	view, rc := doc.parser.library.bindings.ElementAtPointer(&e.view, pointer)
+	runtime.KeepAlive(doc)
+	if err := wrapStatus(rc); err != nil {
+		return Element{}, err
+	}
+	return Element{doc: doc, view: view}, nil
+}
+
+// AtPath resolves simdjson's documented dot/index path subset from the current
+// element. After an optional leading '$', paths must start with '.' or '[':
+// use ".name" or "$.name", not "name". An empty path is invalid.
+//
+// Bracket-key syntax is not quote-aware. AtPath(".obj['foo']") looks up the
+// literal key "'foo'", including both quote characters, while
+// AtPath(".obj[foo]") looks up "foo". This is upstream simdjson behavior.
+func (e Element) AtPath(path string) (Element, error) {
+	doc, err := e.usableDoc()
+	if err != nil {
+		return Element{}, err
+	}
+
+	view, rc := doc.parser.library.bindings.ElementAtPath(&e.view, path)
+	runtime.KeepAlive(doc)
+	if err := wrapStatus(rc); err != nil {
+		return Element{}, err
+	}
+	return Element{doc: doc, view: view}, nil
+}
+
+// AtPathAll returns document-order matches for simdjson's dot/index path
+// subset with '*' or '[*]' wildcard segments. The path must contain at least
+// one literal '*'; wildcard-free paths return ErrInvalidPath before native
+// traversal. The two wildcard forms are aliases and are not container-type
+// checks.
+//
+// Missing, out-of-range, and non-container branches are skipped. A valid path
+// with no surviving branches returns a non-nil empty slice and no error. The
+// returned elements remain tied to the owning document and become unusable
+// after it closes. AtPathAll does not implement full RFC 9535 JSONPath.
+func (e Element) AtPathAll(path string) ([]Element, error) {
+	doc, err := e.usableDoc()
+	if err != nil {
+		return nil, err
+	}
+	if !strings.Contains(path, "*") {
+		return nil, ErrInvalidPath
+	}
+
+	views, rc := doc.parser.library.bindings.ElementAtPathWildcard(&e.view, path)
+	runtime.KeepAlive(doc)
+	switch ffi.ErrorCode(rc) {
+	case ffi.ErrElementNotFound, ffi.ErrWrongType, ffi.ErrIndexOutOfRange:
+		return make([]Element, 0), nil
+	}
+	if err := wrapStatus(rc); err != nil {
+		return nil, err
+	}
+
+	out := make([]Element, len(views))
+	for i, view := range views {
+		out[i] = Element{doc: doc, view: view}
+	}
+	return out, nil
 }
 
 // GetInt64 reads the current element as an int64 and returns ErrClosed when the
