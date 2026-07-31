@@ -48,6 +48,12 @@ var (
 	ErrInvalidOption = errors.New("invalid option")
 	// ErrKernelLocked reports kernel selection after parser or pool creation.
 	ErrKernelLocked = errors.New("kernel selection locked")
+	// ErrInvalidPath reports malformed RFC 6901 JSON Pointer or simdjson dot/index path syntax.
+	ErrInvalidPath = errors.New("invalid path")
+	// ErrIndexOutOfRange reports a syntactically valid array index or path segment that exceeds array bounds.
+	ErrIndexOutOfRange = errors.New("index out of range")
+	// ErrBufferTooSmall reports that a caller-provided destination cannot hold the result.
+	ErrBufferTooSmall = errors.New("buffer too small")
 	// ErrInternal reports native panics, internal failures, and any status code
 	// not mapped to a dedicated sentinel.
 	ErrInternal = errors.New("internal error")
@@ -237,6 +243,12 @@ func sentinelForStatus(code int32) error {
 		return ErrCapacityLimitExceeded
 	case ffi.ErrKernelLocked:
 		return ErrKernelLocked
+	case ffi.ErrInvalidPath:
+		return ErrInvalidPath
+	case ffi.ErrIndexOutOfRange:
+		return ErrIndexOutOfRange
+	case ffi.ErrBufferTooSmall:
+		return ErrBufferTooSmall
 	case ffi.ErrInvalidJSON:
 		return ErrInvalidJSON
 	case ffi.ErrNumberOutOfRange:
@@ -252,8 +264,8 @@ func sentinelForStatus(code int32) error {
 	case ffi.ErrCPPException:
 		return ErrCPPException
 	default:
-		// ErrInvalidArg and ErrBufferTooSmall indicate a bug in the Go wrapper,
-		// not user error; they intentionally map to ErrInternal.
+		// ErrInvalidArg indicates a bug in the Go wrapper, not user error; it
+		// intentionally maps to ErrInternal.
 		return ErrInternal
 	}
 }
