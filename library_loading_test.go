@@ -276,6 +276,8 @@ var abi13MandatoryFixtureSymbols = []string{
 	"pure_simdjson_lock_implementation_selection",
 	"pure_simdjson_get_implementation_name_len",
 	"pure_simdjson_copy_implementation_name",
+	"pure_simdjson_native_alloc_stats_reset",
+	"pure_simdjson_native_alloc_stats_snapshot",
 	"pure_simdjson_parser_new",
 	"pure_simdjson_parser_new_configured",
 	"pure_simdjson_parser_free",
@@ -445,6 +447,70 @@ func TestABI13IncompleteFailsClosedWithoutCache(t *testing.T) {
 	defer restore()
 
 	const missing = "pure_simdjson_validate_utf8"
+	fixture := &abiLoaderFixture{
+		reportedABI:        ffi.ABIVersion,
+		missingSymbol:      missing,
+		implementationName: "fallback",
+		implementationRC:   int32(ffi.OK),
+	}
+	_, err := activeLibraryWithOps(fixture.ops(t))
+	if err == nil {
+		t.Fatal("activeLibrary() error = nil, want incomplete ABI 1.3 failure")
+	}
+	if errors.Is(err, ErrABIVersionMismatch) {
+		t.Fatalf("activeLibrary() error = %v, want load failure rather than ABI mismatch", err)
+	}
+	if !errors.Is(err, errLoadLibrary) {
+		t.Fatalf("activeLibrary() error = %v, want errLoadLibrary", err)
+	}
+	if !strings.Contains(err.Error(), missing) {
+		t.Fatalf("activeLibrary() error = %q, want missing symbol %q", err, missing)
+	}
+	if cachedLibrary != nil {
+		t.Fatal("cachedLibrary != nil after incomplete ABI 1.3 bind")
+	}
+	if containsLookup(fixture.events, "implementation-name") {
+		t.Fatal("implementation name read after incomplete binding")
+	}
+}
+
+func TestABI13IncompleteMissingAllocStatsResetFailsClosed(t *testing.T) {
+	restore := withLibraryCacheClearedForTest(t)
+	defer restore()
+
+	const missing = "pure_simdjson_native_alloc_stats_reset"
+	fixture := &abiLoaderFixture{
+		reportedABI:        ffi.ABIVersion,
+		missingSymbol:      missing,
+		implementationName: "fallback",
+		implementationRC:   int32(ffi.OK),
+	}
+	_, err := activeLibraryWithOps(fixture.ops(t))
+	if err == nil {
+		t.Fatal("activeLibrary() error = nil, want incomplete ABI 1.3 failure")
+	}
+	if errors.Is(err, ErrABIVersionMismatch) {
+		t.Fatalf("activeLibrary() error = %v, want load failure rather than ABI mismatch", err)
+	}
+	if !errors.Is(err, errLoadLibrary) {
+		t.Fatalf("activeLibrary() error = %v, want errLoadLibrary", err)
+	}
+	if !strings.Contains(err.Error(), missing) {
+		t.Fatalf("activeLibrary() error = %q, want missing symbol %q", err, missing)
+	}
+	if cachedLibrary != nil {
+		t.Fatal("cachedLibrary != nil after incomplete ABI 1.3 bind")
+	}
+	if containsLookup(fixture.events, "implementation-name") {
+		t.Fatal("implementation name read after incomplete binding")
+	}
+}
+
+func TestABI13IncompleteMissingAllocStatsSnapshotFailsClosed(t *testing.T) {
+	restore := withLibraryCacheClearedForTest(t)
+	defer restore()
+
+	const missing = "pure_simdjson_native_alloc_stats_snapshot"
 	fixture := &abiLoaderFixture{
 		reportedABI:        ffi.ABIVersion,
 		missingSymbol:      missing,
