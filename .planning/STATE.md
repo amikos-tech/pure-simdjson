@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 12-09-PLAN.md
-last_updated: "2026-07-31T10:03:15.906Z"
+stopped_at: Completed 12-01-PLAN.md
+last_updated: "2026-07-31T10:15:59.739Z"
 last_activity: 2026-07-31
 progress:
   total_phases: 22
   completed_phases: 13
   total_plans: 80
-  completed_plans: 70
+  completed_plans: 71
   percent: 59
 ---
 
@@ -26,11 +26,11 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 ## Current Position
 
 Phase: 12 (High-value DOM navigation and SIMD utility APIs) — EXECUTING
-Plan: 2 of 11
+Plan: 3 of 11
 Status: Ready to execute
 Last activity: 2026-07-31
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
-Progress: [█████████░] 88%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -73,6 +73,7 @@ Progress: [█████████░] 88%
 | Phase 10 P03 | 8 min | 1 tasks | 4 files |
 | Phase 10 P04 | 3min | 2 tasks | 3 files |
 | Phase 12 P09 | 5min | 2 tasks | 7 files |
+| Phase 12 P01 | 7min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -201,6 +202,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 10]: Keep Phase 10 section-aware sec/op parsing as the regression classifier after shared input validation. — Raw evidence recognition does not replace benchstat metric-section semantics.
 - [Phase 12]: Assign ABI statuses INVALID_PATH=11 and INDEX_OUT_OF_RANGE=12. — Uses the first two available additive values while preserving every existing status and leaving 13-31 reserved.
 - [Phase 12]: Keep ABI 1.2 as the documented Phase 11 loader baseline until Plan 12-10. — The complete ABI 1.3 mandatory symbol surface is not present at the numeric-foundation step.
+- [Phase 12]: Delegate pointer and dot/index path grammar to vendored simdjson. — Keeps the wrapper thin and avoids parser drift.
+- [Phase 12]: Reuse resolved-view validation and descendant registration without a container-kind pre-check. — Preserves upstream empty-pointer behavior while retaining document lifetime checks.
+- [Phase 12]: Exclude private navigation bridge declarations from cbindgen output. — Keeps the public ABI limited to pure_simdjson exports.
 
 ### Pending Todos
 
@@ -214,8 +218,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-31T10:03:15.898Z
-Stopped at: Completed 12-09-PLAN.md
+Last session: 2026-07-31T10:15:59.730Z
+Stopped at: Completed 12-01-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
