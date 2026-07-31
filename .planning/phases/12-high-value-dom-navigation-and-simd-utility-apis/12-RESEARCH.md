@@ -17,7 +17,7 @@ No JSON encoder/builder, reflection-based `Unmarshal`, full JSONPath (RFC 9535) 
 
 **Navigation error taxonomy (DOM-01/02/03):**
 - **D-01:** Add two new typed error sentinels: `ErrInvalidPath` (malformed JSON Pointer / path syntax — upstream `INVALID_JSON_POINTER`) and `ErrIndexOutOfRange` (a syntactically valid index that exceeds array bounds — upstream `INDEX_OUT_OF_BOUNDS`). Reuse the existing `ErrElementNotFound` for missing object keys / missing pointer segments (upstream `NO_SUCH_FIELD`), and the existing `ErrWrongType` for traversal type mismatches (upstream `INCORRECT_TYPE`). Do not invent a third or fourth sentinel, and do not conflate invalid-path with out-of-bounds into one error — they must be distinguishable via `errors.Is`.
-- **D-02:** `Element.AtPathAll` returns `([]Element{}, nil)` when the wildcard legitimately matches zero elements (empty result set), matching both upstream's own `at_path_with_wildcard` behavior (empty vector, no error) and Go idiom (map lookups, `filepath.Glob`). `AtPathAll` only returns an error for malformed wildcard syntax (`ErrInvalidPath`) or a traversal type mismatch (`ErrWrongType`) — never for a legitimately empty match set.
+- **D-02 (AMENDED 2026-07-31 — original contract refuted by spike 005):** `Element.AtPathAll` **requires at least one `*` in the path**; a wildcard-free path returns `ErrInvalidPath` before reaching the FFI boundary. It returns `([]Element{}, nil)` when the wildcard legitimately matches zero elements. Missing keys, out-of-range indices, and non-container branches yield **no match rather than an error**. **The only path error is `ErrInvalidPath`** — `ErrWrongType`, `ErrElementNotFound`, and `ErrIndexOutOfRange` are NOT reachable through `AtPathAll`. See "Upstream Wildcard Semantics" below for the pinned truth table.
 - **D-03:** `ErrIndexOutOfRange` is shared between `AtPointer`/`AtPath` (pointer/path segments that resolve to an out-of-range array index) and the new indexed `Array.At` (see below) — same upstream failure, same sentinel, no duplication.
 
 **Indexed array access and size helpers (DOM-04):**
@@ -573,6 +573,51 @@ func (e Element) AtPathAll(path string) ([]Element, error) {
 | Adversarial deeply-nested or huge-fanout JSON fed to `AtPathAll`, producing an unexpectedly large `Vec<ValueView>` allocation | Denial of Service (resource exhaustion) | No new mitigation beyond the existing depth-limit (`ErrDepthLimitExceeded`, already enforced at parse time by Phase 11's configured max-depth) and the existing capacity-limit; wildcard match count is bounded by the number of nodes already accepted at parse time, no unbounded amplification |
 | Malformed/hostile `AtPointer`/`AtPath` strings (e.g. deeply repeated escape sequences, adversarial bracket nesting) | Denial of Service | Upstream's own string-based parsing is linear in path length, not exponential; no new amplification vector introduced by this phase |
 | Stale/forged `Element` handle passed into a new navigation method | Spoofing / Tampering | Already covered by the existing generation-checked handle + `descendant_indices` membership validation in `with_resolved_view`; every new accessor reuses this unmodified |
+
+## Upstream Wildcard Semantics (spike 005, verdict PARTIAL)
+
+Executable 35-case truth table pinned at
+`.planning/spikes/005-wildcard-path-semantics/expected.txt`, regenerated and defended by
+`.planning/spikes/005-wildcard-path-semantics/verify.sh`. **Reuse it directly as the fixture
+table for 12-03 and 12-06 rather than inventing cases.** Run against vendored simdjson v4.6.4
+with ASan+UBSan, deterministic across 3 runs.
+
+**Core finding — `at_path_with_wildcard` selects its error regime by substring-testing the path
+for `*`, not by document content:**
+
+| Path | Document | Result |
+|---|---|---|
+| `.z.b` | `{"a":{"b":1}}` | `NO_SUCH_FIELD(20)` |
+| `.z.*` | `{"a":{"b":1}}` | `SUCCESS`, 0 results |
+| `.z.*.b` | `{"a":{"b":1}}` | `SUCCESS`, 0 results |
+
+A `*` anywhere in the path — including *after* the failing segment — converts a hard error into a
+silent empty result. This is what refuted the original D-02 and drives the amended contract above.
+
+**Behaviors the plans must account for:**
+
+1. **Scalar/string receivers never error.** Root `42` with `.a` or `.*` → `SUCCESS`, 0 results.
+   Plans 12-03 and 12-06 currently expect `ErrWrongType` here — that assertion will fail.
+2. **With a wildcard present, misses are silently dropped.** `.a.*.b` on
+   `{"a":{"x":{"b":1},"y":{"c":2}}}` → 1 result, not an error. Same for non-container branches
+   (`{"a":{"x":{"b":1},"y":5}}` → 1 result).
+3. **`.*` and `[*]` are interchangeable aliases, neither type-checked.** `[*]` on an object
+   returns its values (`.a[*]` on `{"a":{"b":1}}` → `[1]`); `.*` on an array returns its elements
+   (`.a.*` on `{"a":[10,20]}` → `[10,20]`). Callers will assume bracket-star implies an array —
+   it does not. Must be stated in the `AtPathAll` doc comment.
+4. **Trailing dot is an empty-key lookup, not a syntax error.** `.a.` → `NO_SUCH_FIELD(20)`.
+   This independently confirms that `AtPointer("/a/")` on `{"a":1}` yields `ErrElementNotFound`,
+   **not** `ErrWrongType` — 12-06's planned assertion is wrong and must be corrected.
+5. **`[0]` on an object is `NO_SUCH_FIELD`, not `INCORRECT_TYPE`** — it degrades to a lookup of
+   key `"0"`.
+6. **Ordering is document order**, confirmed for flat, nested, and array-of-object wildcards.
+   D-02's ordering guarantee holds.
+7. **Grammar is identical between `at_path` and `at_path_with_wildcard`** — all malformed inputs
+   return `INVALID_JSON_POINTER(22)` in both, so a single `ErrInvalidPath` mapping is correct for
+   both APIs. Exact confirmed-rejected strings for tests: `a.b`, `*`, `.a[0`, `""`.
+8. **`ErrWrongType` (`INCORRECT_TYPE(17)`) is still reachable via `AtPath`** — e.g. `.a.b` on
+   `{"a":[10,20]}`. D-01 and D-03 remain valid for `AtPointer` / `AtPath` / `Array.At`; only
+   `AtPathAll`'s surface is narrowed.
 
 ## Sources
 
