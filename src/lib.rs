@@ -999,6 +999,61 @@ pub unsafe extern "C" fn pure_simdjson_object_get_field(
     })
 }
 
+/// Resolve an array element by zero-based index and return its document-tied value view.
+///
+/// # Safety
+/// `array_view` must point to a readable array-valued `pure_simdjson_value_view_t` derived from a
+/// live document. `out_value` must point to writable storage.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_array_at(
+    array_view: *const pure_simdjson_value_view_t,
+    index: u64,
+    out_value: *mut pure_simdjson_value_view_t,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_array_at", || unsafe {
+        match runtime::registry::array_at(array_view, index) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Report the direct-child count of an array-valued view.
+///
+/// # Safety
+/// `array_view` must point to a readable array-valued `pure_simdjson_value_view_t` derived from a
+/// live document. `out_len` must point to writable `u64` storage.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_array_len(
+    array_view: *const pure_simdjson_value_view_t,
+    out_len: *mut u64,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_array_len", || unsafe {
+        match runtime::registry::array_len(array_view) {
+            Ok(len) => write_out(out_len, len),
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Report the direct-field count of an object-valued view.
+///
+/// # Safety
+/// `object_view` must point to a readable object-valued `pure_simdjson_value_view_t` derived from
+/// a live document. `out_size` must point to writable `u64` storage.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_object_size(
+    object_view: *const pure_simdjson_value_view_t,
+    out_size: *mut u64,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_object_size", || unsafe {
+        match runtime::registry::object_size(object_view) {
+            Ok(size) => write_out(out_size, size),
+            Err(rc) => rc,
+        }
+    })
+}
+
 /// Resolve an RFC 6901 JSON Pointer from `view` and return the descendant through `out_value`.
 ///
 /// # Safety

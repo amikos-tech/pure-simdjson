@@ -1542,6 +1542,82 @@ pure_simdjson_error_code_t psimdjson_object_get_field_index(
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
+// The five supported targets (linux/amd64, linux/arm64, darwin/amd64,
+// darwin/arm64, and windows/amd64) all use 64-bit size_t. Fail closed if a
+// future target would narrow the uint64_t Array.At index at this boundary.
+static_assert(sizeof(size_t) == sizeof(uint64_t),
+              "Array.At requires a 64-bit size_t on supported targets");
+
+pure_simdjson_error_code_t psimdjson_array_at_index(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t index,
+    uint64_t *out_value_json_index
+) noexcept {
+  try {
+    if (doc == nullptr || out_value_json_index == nullptr) {
+      return invalid_argument();
+    }
+
+    simdjson::dom::array array;
+    const auto array_error = element_at(doc, json_index).get_array().get(array);
+    if (array_error != simdjson::SUCCESS) {
+      return map_error(array_error);
+    }
+
+    simdjson::dom::element value;
+    const auto at_error = array.at(size_t(index)).get(value);
+    if (at_error != simdjson::SUCCESS) {
+      return map_error(at_error);
+    }
+
+    *out_value_json_index = element_json_index(value);
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_array_size(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t *out_size
+) noexcept {
+  try {
+    if (doc == nullptr || out_size == nullptr) {
+      return invalid_argument();
+    }
+
+    simdjson::dom::array array;
+    const auto array_error = element_at(doc, json_index).get_array().get(array);
+    if (array_error != simdjson::SUCCESS) {
+      return map_error(array_error);
+    }
+
+    *out_size = uint64_t(array.size());
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_object_size(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t *out_size
+) noexcept {
+  try {
+    if (doc == nullptr || out_size == nullptr) {
+      return invalid_argument();
+    }
+
+    simdjson::dom::object object;
+    const auto object_error = element_at(doc, json_index).get_object().get(object);
+    if (object_error != simdjson::SUCCESS) {
+      return map_error(object_error);
+    }
+
+    *out_size = uint64_t(object.size());
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
 pure_simdjson_error_code_t psimdjson_element_at_pointer_index(
     const psimdjson_doc *doc,
     uint64_t json_index,

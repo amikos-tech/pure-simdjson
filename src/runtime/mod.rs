@@ -194,6 +194,22 @@ unsafe extern "C" {
         key_len: usize,
         out_value_json_index: *mut u64,
     ) -> pure_simdjson_error_code_t;
+    fn psimdjson_array_at_index(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        index: u64,
+        out_value_json_index: *mut u64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_array_size(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_size: *mut u64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_object_size(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_size: *mut u64,
+    ) -> pure_simdjson_error_code_t;
     fn psimdjson_element_at_pointer_index(
         doc: *const psimdjson_doc,
         json_index: u64,
@@ -700,6 +716,57 @@ pub(crate) fn native_object_get_field_index(
         return Err(err_internal());
     }
     Ok(value_json_index)
+}
+
+pub(crate) fn native_array_at_index(
+    doc_ptr: usize,
+    json_index: u64,
+    index: u64,
+) -> Result<u64, pure_simdjson_error_code_t> {
+    let mut value_json_index = 0_u64;
+    let rc = unsafe {
+        psimdjson_array_at_index(
+            doc_ptr as *const psimdjson_doc,
+            json_index,
+            index,
+            &mut value_json_index,
+        )
+    };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    if value_json_index == 0 {
+        return Err(err_internal());
+    }
+    Ok(value_json_index)
+}
+
+pub(crate) fn native_array_size(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<u64, pure_simdjson_error_code_t> {
+    let mut size = 0_u64;
+    let rc =
+        unsafe { psimdjson_array_size(doc_ptr as *const psimdjson_doc, json_index, &mut size) };
+    if rc == err_ok() {
+        Ok(size)
+    } else {
+        Err(rc)
+    }
+}
+
+pub(crate) fn native_object_size(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<u64, pure_simdjson_error_code_t> {
+    let mut size = 0_u64;
+    let rc =
+        unsafe { psimdjson_object_size(doc_ptr as *const psimdjson_doc, json_index, &mut size) };
+    if rc == err_ok() {
+        Ok(size)
+    } else {
+        Err(rc)
+    }
 }
 
 pub(crate) fn native_element_at_pointer_index(

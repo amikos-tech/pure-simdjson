@@ -193,6 +193,22 @@ pure_simdjson_error_code_t psimdjson_object_get_field_index(
     size_t key_len,
     uint64_t *out_value_json_index
 ) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_array_at_index(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t index,
+    uint64_t *out_value_json_index
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_array_size(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t *out_size
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_object_size(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t *out_size
+) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_element_at_pointer_index(
     const psimdjson_doc *doc,
     uint64_t json_index,

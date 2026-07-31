@@ -1167,6 +1167,47 @@ pub(crate) fn object_get_field(
     })
 }
 
+pub(crate) fn array_at(
+    array_view: *const pure_simdjson_value_view_t,
+    index: u64,
+) -> Result<pure_simdjson_value_view_t, pure_simdjson_error_code_t> {
+    with_resolved_view(array_view, |entry, json_index, doc| {
+        let kind = super::native_element_type_at(entry.native_ptr, json_index)?;
+        if kind != KIND_HINT_ARRAY {
+            return Err(err_wrong_type());
+        }
+
+        let value_json_index = super::native_array_at_index(entry.native_ptr, json_index, index)?;
+        encode_descendant_view_locked(entry, doc, value_json_index)
+    })
+}
+
+pub(crate) fn array_len(
+    array_view: *const pure_simdjson_value_view_t,
+) -> Result<u64, pure_simdjson_error_code_t> {
+    with_resolved_view(array_view, |entry, json_index, _| {
+        let kind = super::native_element_type_at(entry.native_ptr, json_index)?;
+        if kind != KIND_HINT_ARRAY {
+            return Err(err_wrong_type());
+        }
+
+        super::native_array_size(entry.native_ptr, json_index)
+    })
+}
+
+pub(crate) fn object_size(
+    object_view: *const pure_simdjson_value_view_t,
+) -> Result<u64, pure_simdjson_error_code_t> {
+    with_resolved_view(object_view, |entry, json_index, _| {
+        let kind = super::native_element_type_at(entry.native_ptr, json_index)?;
+        if kind != KIND_HINT_OBJECT {
+            return Err(err_wrong_type());
+        }
+
+        super::native_object_size(entry.native_ptr, json_index)
+    })
+}
+
 pub(crate) fn element_at_pointer(
     view: *const pure_simdjson_value_view_t,
     pointer: &[u8],
