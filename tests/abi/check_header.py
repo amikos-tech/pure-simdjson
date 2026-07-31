@@ -79,6 +79,9 @@ REQUIRED_SYMBOLS = (
     "pure_simdjson_object_get_field",
     "pure_simdjson_element_at_pointer",
     "pure_simdjson_element_at_path",
+    "pure_simdjson_array_at",
+    "pure_simdjson_array_len",
+    "pure_simdjson_object_size",
 )
 
 
@@ -329,6 +332,19 @@ def rule_diag_surface(
             "const uint8_t *path_ptr",
             "size_t path_len",
             "struct pure_simdjson_value_view_t *out_value",
+        ],
+        "pure_simdjson_array_at": [
+            "const struct pure_simdjson_value_view_t *array_view",
+            "uint64_t index",
+            "struct pure_simdjson_value_view_t *out_value",
+        ],
+        "pure_simdjson_array_len": [
+            "const struct pure_simdjson_value_view_t *array_view",
+            "uint64_t *out_len",
+        ],
+        "pure_simdjson_object_size": [
+            "const struct pure_simdjson_value_view_t *object_view",
+            "uint64_t *out_size",
         ],
     }
 
