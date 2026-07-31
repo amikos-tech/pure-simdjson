@@ -1,9 +1,9 @@
 # Bootstrap and Distribution
 
-`pure-simdjson` ships pre-built shared libraries for five platforms. On the
-first call to `NewParser()`, the library automatically downloads, verifies
-(SHA-256), caches, and loads the correct binary for your platform. No cgo and
-no `go generate` step is required at consumer build time.
+Published `pure-simdjson` releases ship pre-built shared libraries for five
+platforms. On the first call to `NewParser()`, a published source version
+automatically downloads, verifies (SHA-256), caches, and loads its matching
+binary. No cgo and no `go generate` step is required at consumer build time.
 
 ## Release Operators
 
@@ -12,19 +12,25 @@ the CI-only publish sequence now live in [`docs/releases.md`](./releases.md).
 Use that runbook for the tag-driven release sequence instead of reconstructing
 the process from workflow YAML.
 
-## ABI 1.2 Source State
+## ABI 1.3 Source State (Unpublished)
 
-Version `v0.1.7` is source-prepared for ABI `0x00010002`, but it is not a
-published release until the tag-driven `release.yml` run succeeds. The
-default bootstrap URL and real no-override smoke remain unproven until the
-Phase `06.1` hosted public validation passes for all five R2 targets and the
-documented GitHub fallback subset.
+The checked-out source tree identifies as version `0.2.0-dev` and requires ABI
+`0x00010003` (ABI 1.3). This is an unreleased development identity: there is no
+0.2.0-dev artifact or checksum metadata for the bootstrap downloader to fetch.
+Default bootstrap therefore cannot satisfy this source state.
 
-Before that hosted proof, repository development and local source gates must
-set `PURE_SIMDJSON_LIB_PATH` to a freshly built ABI 1.2 library. An explicit
-path that still points to an ABI 1.1 artifact fails with
-`ErrABIVersionMismatch`; replace or rebuild that artifact instead of expecting
-a partial feature fallback.
+Repository developers must run `cargo build --release` and set
+`PURE_SIMDJSON_LIB_PATH` to the freshly built platform library under
+`target/release` before running source-tree runtime tests. The root `TestMain`
+does this override automatically when that artifact exists. A path to an older
+ABI 1.2 library fails with `ErrABIVersionMismatch`; rebuild the current source
+instead of expecting a partial feature fallback.
+
+Published `v0.1.7` is the historical ABI `0x00010002` (ABI 1.2) compatibility
+release. Its URLs and signatures remain useful for consumers of that released
+source, but its artifacts are not compatible with the current ABI 1.3 wrapper.
+Phase 16 owns the final `0.2.0` publication and fresh-machine default-bootstrap
+proof; this development state does not create a tag or publish an artifact.
 
 ## How It Works
 
@@ -74,7 +80,7 @@ pure-simdjson-bootstrap fetch --all-platforms --dest ./vendor-libs
 
 # (transport ./vendor-libs to the air-gapped host)
 
-# On the air-gapped host, after the hosted v0.1.7 publication succeeds:
+# Historical published v0.1.7 / ABI 1.2 example only:
 export PURE_SIMDJSON_LIB_PATH=/path/to/vendor-libs/v0.1.7/linux-amd64/libpure_simdjson.so
 ```
 
@@ -178,7 +184,7 @@ layer is the SHA-256 check baked into the bootstrap library; cosign adds a
 provenance layer on top.
 
 ```bash
-# After the hosted v0.1.7 publication succeeds:
+# Historical published v0.1.7 / ABI 1.2 example only:
 TAG=v0.1.7
 OS=linux
 ARCH=amd64
@@ -264,10 +270,10 @@ What now lives outside this bootstrap document:
   validated source is checked out into `target-src/` from the published tag
   so reruns follow the released source tree instead of the moving branch tip.
 
-On ordinary development branches, `BootstrapSync` against an unpublished
-version still returns `bootstrap.ErrNoChecksum` because no published
-`SHA256SUMS` entry exists for that tag yet. Developers working inside this
-repository set
-`PURE_SIMDJSON_LIB_PATH` to their local `target/release/libpure_simdjson.<ext>`
-build output to bypass the download pipeline. The repository's `TestMain` in
-`testmain_test.go` does this automatically when the cargo artifact is present.
+On the current `0.2.0-dev` source tree, `BootstrapSync` returns
+`bootstrap.ErrNoChecksum` because no 0.2.0-dev artifact or published
+`SHA256SUMS` entry exists. Developers working inside this repository run
+`cargo build --release` and set `PURE_SIMDJSON_LIB_PATH` to the resulting
+`target/release/libpure_simdjson.<ext>` build output to bypass the download
+pipeline. The repository's `TestMain` in `testmain_test.go` does this
+automatically when the cargo artifact is present.

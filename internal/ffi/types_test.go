@@ -6,8 +6,8 @@ import (
 )
 
 func TestABINumericContract(t *testing.T) {
-	if ABIVersion != 0x00010002 {
-		t.Fatalf("ABIVersion = %#08x, want 0x00010002", ABIVersion)
+	if ABIVersion != 0x00010003 {
+		t.Fatalf("ABIVersion = %#08x, want 0x00010003", ABIVersion)
 	}
 	if LastErrorOffsetUnknown != ^uint64(0) {
 		t.Fatalf("LastErrorOffsetUnknown = %#x, want uint64 max", LastErrorOffsetUnknown)
@@ -29,6 +29,8 @@ func TestABINumericContract(t *testing.T) {
 		{"ErrDepthLimit", ErrDepthLimit, 8},
 		{"ErrCapacityLimit", ErrCapacityLimit, 9},
 		{"ErrKernelLocked", ErrKernelLocked, 10},
+		{"ErrInvalidPath", ErrInvalidPath, 11},
+		{"ErrIndexOutOfRange", ErrIndexOutOfRange, 12},
 		{"ErrInvalidJSON", ErrInvalidJSON, 32},
 		{"ErrNumberOutOfRange", ErrNumberOutOfRange, 33},
 		{"ErrPrecisionLoss", ErrPrecisionLoss, 34},
