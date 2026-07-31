@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pathlib
 import re
+import subprocess
+import tempfile
 import unittest
 
 try:
@@ -72,10 +74,35 @@ def read_workflow_contract(
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
     def test_release_accepts_only_final_semver_tags_and_checks_abi_state(self) -> None:
-        workflow_text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+        workflow = load_workflow_definition(RELEASE_WORKFLOW, REPO_ROOT)
+        resolve_step = next(
+            step
+            for step in workflow["jobs"]["verify-tag-source"]["steps"]
+            if step.get("name") == "Resolve tag version"
+        )
+        validate_step = next(
+            step
+            for step in workflow["jobs"]["verify-tag-source"]["steps"]
+            if step.get("name") == "Validate committed release version state"
+        )
 
-        self.assertIn('^v[0-9]+(\\.[0-9]+){2}$', workflow_text)
-        self.assertIn("scripts/release/check_bootstrap_abi_state.py", workflow_text)
+        def accepts_tag(tag: str) -> bool:
+            with tempfile.NamedTemporaryFile() as output:
+                result = subprocess.run(
+                    ["bash", "-c", resolve_step["run"]],
+                    env={"GITHUB_REF_NAME": tag, "GITHUB_OUTPUT": output.name},
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+            return result.returncode == 0
+
+        self.assertTrue(accepts_tag("v0.2.0"))
+        self.assertFalse(accepts_tag("v0.2.0-dev"))
+        self.assertIn(
+            "scripts/release/check_bootstrap_abi_state.py",
+            validate_step["run"],
+        )
 
     def test_phase12_native_smoke_gate_tracks_durable_minify_probe(self) -> None:
         workflow_text = PHASE2_RUST_SHIM_SMOKE.read_text(encoding="utf-8")
@@ -117,6 +144,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
     def test_phase12_go_wrapper_smoke_keeps_five_platform_jobs(self) -> None:
         events, jobs = read_workflow_contract(PHASE3_GO_WRAPPER_SMOKE)
         self.assertEqual(events["pull_request"], ("main",))
+        self.assertEqual(events["push"], ("main",))
         self.assertEqual(
             jobs,
             (

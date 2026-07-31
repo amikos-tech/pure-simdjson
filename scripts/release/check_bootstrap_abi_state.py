@@ -75,29 +75,13 @@ def parse_semver(version: str) -> tuple[int, int, int, tuple[str, ...]]:
 
 
 def compare_semver(left: str, right: str) -> int:
-    left_major, left_minor, left_patch, left_pre = parse_semver(left)
-    right_major, right_minor, right_patch, right_pre = parse_semver(right)
+    left_major, left_minor, left_patch, _ = parse_semver(left)
+    right_major, right_minor, right_patch, _ = parse_semver(right)
     left_core = (left_major, left_minor, left_patch)
     right_core = (right_major, right_minor, right_patch)
-    if left_core != right_core:
-        return -1 if left_core < right_core else 1
-    if not left_pre or not right_pre:
-        if left_pre == right_pre:
-            return 0
-        return -1 if left_pre else 1
-    for left_part, right_part in zip(left_pre, right_pre):
-        if left_part == right_part:
-            continue
-        left_numeric = left_part.isdecimal()
-        right_numeric = right_part.isdecimal()
-        if left_numeric and right_numeric:
-            return -1 if int(left_part) < int(right_part) else 1
-        if left_numeric != right_numeric:
-            return -1 if left_numeric else 1
-        return -1 if left_part < right_part else 1
-    if len(left_pre) == len(right_pre):
+    if left_core == right_core:
         return 0
-    return -1 if len(left_pre) < len(right_pre) else 1
+    return -1 if left_core < right_core else 1
 
 
 def check_state(repo_root: pathlib.Path, requested_version: str) -> tuple[str, str]:

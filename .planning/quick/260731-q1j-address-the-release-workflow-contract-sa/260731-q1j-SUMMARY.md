@@ -12,8 +12,8 @@ provides:
   - Reserved utility kernel-state transitions and value/frame ABI guards
 affects: [release workflow, bootstrap ABI checks, wildcard navigation, kernel selection, materialization]
 tech-stack:
-  added: []
-  patterns: [constrained workflow mapping parser, native wildcard classification, utility reservation protocol]
+  added: [shared workflow YAML loader]
+  patterns: [structured workflow YAML assertions, native wildcard classification, utility reservation protocol]
 key-files:
   modified:
     - .github/workflows/phase2-rust-shim-smoke.yml
@@ -40,6 +40,7 @@ completed: 2026-07-31
 - Normalized native carrier/free sentinels, zeroed wildcard error outputs, and added a deterministic SetKernel-versus-utility reservation test.
 - Replaced delayed uintptr frame conversions with pointer-typed FFI fields, pinned all value-view field offsets, and tested bounded copied string spans.
 - Corrected the native wildcard evaluator so indexed and quoted dotted literal spans are resolved through vendored `AtPath` before each structural wildcard expansion.
+- Follow-up hardening makes utility reservations panic-safe and concurrent, rejects malformed wildcard segments before data traversal, and rejects prerelease release identities in both source checks and tag workflow validation.
 
 ## Task Commits
 
@@ -47,6 +48,7 @@ completed: 2026-07-31
 2. **Plan 02: Wildcard FFI contracts** — `3dd3697`
 3. **Plan 03: Utility kernel reservation and ABI guards** — `fb61fb7`
 4. **Verifier corrective slice: literal wildcard prefixes** — `0c74a54`
+5. **Follow-up contract hardening** — `123dbef`
 
 ## Verification Evidence
 
@@ -57,10 +59,11 @@ completed: 2026-07-31
 - `go test ./internal/ffi ./... -race`, `go test ./... -race`, and `go vet ./...` — passed.
 - `cc -Iinclude tests/abi/handle_layout.c -c` — passed.
 - Corrective slice: `cargo test -- --test-threads=1`, `go test ./... -race`, `go vet ./...`, and `make verify-contract` — passed.
+- Follow-up slice: release Python discovery, full Rust tests, `go test ./... -race`, `go vet ./...`, and `make verify-contract` — passed.
 
 ## Decisions Made
 
-- The workflow checker uses a deliberately narrow, indentation-aware extractor for the asserted event/job subset; unsupported YAML constructs in that subset fail closed.
+- Release workflow contracts use the shared structured YAML loader, with `yq` fallback when PyYAML is unavailable.
 - A valid wildcard with no matches is the native null/zero sentinel; malformed or literal-star expressions return `ErrInvalidPath` on every receiver type.
 - Utility calls reserve selection before unlocked library/native work and publish their final status before `SetKernel` can bind a new implementation.
 
@@ -86,4 +89,4 @@ All C1-C3 and I1-I10 contracts covered by this quick task are implemented and ve
 ## Self-Check: PASSED
 
 - Summary exists at the planned quick-task path.
-- Commits `e07a9c9`, `3dd3697`, and `fb61fb7` are present in git history.
+- Commits `e07a9c9`, `3dd3697`, `fb61fb7`, `0c74a54`, and `123dbef` are present in git history.

@@ -43,12 +43,15 @@ func Kernel() string {
 // SetKernel selects an exact process-wide native implementation name for
 // diagnostics. An empty name restores automatic selection. Selection becomes
 // immutable after the first parser or parser pool is created, or after a
-// standalone utility's native CPU gate succeeds. A utility locks selection
-// even when scanning later reports malformed content.
+// standalone utility's native argument, buffer, or CPU gate succeeds. A
+// utility locks selection even when scanning later reports malformed content.
 func SetKernel(name string) error {
 	kernelMu.Lock()
 	defer kernelMu.Unlock()
 
+	if kernelSelectionLocked {
+		return ErrKernelLocked
+	}
 	for utilityKernelReservations != 0 {
 		kernelCond.Wait()
 	}
@@ -134,6 +137,10 @@ func beginUtilityKernel() (reservation *utilityKernelReservation) {
 func (reservation *utilityKernelReservation) cancel() {
 	kernelMu.Lock()
 	if !reservation.released {
+		if utilityKernelReservations == 0 {
+			kernelMu.Unlock()
+			panic("purejson: utility kernel reservation underflow")
+		}
 		reservation.released = true
 		utilityKernelReservations--
 		kernelCond.Broadcast()
@@ -146,6 +153,10 @@ func (reservation *utilityKernelReservation) cancel() {
 func (reservation *utilityKernelReservation) finish(rc int32) {
 	kernelMu.Lock()
 	if !reservation.released {
+		if utilityKernelReservations == 0 {
+			kernelMu.Unlock()
+			panic("purejson: utility kernel reservation underflow")
+		}
 		markKernelSelectionAfterUtility(rc)
 		reservation.released = true
 		utilityKernelReservations--

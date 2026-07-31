@@ -246,6 +246,13 @@ bool classify_wildcard_path(
         if (segment.find('*') != std::string_view::npos) {
           return false;
         }
+        const bool decimal_index = std::all_of(
+            segment.begin(), segment.end(),
+            [](unsigned char character) { return character >= '0' && character <= '9'; }
+        );
+        if (decimal_index && segment.size() > 1 && segment.front() == '0') {
+          return false;
+        }
         segments->push_back({false, "." + std::string(segment)});
       }
       continue;
@@ -318,8 +325,16 @@ pure_simdjson_error_code_t traverse_wildcard_path(
       const auto error = element.at_path(literal_path).get(resolved);
       if (error == simdjson::SUCCESS) {
         next.push_back(resolved);
-      } else if (error == simdjson::INVALID_JSON_POINTER) {
-        return PURE_SIMDJSON_ERR_INVALID_PATH;
+      } else {
+        switch (error) {
+          case simdjson::INVALID_JSON_POINTER:
+          case simdjson::NO_SUCH_FIELD:
+          case simdjson::INCORRECT_TYPE:
+          case simdjson::INDEX_OUT_OF_BOUNDS:
+            break;
+          default:
+            return map_error(error);
+        }
       }
     }
     current = std::move(next);

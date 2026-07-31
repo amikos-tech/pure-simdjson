@@ -424,7 +424,7 @@ fn malformed_wildcard_paths_return_invalid_path() {
     let root = doc_root(doc);
 
     for path in [
-        b"a.b".as_slice(), b"*", b".a[0", b".items[*].", b".items[*][", b"", b"['*'][*]", b".items.thing*", b".items[*]junk[0]", b".a[*]b[0]", b".rows[01][*]", b"\xff",
+        b"a.b".as_slice(), b"*", b".a[0", b".items[*].", b".items[*][", b"", b"['*'][*]", b".items.thing*", b".items[*]junk[0]", b".a[*]b[0]", b".rows[01][*]", b".a.01[*]", b"\xff",
     ] {
         let (rc, views, count) = wildcard_call(&root, path);
         assert_eq!(rc, PURE_SIMDJSON_ERR_INVALID_PATH, "path {path:?}");

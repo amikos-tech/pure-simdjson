@@ -212,7 +212,7 @@ func TestElement_AtPathAll(t *testing.T) {
 	t.Run("malformed wildcard path", func(t *testing.T) {
 		_, doc := mustParseDoc(t, `{"a":1}`)
 
-		for _, path := range []string{"*", ".items[*].", ".items[*][", "['*'][*]", ".items[*]junk[0]", ".a[*]b[0]", ".rows[01][*]"} {
+		for _, path := range []string{"*", ".items[*].", ".items[*][", "['*'][*]", ".items[*]junk[0]", ".a[*]b[0]", ".rows[01][*]", ".a.01[*]"} {
 			if _, err := doc.Root().AtPathAll(path); !errors.Is(err, ErrInvalidPath) {
 				t.Fatalf("AtPathAll(%q) error = %v, want ErrInvalidPath", path, err)
 			}
