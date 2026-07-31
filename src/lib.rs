@@ -835,6 +835,22 @@ pub unsafe extern "C" fn pure_simdjson_bytes_free(
     })
 }
 
+/// Release an array previously returned by `pure_simdjson_element_at_path_wildcard`.
+/// The empty-result sentinel is `ptr == NULL && len == 0`.
+///
+/// # Safety
+/// `ptr` and `len` must describe an allocation previously returned by
+/// `pure_simdjson_element_at_path_wildcard`.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_value_views_free(
+    ptr: *mut pure_simdjson_value_view_t,
+    len: usize,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_value_views_free", || {
+        runtime::registry::value_views_free(ptr, len)
+    })
+}
+
 /// Decode the referenced value as a C `uint8_t` boolean.
 ///
 /// # Safety
@@ -1117,6 +1133,47 @@ pub unsafe extern "C" fn pure_simdjson_element_at_path(
 
         match runtime::registry::element_at_path(view, path) {
             Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Resolve a simdjson wildcard path from `view` and return ordered document-tied views.
+/// A valid path with no matches succeeds with `*out_views == NULL` and `*out_count == 0`.
+///
+/// # Safety
+/// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+/// When `path_len` is non-zero, `path_ptr` must be readable for `path_len` bytes. `out_views` and
+/// `out_count` must point to writable storage. A non-empty returned array must be released with
+/// `pure_simdjson_value_views_free`.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_element_at_path_wildcard(
+    view: *const pure_simdjson_value_view_t,
+    path_ptr: *const u8,
+    path_len: usize,
+    out_views: *mut *mut pure_simdjson_value_view_t,
+    out_count: *mut usize,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_element_at_path_wildcard", || unsafe {
+        if out_views.is_null() || out_count.is_null() {
+            return err_invalid_argument();
+        }
+        if path_len != 0 && path_ptr.is_null() {
+            return err_invalid_argument();
+        }
+
+        let path = if path_len == 0 {
+            &[][..]
+        } else {
+            slice::from_raw_parts(path_ptr, path_len)
+        };
+
+        match runtime::registry::element_at_path_wildcard(view, path) {
+            Ok((views, count)) => {
+                ptr::write(out_views, views);
+                ptr::write(out_count, count);
+                err_ok()
+            }
             Err(rc) => rc,
         }
     })

@@ -84,6 +84,7 @@ struct Registry {
     parsers: Vec<Slot<ParserEntry>>,
     docs: Vec<Slot<DocEntry>>,
     byte_allocations: HashMap<usize, usize>,
+    view_array_allocations: HashMap<usize, usize>,
 }
 
 static REGISTRY: OnceLock<Mutex<Registry>> = OnceLock::new();
@@ -926,6 +927,43 @@ pub(crate) fn bytes_free(ptr: *mut u8, len: usize) -> pure_simdjson_error_code_t
     err_ok()
 }
 
+pub(crate) fn value_views_free(
+    ptr: *mut pure_simdjson_value_view_t,
+    len: usize,
+) -> pure_simdjson_error_code_t {
+    if ptr.is_null() {
+        return if len == 0 {
+            err_ok()
+        } else {
+            err_invalid_argument()
+        };
+    }
+    if len == 0 {
+        return err_invalid_handle();
+    }
+
+    {
+        let mut registry = registry_guard();
+        match registry.view_array_allocations.remove(&(ptr as usize)) {
+            Some(registered_len) if registered_len == len => {}
+            Some(registered_len) => {
+                registry
+                    .view_array_allocations
+                    .insert(ptr as usize, registered_len);
+                return err_invalid_handle();
+            }
+            None => return err_invalid_handle(),
+        }
+    }
+
+    // SAFETY: successful allocations are registered with exact pointer/count pairs, so this
+    // reconstructs the original Vec allocation exactly once after removing its registry entry.
+    unsafe {
+        drop(Vec::from_raw_parts(ptr, len, len));
+    }
+    err_ok()
+}
+
 pub(crate) fn element_get_bool(
     view: *const pure_simdjson_value_view_t,
 ) -> Result<u8, pure_simdjson_error_code_t> {
@@ -1228,6 +1266,54 @@ pub(crate) fn element_at_path(
             super::native_element_at_path_index(entry.native_ptr, json_index, path)?;
         encode_descendant_view_locked(entry, doc, value_json_index)
     })
+}
+
+pub(crate) fn element_at_path_wildcard(
+    view: *const pure_simdjson_value_view_t,
+    path: &[u8],
+) -> Result<(*mut pure_simdjson_value_view_t, usize), pure_simdjson_error_code_t> {
+    let views: Vec<pure_simdjson_value_view_t> =
+        with_resolved_view(view, |entry, json_index, doc| {
+            let (indices_ptr, count) =
+                super::native_element_at_path_wildcard_indices(entry.native_ptr, json_index, path)?;
+            // SAFETY: `indices_ptr` and `count` describe the document-owned scratch vector filled
+            // by the native call above. The registry mutex remains held while this slice is copied.
+            let indices: &[u64] = if count == 0 {
+                &[]
+            } else {
+                unsafe { slice::from_raw_parts(indices_ptr, count) }
+            };
+            let mut out = Vec::with_capacity(indices.len());
+            for &child_index in indices {
+                out.push(encode_descendant_view_locked(entry, doc, child_index)?);
+            }
+            Ok(out)
+        })?;
+
+    if views.is_empty() {
+        return Ok((ptr::null_mut(), 0));
+    }
+
+    let mut owned = views.into_boxed_slice().into_vec();
+    let ptr = owned.as_mut_ptr();
+    let len = owned.len();
+    debug_assert_eq!(owned.len(), owned.capacity());
+    mem::forget(owned);
+
+    let mut registry = registry_guard();
+    if registry
+        .view_array_allocations
+        .insert(ptr as usize, len)
+        .is_some()
+    {
+        // SAFETY: `ptr`/`len` came from the exact-capacity Vec forgotten immediately above.
+        unsafe {
+            drop(Vec::from_raw_parts(ptr, len, len));
+        }
+        return Err(err_internal());
+    }
+
+    Ok((ptr, len))
 }
 
 pub(crate) fn materialize_build(

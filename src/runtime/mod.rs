@@ -224,6 +224,14 @@ unsafe extern "C" {
         path_len: usize,
         out_value_json_index: *mut u64,
     ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_at_path_wildcard_indices(
+        doc: *mut psimdjson_doc,
+        json_index: u64,
+        path_ptr: *const u8,
+        path_len: usize,
+        out_indices: *mut *const u64,
+        out_count: *mut usize,
+    ) -> pure_simdjson_error_code_t;
     fn psimdjson_materialize_build(
         doc: *mut psimdjson_doc,
         json_index: u64,
@@ -817,6 +825,29 @@ pub(crate) fn native_element_at_path_index(
         return Err(err_internal());
     }
     Ok(value_json_index)
+}
+
+pub(crate) fn native_element_at_path_wildcard_indices(
+    doc_ptr: usize,
+    json_index: u64,
+    path: &[u8],
+) -> Result<(*const u64, usize), pure_simdjson_error_code_t> {
+    let mut indices = ptr::null();
+    let mut count = 0_usize;
+    let rc = unsafe {
+        psimdjson_element_at_path_wildcard_indices(
+            doc_ptr as *mut psimdjson_doc,
+            json_index,
+            path.as_ptr(),
+            path.len(),
+            &mut indices,
+            &mut count,
+        )
+    };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    Ok((indices, count))
 }
 
 pub(crate) fn native_materialize_build(

@@ -223,6 +223,14 @@ pure_simdjson_error_code_t psimdjson_element_at_path_index(
     size_t path_len,
     uint64_t *out_value_json_index
 ) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_element_at_path_wildcard_indices(
+    psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t *path_ptr,
+    size_t path_len,
+    const uint64_t **out_indices,
+    size_t *out_count
+) PSIMDJSON_NOEXCEPT;
 /*
  * Returns a doc-owned frame span for json_index. The span is borrowed and is
  * invalidated by the next psimdjson_materialize_build call on the same doc.
