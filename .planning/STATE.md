@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
 status: executing
-stopped_at: Completed 12-03-PLAN.md
-last_updated: "2026-07-31T10:42:08.503Z"
+stopped_at: Completed 12-04-PLAN.md
+last_updated: "2026-07-31T10:58:35.397Z"
 last_activity: 2026-07-31
 progress:
   total_phases: 22
   completed_phases: 13
   total_plans: 80
-  completed_plans: 73
+  completed_plans: 74
   percent: 59
 ---
 
@@ -26,11 +26,11 @@ See: `.planning/PROJECT.md` (updated 2026-04-23)
 ## Current Position
 
 Phase: 12 (High-value DOM navigation and SIMD utility APIs) — EXECUTING
-Plan: 5 of 11
+Plan: 6 of 11
 Status: Ready to execute
 Last activity: 2026-07-31
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
-Progress: [█████████░] 91%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Progress: [█████████░] 91%
 | Phase 12 P01 | 7min | 2 tasks | 10 files |
 | Phase 12 P02 | 6 min | 2 tasks | 10 files |
 | Phase 12 P03 | 9min | 2 tasks | 10 files |
+| Phase 12 P04 | 10min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -213,6 +214,9 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 12]: Copy wildcard scratch indices into Rust-owned document-tied ValueViews before releasing the registry lock. — Native scratch storage never escapes its guarded call.
 - [Phase 12]: Track wildcard ValueView arrays in a separate exact pointer-to-element-count map. — Struct counts remain distinct from byte-allocation lengths.
 - [Phase 12]: Use the Rust registry mutex for same-document wildcard serialization. — The native guard remains only a re-entrancy backstop.
+- [Phase 12]: Accept exact same-start minify aliasing and otherwise require disjoint caller-declared buffer ranges. — Both partial-overlap directions must fail before any write.
+- [Phase 12]: Reject implicit fallback before locking standalone utility kernel selection, then release the selection mutex before scanning. — Unsupported CPUs fail loudly without holding a process-global mutex across long inputs.
+- [Phase 12]: Keep utility lock evidence narrow: Rust forced-fallback rejection proves native state remains untouched, while a separate successful native call proves selection locks. — The available test override does not force the C++ implicit-fallback branch.
 
 ### Pending Todos
 
@@ -226,8 +230,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-31T10:42:08.494Z
-Stopped at: Completed 12-03-PLAN.md
+Last session: 2026-07-31T10:58:35.389Z
+Stopped at: Completed 12-04-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z
