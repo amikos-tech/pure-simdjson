@@ -78,6 +78,18 @@ unsafe extern "C" {
         dst_cap: usize,
         out_written: *mut usize,
     ) -> pure_simdjson_error_code_t;
+    fn psimdjson_minify(
+        src_ptr: *const u8,
+        src_len: usize,
+        dst_ptr: *mut u8,
+        dst_cap: usize,
+        out_written: *mut usize,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_validate_utf8(
+        data_ptr: *const u8,
+        data_len: usize,
+        out_valid: *mut u8,
+    ) -> pure_simdjson_error_code_t;
     fn psimdjson_native_alloc_stats_reset() -> pure_simdjson_error_code_t;
     fn psimdjson_native_alloc_stats_snapshot(
         out_stats: *mut pure_simdjson_native_alloc_stats_t,
@@ -311,6 +323,34 @@ pub(crate) fn implementation_name() -> Result<Vec<u8>, pure_simdjson_error_code_
     }
     bytes.truncate(written);
     Ok(bytes)
+}
+
+pub(crate) unsafe fn native_minify(
+    src_ptr: *const u8,
+    src_len: usize,
+    dst_ptr: *mut u8,
+    dst_cap: usize,
+) -> Result<usize, pure_simdjson_error_code_t> {
+    let mut written = 0_usize;
+    let rc = unsafe { psimdjson_minify(src_ptr, src_len, dst_ptr, dst_cap, &mut written) };
+    if rc == err_ok() {
+        Ok(written)
+    } else {
+        Err(rc)
+    }
+}
+
+pub(crate) unsafe fn native_validate_utf8(
+    data_ptr: *const u8,
+    data_len: usize,
+) -> Result<bool, pure_simdjson_error_code_t> {
+    let mut valid = 0_u8;
+    let rc = unsafe { psimdjson_validate_utf8(data_ptr, data_len, &mut valid) };
+    if rc == err_ok() {
+        Ok(valid != 0)
+    } else {
+        Err(rc)
+    }
 }
 
 pub(crate) fn native_alloc_stats_reset() -> Result<(), pure_simdjson_error_code_t> {

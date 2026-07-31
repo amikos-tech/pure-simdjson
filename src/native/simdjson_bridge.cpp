@@ -1115,6 +1115,111 @@ pure_simdjson_error_code_t psimdjson_copy_implementation_name(
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
+pure_simdjson_error_code_t psimdjson_minify(
+    const uint8_t *src_ptr,
+    size_t src_len,
+    uint8_t *dst_ptr,
+    size_t dst_cap,
+    size_t *out_written
+) noexcept {
+  try {
+    if (out_written == nullptr) {
+      return invalid_argument();
+    }
+
+    *out_written = src_len;
+    // Upstream minify receives no destination capacity. Enforce its full-input
+    // upper bound before kernel selection or any native write can occur.
+    if (dst_cap < src_len) {
+      return PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL;
+    }
+    if (src_len != 0 && (src_ptr == nullptr || dst_ptr == nullptr)) {
+      return invalid_argument();
+    }
+
+    // Exact same-start aliasing is supported. Every other non-empty layout
+    // must be disjoint across the caller-declared source and destination spans.
+    if (src_len != 0 && src_ptr != dst_ptr) {
+      const uintptr_t src_address = reinterpret_cast<uintptr_t>(src_ptr);
+      const uintptr_t dst_address = reinterpret_cast<uintptr_t>(dst_ptr);
+      const uintptr_t address_max = std::numeric_limits<uintptr_t>::max();
+      if (src_len > address_max - src_address ||
+          dst_cap > address_max - dst_address) {
+        return invalid_argument();
+      }
+
+      const uintptr_t src_end = src_address + src_len;
+      const uintptr_t dst_end = dst_address + dst_cap;
+      if (src_address < dst_end && dst_address < src_end) {
+        return invalid_argument();
+      }
+    }
+
+    auto &selection = implementation_selection_state();
+    {
+      const std::lock_guard<std::mutex> lock(selection.mutex);
+      const simdjson::implementation *implementation =
+          simdjson::get_active_implementation();
+      if (!selection.explicit_selection && implementation->name() == "fallback") {
+        return PURE_SIMDJSON_ERR_CPU_UNSUPPORTED;
+      }
+      selection.locked = true;
+    }
+
+    if (src_len == 0) {
+      *out_written = 0;
+      return PURE_SIMDJSON_OK;
+    }
+
+    size_t written = 0;
+    // Minify is a whitespace-removing scan, not JSON validation. Upstream can
+    // report an unclosed string, but other malformed JSON may still succeed.
+    const auto error = simdjson::minify(
+        reinterpret_cast<const char *>(src_ptr),
+        src_len,
+        reinterpret_cast<char *>(dst_ptr),
+        written
+    );
+    if (error != simdjson::SUCCESS) {
+      return map_error(error);
+    }
+
+    *out_written = written;
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_validate_utf8(
+    const uint8_t *data_ptr,
+    size_t data_len,
+    uint8_t *out_valid
+) noexcept {
+  try {
+    if (out_valid == nullptr) {
+      return invalid_argument();
+    }
+    if (data_len != 0 && data_ptr == nullptr) {
+      return invalid_argument();
+    }
+
+    auto &selection = implementation_selection_state();
+    {
+      const std::lock_guard<std::mutex> lock(selection.mutex);
+      const simdjson::implementation *implementation =
+          simdjson::get_active_implementation();
+      if (!selection.explicit_selection && implementation->name() == "fallback") {
+        return PURE_SIMDJSON_ERR_CPU_UNSUPPORTED;
+      }
+      selection.locked = true;
+    }
+
+    *out_valid = simdjson::validate_utf8(
+        reinterpret_cast<const char *>(data_ptr), data_len
+    ) ? 1 : 0;
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
 pure_simdjson_error_code_t psimdjson_native_alloc_stats_reset(void) noexcept {
   try {
     psimdjson::native_alloc_telemetry::reset();

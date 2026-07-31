@@ -73,6 +73,18 @@ pure_simdjson_error_code_t psimdjson_copy_implementation_name(
     size_t dst_cap,
     size_t *out_written
 ) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_minify(
+    const uint8_t *src_ptr,
+    size_t src_len,
+    uint8_t *dst_ptr,
+    size_t dst_cap,
+    size_t *out_written
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_validate_utf8(
+    const uint8_t *data_ptr,
+    size_t data_len,
+    uint8_t *out_valid
+) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_native_alloc_stats_reset(void) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_native_alloc_stats_snapshot(
     pure_simdjson_native_alloc_stats_t *out_stats

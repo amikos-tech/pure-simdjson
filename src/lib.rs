@@ -411,6 +411,70 @@ pub unsafe extern "C" fn pure_simdjson_copy_implementation_name(
     })
 }
 
+/// Minify JSON bytes into caller-owned storage.
+///
+/// `dst_cap` must be at least `src_len`. Exact same-start aliasing (`dst_ptr == src_ptr`) is
+/// supported; otherwise the caller-declared source and destination ranges must be disjoint.
+/// Successful minification removes whitespace but does not prove that the input is valid JSON:
+/// the upstream scanner reports unclosed strings but does not perform full JSON validation.
+/// A successful call permanently locks process-global implementation selection.
+///
+/// # Safety
+/// `out_written` must point to writable `usize` storage. For non-empty input, `src_ptr` must be
+/// readable for `src_len` bytes and `dst_ptr` must be writable for `dst_cap` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_minify(
+    src_ptr: *const u8,
+    src_len: usize,
+    dst_ptr: *mut u8,
+    dst_cap: usize,
+    out_written: *mut usize,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_minify", || unsafe {
+        if out_written.is_null() {
+            return err_invalid_argument();
+        }
+
+        if let Err(rc) = reject_fallback_implementation() {
+            return rc;
+        }
+
+        match runtime::native_minify(src_ptr, src_len, dst_ptr, dst_cap) {
+            Ok(written) => write_out(out_written, written),
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Check whether caller-owned bytes are valid UTF-8 using the active simdjson implementation.
+///
+/// A successful call permanently locks process-global implementation selection.
+///
+/// # Safety
+/// `out_valid` must point to writable `u8` storage. For non-empty input, `data_ptr` must be
+/// readable for `data_len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_validate_utf8(
+    data_ptr: *const u8,
+    data_len: usize,
+    out_valid: *mut u8,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_validate_utf8", || unsafe {
+        if out_valid.is_null() {
+            return err_invalid_argument();
+        }
+
+        if let Err(rc) = reject_fallback_implementation() {
+            return rc;
+        }
+
+        match runtime::native_validate_utf8(data_ptr, data_len) {
+            Ok(valid) => write_out(out_valid, if valid { 1_u8 } else { 0_u8 }),
+            Err(rc) => rc,
+        }
+    })
+}
+
 /// Reset the diagnostic native allocator telemetry epoch.
 ///
 /// Existing live native allocations remain valid, but future snapshots exclude them from the
