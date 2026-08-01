@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: "Tracked in `REQUIREMENTS.md` as v2 — explicitly deferred and will become a separate roadmap:"
-status: "Phase 10 shipped — PR #40"
-stopped_at: Completed 10-04-PLAN.md
-last_updated: "2026-07-30T14:08:56.609Z"
-last_activity: 2026-07-30
+status: "Phase 12 shipped — PR #41"
+stopped_at: Completed 12-13-PLAN.md
+last_updated: "2026-07-31T19:08:20.677Z"
+last_activity: 2026-07-31
 progress:
   total_phases: 22
-  completed_phases: 13
-  total_plans: 69
-  completed_plans: 69
-  percent: 59
+  completed_phases: 14
+  total_plans: 82
+  completed_plans: 82
+  percent: 64
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-23)
 
 **Core value:** Ship a precision-preserving, cgo-free simdjson DOM parser for Go with honest benchmark positioning: typed extraction and selective traversal are the primary story, while full `any` materialization is documented without overstating current wins.
-**Current focus:** Phase 10 — lightweight-pr-benchmark-regression-signal
+**Current focus:** Phase 12 — high-value-dom-navigation-and-simd-utility-apis
 
 ## Current Position
 
-Phase: 10 — COMPLETE
-Plan: 4 of 4
-Status: Phase 10 shipped — PR #40
-Last activity: 2026-07-30
+Phase: 12 — COMPLETE
+Plan: 3 of 13
+Status: Phase 12 shipped — PR #41
+Last activity: 2026-07-31
 Shipping: Phase 07 PR: https://github.com/amikos-tech/pure-simdjson/pull/18. Phase 08 PR: https://github.com/amikos-tech/pure-simdjson/pull/19. Phase 09 PR: https://github.com/amikos-tech/pure-simdjson/pull/21. Phase 10 PR: https://github.com/amikos-tech/pure-simdjson/pull/27. Phase 11 intermediate compatibility release `v0.1.7` (ABI `0x00010002`) is published and public-bootstrap validated; Phase 16 retains the final v0.2 release.
 Progress: [██████████] 100%
 
@@ -72,12 +72,26 @@ Progress: [██████████] 100%
 | Phase 11 P18 | 8min | 1 tasks | 2 files |
 | Phase 10 P03 | 8 min | 1 tasks | 4 files |
 | Phase 10 P04 | 3min | 2 tasks | 3 files |
+| Phase 12 P09 | 5min | 2 tasks | 7 files |
+| Phase 12 P01 | 7min | 2 tasks | 10 files |
+| Phase 12 P02 | 6 min | 2 tasks | 10 files |
+| Phase 12 P03 | 9min | 2 tasks | 10 files |
+| Phase 12 P04 | 10min | 2 tasks | 10 files |
+| Phase 12 P05 | 3min | 1 tasks | 5 files |
+| Phase 12 P10 | 15min | 2 tasks | 7 files |
+| Phase 12 P11 | 9min | 2 tasks | 5 files |
+| Phase 12 P06 | 7 min | 3 tasks | 3 files |
+| Phase 12 P07 | 9min | 2 tasks | 5 files |
+| Phase 12 P08 | 6 min | 2 tasks | 3 files |
+| Phase 12 P12 | 10min | 2 tasks | 5 files |
+| Phase 12 P13 | 7min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
 ## Quick Tasks Completed
 
 | Date | Slug | Summary |
+| 2026-07-31 | address-the-release-workflow-contract-sa | Hardened PR smoke and prerelease release checks; native wildcard classification/free contracts (including indexed and quoted literal spans); reserved utility kernel selection and frame-layout guards. |
 |------|------|---------|
 | 2026-04-24 | phase8-final-polish | Added executable depth-boundary fence, clarified ERR_INTERNAL split rationale at the ABI enum, expanded cross-ABI numeric comments, and rechecked benchmark gates. |
 | 2026-04-24 | phase8-depth-doc-followup | Clarified depth-limit defense-in-depth docs, strengthened user-actionable enum comments, pinned the current accepted nesting boundary, and rechecked benchmark gates. |
@@ -198,6 +212,36 @@ Decisions are logged in `.planning/PROJECT.md`. Recent decisions affecting curre
 - [Phase 10]: `REQUIRE_NO_REGRESSION` stays `false` until observed CI noise supports a separate blocking-mode decision.
 - [Phase 10]: Treat non-empty raw samples returned by Phase 9 as wrong evidence for the PR benchstat CLI. — The PR input is benchstat output; raw samples would otherwise yield a misleading clean result.
 - [Phase 10]: Keep Phase 10 section-aware sec/op parsing as the regression classifier after shared input validation. — Raw evidence recognition does not replace benchstat metric-section semantics.
+- [Phase 12]: Assign ABI statuses INVALID_PATH=11 and INDEX_OUT_OF_RANGE=12. — Uses the first two available additive values while preserving every existing status and leaving 13-31 reserved.
+- [Phase 12]: Keep ABI 1.2 as the documented Phase 11 loader baseline until Plan 12-10. — The complete ABI 1.3 mandatory symbol surface is not present at the numeric-foundation step.
+- [Phase 12]: Delegate pointer and dot/index path grammar to vendored simdjson. — Keeps the wrapper thin and avoids parser drift.
+- [Phase 12]: Reuse resolved-view validation and descendant registration without a container-kind pre-check. — Preserves upstream empty-pointer behavior while retaining document lifetime checks.
+- [Phase 12]: Exclude private navigation bridge declarations from cbindgen output. — Keeps the public ABI limited to pure_simdjson exports.
+- [Phase 12]: Preserve upstream array::at behavior — Indexed lookup remains a bounds-checked linear scan, and INDEX_OUT_OF_BOUNDS maps through ABI status 12.
+- [Phase 12]: Treat zero as a valid container count — Only resolved descendant tape indices use the nonzero invariant.
+- [Phase 12]: Require 64-bit size_t for Array.At — A compile-time assertion prevents future targets from narrowing the uint64_t index.
+- [Phase 12]: Copy wildcard scratch indices into Rust-owned document-tied ValueViews before releasing the registry lock. — Native scratch storage never escapes its guarded call.
+- [Phase 12]: Track wildcard ValueView arrays in a separate exact pointer-to-element-count map. — Struct counts remain distinct from byte-allocation lengths.
+- [Phase 12]: Use the Rust registry mutex for same-document wildcard serialization. — The native guard remains only a re-entrancy backstop.
+- [Phase 12]: Accept exact same-start minify aliasing and otherwise require disjoint caller-declared buffer ranges. — Both partial-overlap directions must fail before any write.
+- [Phase 12]: Reject implicit fallback before locking standalone utility kernel selection, then release the selection mutex before scanning. — Unsupported CPUs fail loudly without holding a process-global mutex across long inputs.
+- [Phase 12]: Keep utility lock evidence narrow: Rust forced-fallback rejection proves native state remains untouched, while a separate successful native call proves selection locks. — The available test override does not force the C++ implicit-fallback branch.
+- [Phase 12]: Use unpublished 0.2.0-dev as the ABI 1.3 source identity — Prevents the current wrapper from requesting the published ABI 1.2 compatibility artifact.
+- [Phase 12]: Keep v0.1.7/ABI 1.2 as historical documentation only — Phase 16 retains final 0.2.0 publication and fresh-machine bootstrap proof.
+- [Phase 12]: Derive D-14 totals from 12 cases times the ordered host-supported kernel set — Require fallback plus haswell or westmere on Linux x86-64.
+- [Phase 12]: Treat all nine navigation and utility additions as mandatory ABI 1.3 symbols — ABI 1.2 is historical and rejected by the current loader contract.
+- [Phase 12]: Extend the existing shared native release smoke and five-platform Go workflow — Avoid parallel release machinery.
+- [Phase 12]: Require all nine Phase 12 exports before an ABI 1.3 library can be cached. — Version compatibility alone must not admit an incomplete native artifact.
+- [Phase 12]: Copy wildcard ValueView arrays into Go-owned memory before one native free. — Native scratch ownership never escapes the binding layer, and cleanup failures use a distinct warning.
+- [Phase 12]: Map ABI 1.3 to minimum version 0.2.0 while accepting exact 0.2.0-dev source identity. — The source tree stays honest without consuming Phase 16 publication work.
+- [Phase 12]: Require a literal wildcard before AtPathAll crosses the FFI boundary. — Wildcard-free traversal belongs to AtPath and retains precise branch errors.
+- [Phase 12]: Preserve upstream path grammar and surprising key semantics without a second Go parser. — This keeps the wrapper thin and prevents drift from pinned simdjson behavior.
+- [Phase 12]: Return invalid UTF-8 as false with nil error while preserving loader, ABI, CPU, and native operational failures as typed errors. — Keeps data invalidity distinct from utility execution failure.
+- [Phase 12]: Reject negative Array.At indices in Go before crossing the FFI boundary. — Returns ErrIndexOutOfRange without unsigned reinterpretation or native work.
+- [Phase 12]: Keep Array.At error-returning only while Array.Len and Object.Size use panic-safe and error-preserving method pairs. — Element lookup errors must stay visible; scalar count failures have a safe zero fallback.
+- [Phase 12]: native_minify returns (status, written) as one tuple so BUFFER_TOO_SMALL never discards the required capacity — The single call site in src/lib.rs needs status and written together for both OK and BUFFER_TOO_SMALL, matching the already-documented ffi-contract
+- [Phase 12]: pure_simdjson_minify writes out_written via a direct ptr::write guarded by an OK-or-BUFFER_TOO_SMALL status allowlist, never through write_out — write_out always returns PURE_SIMDJSON_OK, which would silently mask a genuine BUFFER_TOO_SMALL status
+- [Phase 12]: Moved pure_simdjson_native_alloc_stats_reset/_snapshot from optional to mandatory purego bindings — An ABI 1.3 artifact missing either symbol previously still bound and got cached, contradicting the documented mandatory ABI 1.3 surface
 
 ### Pending Todos
 
@@ -211,8 +255,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-30T11:55:36.860Z
-Stopped at: Completed 10-04-PLAN.md
+Last session: 2026-07-31T14:33:38.583Z
+Stopped at: Completed 12-13-PLAN.md
 Resume file: None
 
 **Planned Phase:** 09.1 (Bootstrap artifact and ABI alignment for default installs) — context ready, planning next — 2026-04-24T21:30:00Z

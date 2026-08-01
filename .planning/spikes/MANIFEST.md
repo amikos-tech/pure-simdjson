@@ -2,7 +2,7 @@
 
 ## Idea
 
-Reduce Phase 11 execution risk with isolated, reproducible experiments around the three places where the current implementation does not yet prove the planned behavior: upstream error locations, ABI-first symbol binding, and capacity rejection before the Rust-owned input copy.
+Reduce execution risk with isolated, reproducible experiments around places where the current implementation does not yet prove the planned behavior. Phase 11: upstream error locations, ABI-first symbol binding, and capacity rejection before the Rust-owned input copy. Phase 12: whether the locked Minify buffer-aliasing contract is actually memory-safe against the real vendored upstream implementation, and whether the locked AtPathAll error surface (D-02) is reachable by thin delegation to upstream wildcard path resolution.
 
 ## Requirements
 
@@ -11,6 +11,8 @@ Reduce Phase 11 execution risk with isolated, reproducible experiments around th
 - Error locations are known only when simdjson itself returns a pointer inside `[input, input+len)`; no secondary parser, scanner, message parsing, or estimated byte index is allowed.
 - ABI probing happens before Phase 11 mandatory-symbol binding so ABI 1.1 is classified as a version mismatch and incomplete ABI 1.2 as a corrupt surface.
 - Capacity rejection happens before padding arithmetic, buffer growth, or input copying and clears stale parser diagnostics.
+- Phase 12's `MinifyInto(dst, src []byte)` requires `dst` to be sized only `>= len(src)` (no `SIMDJSON_PADDING` slack) and permits `dst == src` in-place aliasing; this must hold against the real vendored implementation, not just upstream's doc comments.
+- Upstream `at_path_with_wildcard` selects its error regime by substring-testing the path for `*`, not by document content: with a wildcard anywhere in the path, no path error is reachable and misses are silently dropped (spike 005). D-02's claimed `ErrElementNotFound`, `ErrIndexOutOfRange`, and `ErrWrongType` are therefore not reachable through wildcard paths, and `AtPathAll`'s public contract must be amended before 12-03 and 12-06 execute.
 
 ## Spikes
 
@@ -19,3 +21,5 @@ Reduce Phase 11 execution risk with isolated, reproducible experiments around th
 | 001 | v464-error-location-replay | standard | Given malformed inputs and pinned simdjson v4.6.4, when an upstream-only On-Demand replay runs after DOM failure, then only stable in-range pointers become known offsets | VALIDATED | [simdjson, diagnostics, offsets, phase-11] |
 | 002 | abi-first-staged-binding | standard | Given ABI 1.1, complete ABI 1.2, and incomplete ABI 1.2 libraries, when the loader probes ABI before mandatory symbols, then mismatch and corruption remain distinguishable | VALIDATED | [purego, abi, loader, phase-11] |
 | 003 | pre-copy-capacity-proof | standard | Given an oversized input and stale parser diagnostics, when parsing starts, then capacity rejection occurs before Rust buffer growth/copy and clears stale details | VALIDATED | [rust, capacity, memory, diagnostics, phase-11] |
+| 004 | minify-buffer-safety | standard | Given dst allocated exactly len(src) bytes, when simdjson::minify() runs directly and with dst aliasing src, then no out-of-bounds write occurs and in-place output matches the non-aliased reference | VALIDATED | [simdjson, minify, memory-safety, ffi, phase-12] |
+| 005 | wildcard-path-semantics | standard | Given the vendored simdjson v4.6.4 DOM API and fixed documents, when element::at_path_with_wildcard is called across wildcard, non-wildcard, scalar-receiver, and malformed paths, then the exact (error_code, result_count, ordering) is pinned and D-02's claimed error surface is confirmed or refuted | PARTIAL | [simdjson, dom, jsonpath, wildcard, error-taxonomy, phase-12] |

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"unsafe"
 
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
@@ -243,6 +244,29 @@ func TestFastMaterializerBigIntAdversarialFrames(t *testing.T) {
 			t.Fatalf("buildAnyFromFrames() = %v (%T), want empty string", got, got)
 		}
 	})
+}
+
+func TestCopyFrameStringBoundsAndOwnsItsBytes(t *testing.T) {
+	backing := []byte{'a', 0, 'b', 'x'}
+	got, err := copyFrameString(unsafe.Pointer(&backing[0]), 3, 0, uint32(ffi.ValueKindString), "string")
+	if err != nil {
+		t.Fatalf("copyFrameString() error = %v", err)
+	}
+	if got != "a\x00b" {
+		t.Fatalf("copyFrameString() = %q, want bounded embedded-NUL value", got)
+	}
+	backing[0] = 'z'
+	if got != "a\x00b" {
+		t.Fatalf("copyFrameString() retained borrowed backing: got %q", got)
+	}
+
+	empty, err := copyFrameString(nil, 0, 0, uint32(ffi.ValueKindString), "string")
+	if err != nil || empty != "" {
+		t.Fatalf("copyFrameString(nil, 0) = (%q, %v), want empty string and nil", empty, err)
+	}
+	if _, err := copyFrameString(nil, 1, 0, uint32(ffi.ValueKindBigInt), "bigint"); !errors.Is(err, ErrInternal) {
+		t.Fatalf("copyFrameString(nil, 1) error = %v, want ErrInternal", err)
+	}
 }
 
 func TestFastMaterializerDepthLimitExceeded(t *testing.T) {

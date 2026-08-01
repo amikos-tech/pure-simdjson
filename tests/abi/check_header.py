@@ -16,7 +16,7 @@ PROTO_RE = re.compile(
 )
 COMMENT_RE = re.compile(r"(?s)/\*.*?\*/|//[^\n]*")
 ABI_VERSION_DEFINE_RE = re.compile(
-    r"(?m)^#define\s+PURE_SIMDJSON_ABI_VERSION\s+0x00010002\s*$"
+    r"(?m)^#define\s+PURE_SIMDJSON_ABI_VERSION\s+0x00010003\s*$"
 )
 FORBIDDEN_INTERNAL_SYMBOL_PREFIXES = ("psdj_internal_", "psimdjson_")
 HEADER_SYMBOL_PREFIXES = ("pure_simdjson_",) + FORBIDDEN_INTERNAL_SYMBOL_PREFIXES
@@ -70,6 +70,7 @@ REQUIRED_SYMBOLS = (
     "pure_simdjson_element_get_string",
     "pure_simdjson_element_get_bigint",
     "pure_simdjson_bytes_free",
+    "pure_simdjson_value_views_free",
     "pure_simdjson_element_get_bool",
     "pure_simdjson_element_is_null",
     "pure_simdjson_array_iter_new",
@@ -77,6 +78,14 @@ REQUIRED_SYMBOLS = (
     "pure_simdjson_object_iter_new",
     "pure_simdjson_object_iter_next",
     "pure_simdjson_object_get_field",
+    "pure_simdjson_element_at_pointer",
+    "pure_simdjson_element_at_path",
+    "pure_simdjson_element_at_path_wildcard",
+    "pure_simdjson_array_at",
+    "pure_simdjson_array_len",
+    "pure_simdjson_object_size",
+    "pure_simdjson_minify",
+    "pure_simdjson_validate_utf8",
 )
 
 
@@ -260,7 +269,7 @@ def rule_diag_surface(
     prototypes: dict[str, tuple[str, list[str]]], header_text: str
 ) -> None:
     if not ABI_VERSION_DEFINE_RE.search(header_text):
-        fail("missing ABI version macro: #define PURE_SIMDJSON_ABI_VERSION 0x00010002")
+        fail("missing ABI version macro: #define PURE_SIMDJSON_ABI_VERSION 0x00010003")
 
     expected_signatures = {
         "pure_simdjson_get_abi_version": ["uint32_t *out_version"],
@@ -274,6 +283,18 @@ def rule_diag_surface(
             "uint8_t *dst",
             "size_t dst_cap",
             "size_t *out_written",
+        ],
+        "pure_simdjson_minify": [
+            "const uint8_t *src_ptr",
+            "size_t src_len",
+            "uint8_t *dst_ptr",
+            "size_t dst_cap",
+            "size_t *out_written",
+        ],
+        "pure_simdjson_validate_utf8": [
+            "const uint8_t *data_ptr",
+            "size_t data_len",
+            "uint8_t *out_valid",
         ],
         "pure_simdjson_parser_new": ["pure_simdjson_parser_t *out_parser"],
         "pure_simdjson_parser_new_configured": [
@@ -315,6 +336,42 @@ def rule_diag_surface(
             "const struct pure_simdjson_value_view_t *view",
             "uint8_t **out_ptr",
             "size_t *out_len",
+        ],
+        "pure_simdjson_element_at_pointer": [
+            "const struct pure_simdjson_value_view_t *view",
+            "const uint8_t *pointer_ptr",
+            "size_t pointer_len",
+            "struct pure_simdjson_value_view_t *out_value",
+        ],
+        "pure_simdjson_element_at_path": [
+            "const struct pure_simdjson_value_view_t *view",
+            "const uint8_t *path_ptr",
+            "size_t path_len",
+            "struct pure_simdjson_value_view_t *out_value",
+        ],
+        "pure_simdjson_element_at_path_wildcard": [
+            "const struct pure_simdjson_value_view_t *view",
+            "const uint8_t *path_ptr",
+            "size_t path_len",
+            "struct pure_simdjson_value_view_t **out_views",
+            "size_t *out_count",
+        ],
+        "pure_simdjson_value_views_free": [
+            "struct pure_simdjson_value_view_t *ptr",
+            "size_t len",
+        ],
+        "pure_simdjson_array_at": [
+            "const struct pure_simdjson_value_view_t *array_view",
+            "uint64_t index",
+            "struct pure_simdjson_value_view_t *out_value",
+        ],
+        "pure_simdjson_array_len": [
+            "const struct pure_simdjson_value_view_t *array_view",
+            "uint64_t *out_len",
+        ],
+        "pure_simdjson_object_size": [
+            "const struct pure_simdjson_value_view_t *object_view",
+            "uint64_t *out_size",
         ],
     }
 

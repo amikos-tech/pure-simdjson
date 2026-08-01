@@ -78,6 +78,18 @@ unsafe extern "C" {
         dst_cap: usize,
         out_written: *mut usize,
     ) -> pure_simdjson_error_code_t;
+    fn psimdjson_minify(
+        src_ptr: *const u8,
+        src_len: usize,
+        dst_ptr: *mut u8,
+        dst_cap: usize,
+        out_written: *mut usize,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_validate_utf8(
+        data_ptr: *const u8,
+        data_len: usize,
+        out_valid: *mut u8,
+    ) -> pure_simdjson_error_code_t;
     fn psimdjson_native_alloc_stats_reset() -> pure_simdjson_error_code_t;
     fn psimdjson_native_alloc_stats_snapshot(
         out_stats: *mut pure_simdjson_native_alloc_stats_t,
@@ -194,6 +206,44 @@ unsafe extern "C" {
         key_len: usize,
         out_value_json_index: *mut u64,
     ) -> pure_simdjson_error_code_t;
+    fn psimdjson_array_at_index(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        index: u64,
+        out_value_json_index: *mut u64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_array_size(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_size: *mut u64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_object_size(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        out_size: *mut u64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_at_pointer_index(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        pointer_ptr: *const u8,
+        pointer_len: usize,
+        out_value_json_index: *mut u64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_at_path_index(
+        doc: *const psimdjson_doc,
+        json_index: u64,
+        path_ptr: *const u8,
+        path_len: usize,
+        out_value_json_index: *mut u64,
+    ) -> pure_simdjson_error_code_t;
+    fn psimdjson_element_at_path_wildcard_indices(
+        doc: *mut psimdjson_doc,
+        json_index: u64,
+        path_ptr: *const u8,
+        path_len: usize,
+        out_indices: *mut *const u64,
+        out_count: *mut usize,
+    ) -> pure_simdjson_error_code_t;
     fn psimdjson_materialize_build(
         doc: *mut psimdjson_doc,
         json_index: u64,
@@ -273,6 +323,30 @@ pub(crate) fn implementation_name() -> Result<Vec<u8>, pure_simdjson_error_code_
     }
     bytes.truncate(written);
     Ok(bytes)
+}
+
+pub(crate) unsafe fn native_minify(
+    src_ptr: *const u8,
+    src_len: usize,
+    dst_ptr: *mut u8,
+    dst_cap: usize,
+) -> (pure_simdjson_error_code_t, usize) {
+    let mut written = 0_usize;
+    let rc = unsafe { psimdjson_minify(src_ptr, src_len, dst_ptr, dst_cap, &mut written) };
+    (rc, written)
+}
+
+pub(crate) unsafe fn native_validate_utf8(
+    data_ptr: *const u8,
+    data_len: usize,
+) -> Result<bool, pure_simdjson_error_code_t> {
+    let mut valid = 0_u8;
+    let rc = unsafe { psimdjson_validate_utf8(data_ptr, data_len, &mut valid) };
+    if rc == err_ok() {
+        Ok(valid != 0)
+    } else {
+        Err(rc)
+    }
 }
 
 pub(crate) fn native_alloc_stats_reset() -> Result<(), pure_simdjson_error_code_t> {
@@ -686,6 +760,130 @@ pub(crate) fn native_object_get_field_index(
         return Err(err_internal());
     }
     Ok(value_json_index)
+}
+
+pub(crate) fn native_array_at_index(
+    doc_ptr: usize,
+    json_index: u64,
+    index: u64,
+) -> Result<u64, pure_simdjson_error_code_t> {
+    let mut value_json_index = 0_u64;
+    let rc = unsafe {
+        psimdjson_array_at_index(
+            doc_ptr as *const psimdjson_doc,
+            json_index,
+            index,
+            &mut value_json_index,
+        )
+    };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    if value_json_index == 0 {
+        return Err(err_internal());
+    }
+    Ok(value_json_index)
+}
+
+pub(crate) fn native_array_size(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<u64, pure_simdjson_error_code_t> {
+    let mut size = 0_u64;
+    let rc =
+        unsafe { psimdjson_array_size(doc_ptr as *const psimdjson_doc, json_index, &mut size) };
+    if rc == err_ok() {
+        Ok(size)
+    } else {
+        Err(rc)
+    }
+}
+
+pub(crate) fn native_object_size(
+    doc_ptr: usize,
+    json_index: u64,
+) -> Result<u64, pure_simdjson_error_code_t> {
+    let mut size = 0_u64;
+    let rc =
+        unsafe { psimdjson_object_size(doc_ptr as *const psimdjson_doc, json_index, &mut size) };
+    if rc == err_ok() {
+        Ok(size)
+    } else {
+        Err(rc)
+    }
+}
+
+pub(crate) fn native_element_at_pointer_index(
+    doc_ptr: usize,
+    json_index: u64,
+    pointer: &[u8],
+) -> Result<u64, pure_simdjson_error_code_t> {
+    let pointer_ptr = pointer.as_ptr();
+    let mut value_json_index = 0_u64;
+    let rc = unsafe {
+        psimdjson_element_at_pointer_index(
+            doc_ptr as *const psimdjson_doc,
+            json_index,
+            pointer_ptr,
+            pointer.len(),
+            &mut value_json_index,
+        )
+    };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    if value_json_index == 0 {
+        return Err(err_internal());
+    }
+    Ok(value_json_index)
+}
+
+pub(crate) fn native_element_at_path_index(
+    doc_ptr: usize,
+    json_index: u64,
+    path: &[u8],
+) -> Result<u64, pure_simdjson_error_code_t> {
+    let path_ptr = path.as_ptr();
+    let mut value_json_index = 0_u64;
+    let rc = unsafe {
+        psimdjson_element_at_path_index(
+            doc_ptr as *const psimdjson_doc,
+            json_index,
+            path_ptr,
+            path.len(),
+            &mut value_json_index,
+        )
+    };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    if value_json_index == 0 {
+        return Err(err_internal());
+    }
+    Ok(value_json_index)
+}
+
+pub(crate) fn native_element_at_path_wildcard_indices(
+    doc_ptr: usize,
+    json_index: u64,
+    path: &[u8],
+) -> Result<(*const u64, usize), pure_simdjson_error_code_t> {
+    let mut indices = ptr::null();
+    let mut count = 0_usize;
+    let rc = unsafe {
+        psimdjson_element_at_path_wildcard_indices(
+            doc_ptr as *mut psimdjson_doc,
+            json_index,
+            path.as_ptr(),
+            path.len(),
+            &mut indices,
+            &mut count,
+        )
+    };
+    if rc != err_ok() {
+        return Err(rc);
+    }
+    Ok((indices, count))
 }
 
 pub(crate) fn native_materialize_build(

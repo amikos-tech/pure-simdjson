@@ -14,7 +14,7 @@ use std::{
 ///
 /// This constant is part of the public C header and stays numerically pinned alongside
 /// `pure_simdjson_get_abi_version`.
-pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0002;
+pub const PURE_SIMDJSON_ABI_VERSION: u32 = 0x0001_0003;
 
 /// Public error codes for the stable ABI v0.1 surface.
 ///
@@ -43,6 +43,8 @@ pub enum pure_simdjson_error_code_t {
     /// Process-global implementation selection is permanently locked after
     /// explicit locking or the first valid parser construction attempt.
     PURE_SIMDJSON_ERR_KERNEL_LOCKED = 10,
+    PURE_SIMDJSON_ERR_INVALID_PATH = 11,
+    PURE_SIMDJSON_ERR_INDEX_OUT_OF_RANGE = 12,
     PURE_SIMDJSON_ERR_INVALID_JSON = 32,
     PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE = 33,
     PURE_SIMDJSON_ERR_PRECISION_LOSS = 34,
@@ -164,7 +166,6 @@ const fn err_invalid_argument() -> pure_simdjson_error_code_t {
 }
 
 #[inline]
-#[cfg_attr(not(test), allow(dead_code))]
 const fn err_buffer_too_small() -> pure_simdjson_error_code_t {
     pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL
 }
@@ -406,6 +407,73 @@ pub unsafe extern "C" fn pure_simdjson_copy_implementation_name(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_copy_implementation_name", || {
         runtime::copy_implementation_name(dst, dst_cap, out_written)
+    })
+}
+
+/// Minify JSON bytes into caller-owned storage.
+///
+/// `dst_cap` must be at least `src_len`. Exact same-start aliasing (`dst_ptr == src_ptr`) is
+/// supported; otherwise the caller-declared source and destination ranges must be disjoint.
+/// Successful minification removes whitespace but does not prove that the input is valid JSON:
+/// the upstream scanner reports unclosed strings but does not perform full JSON validation.
+/// A successful call permanently locks process-global implementation selection.
+/// `out_written` receives the compact byte count on success and the required `src_len` capacity
+/// on `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL`.
+///
+/// # Safety
+/// `out_written` must point to writable `usize` storage. For non-empty input, `src_ptr` must be
+/// readable for `src_len` bytes and `dst_ptr` must be writable for `dst_cap` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_minify(
+    src_ptr: *const u8,
+    src_len: usize,
+    dst_ptr: *mut u8,
+    dst_cap: usize,
+    out_written: *mut usize,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_minify", || unsafe {
+        if out_written.is_null() {
+            return err_invalid_argument();
+        }
+
+        if let Err(rc) = reject_fallback_implementation() {
+            return rc;
+        }
+
+        let (rc, written) = runtime::native_minify(src_ptr, src_len, dst_ptr, dst_cap);
+        if rc == err_ok() || rc == err_buffer_too_small() {
+            ptr::write(out_written, written);
+        }
+        rc
+    })
+}
+
+/// Check whether caller-owned bytes are valid UTF-8 using the active simdjson implementation.
+///
+/// A successful call permanently locks process-global implementation selection.
+///
+/// # Safety
+/// `out_valid` must point to writable `u8` storage. For non-empty input, `data_ptr` must be
+/// readable for `data_len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_validate_utf8(
+    data_ptr: *const u8,
+    data_len: usize,
+    out_valid: *mut u8,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_validate_utf8", || unsafe {
+        if out_valid.is_null() {
+            return err_invalid_argument();
+        }
+
+        if let Err(rc) = reject_fallback_implementation() {
+            return rc;
+        }
+
+        match runtime::native_validate_utf8(data_ptr, data_len) {
+            Ok(valid) => write_out(out_valid, if valid { 1_u8 } else { 0_u8 }),
+            Err(rc) => rc,
+        }
     })
 }
 
@@ -818,10 +886,11 @@ pub unsafe extern "C" fn pure_simdjson_element_get_bigint(
 
 /// Release memory previously returned by `pure_simdjson_element_get_string` or
 /// `pure_simdjson_element_get_bigint`.
-/// The empty-string sentinel is `ptr == NULL && len == 0`.
+/// The only empty-string sentinel is `ptr == NULL && len == 0`; null/nonzero
+/// and nonnull/zero pairs are invalid.
 ///
 /// # Safety
-/// `ptr` and `len` must describe an allocation previously returned by
+/// A nonempty pair must exactly describe an allocation previously returned by
 /// `pure_simdjson_element_get_string` or `pure_simdjson_element_get_bigint`.
 #[no_mangle]
 pub unsafe extern "C" fn pure_simdjson_bytes_free(
@@ -830,6 +899,23 @@ pub unsafe extern "C" fn pure_simdjson_bytes_free(
 ) -> pure_simdjson_error_code_t {
     ffi_wrap("pure_simdjson_bytes_free", || {
         runtime::registry::bytes_free(ptr, len)
+    })
+}
+
+/// Release an array previously returned by `pure_simdjson_element_at_path_wildcard`.
+/// The only empty sentinel is `ptr == NULL && len == 0`; null/nonzero and
+/// nonnull/zero pairs are invalid.
+///
+/// # Safety
+/// A nonempty pair must exactly describe an allocation previously returned by
+/// `pure_simdjson_element_at_path_wildcard`.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_value_views_free(
+    ptr: *mut pure_simdjson_value_view_t,
+    len: usize,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_value_views_free", || {
+        runtime::registry::value_views_free(ptr, len)
     })
 }
 
@@ -997,6 +1083,176 @@ pub unsafe extern "C" fn pure_simdjson_object_get_field(
     })
 }
 
+/// Resolve an array element by zero-based index and return its document-tied value view.
+///
+/// # Safety
+/// `array_view` must point to a readable array-valued `pure_simdjson_value_view_t` derived from a
+/// live document. `out_value` must point to writable storage.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_array_at(
+    array_view: *const pure_simdjson_value_view_t,
+    index: u64,
+    out_value: *mut pure_simdjson_value_view_t,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_array_at", || unsafe {
+        match runtime::registry::array_at(array_view, index) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Report the direct-child count of an array-valued view.
+///
+/// # Safety
+/// `array_view` must point to a readable array-valued `pure_simdjson_value_view_t` derived from a
+/// live document. `out_len` must point to writable `u64` storage.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_array_len(
+    array_view: *const pure_simdjson_value_view_t,
+    out_len: *mut u64,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_array_len", || unsafe {
+        match runtime::registry::array_len(array_view) {
+            Ok(len) => write_out(out_len, len),
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Report the direct-field count of an object-valued view.
+///
+/// # Safety
+/// `object_view` must point to a readable object-valued `pure_simdjson_value_view_t` derived from
+/// a live document. `out_size` must point to writable `u64` storage.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_object_size(
+    object_view: *const pure_simdjson_value_view_t,
+    out_size: *mut u64,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_object_size", || unsafe {
+        match runtime::registry::object_size(object_view) {
+            Ok(size) => write_out(out_size, size),
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Resolve an RFC 6901 JSON Pointer from `view` and return the descendant through `out_value`.
+///
+/// # Safety
+/// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+/// When `pointer_len` is non-zero, `pointer_ptr` must be readable for `pointer_len` bytes.
+/// `out_value` must point to writable storage.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_element_at_pointer(
+    view: *const pure_simdjson_value_view_t,
+    pointer_ptr: *const u8,
+    pointer_len: usize,
+    out_value: *mut pure_simdjson_value_view_t,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_element_at_pointer", || unsafe {
+        if out_value.is_null() {
+            return err_invalid_argument();
+        }
+        if pointer_len != 0 && pointer_ptr.is_null() {
+            return err_invalid_argument();
+        }
+
+        let pointer = if pointer_len == 0 {
+            &[][..]
+        } else {
+            slice::from_raw_parts(pointer_ptr, pointer_len)
+        };
+
+        match runtime::registry::element_at_pointer(view, pointer) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Resolve a simdjson dot/index path from `view` and return the descendant through `out_value`.
+///
+/// # Safety
+/// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+/// When `path_len` is non-zero, `path_ptr` must be readable for `path_len` bytes. `out_value` must
+/// point to writable storage.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_element_at_path(
+    view: *const pure_simdjson_value_view_t,
+    path_ptr: *const u8,
+    path_len: usize,
+    out_value: *mut pure_simdjson_value_view_t,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_element_at_path", || unsafe {
+        if out_value.is_null() {
+            return err_invalid_argument();
+        }
+        if path_len != 0 && path_ptr.is_null() {
+            return err_invalid_argument();
+        }
+
+        let path = if path_len == 0 {
+            &[][..]
+        } else {
+            slice::from_raw_parts(path_ptr, path_len)
+        };
+
+        match runtime::registry::element_at_path(view, path) {
+            Ok(value) => write_out(out_value, value),
+            Err(rc) => rc,
+        }
+    })
+}
+
+/// Resolve a simdjson wildcard path from `view` and return ordered document-tied views.
+/// A valid path with no matches succeeds with `*out_views == NULL` and `*out_count == 0`.
+///
+/// # Safety
+/// `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+/// When `path_len` is non-zero, `path_ptr` must be readable for `path_len` bytes. `out_views` is
+/// writable storage for a value-view pointer and `out_count` is writable storage for its element
+/// count. Once both are writable, every error clears them to null/zero, including `PARSER_BUSY`.
+/// A non-empty returned carrier array must be released exactly once with
+/// `pure_simdjson_value_views_free`.
+#[no_mangle]
+pub unsafe extern "C" fn pure_simdjson_element_at_path_wildcard(
+    view: *const pure_simdjson_value_view_t,
+    path_ptr: *const u8,
+    path_len: usize,
+    out_views: *mut *mut pure_simdjson_value_view_t,
+    out_count: *mut usize,
+) -> pure_simdjson_error_code_t {
+    ffi_wrap("pure_simdjson_element_at_path_wildcard", || unsafe {
+        if out_views.is_null() || out_count.is_null() {
+            return err_invalid_argument();
+        }
+        // Once both output locations are known writable, every failure leaves
+        // the caller with the one valid empty-result sentinel.
+        ptr::write(out_views, ptr::null_mut());
+        ptr::write(out_count, 0);
+        if path_len != 0 && path_ptr.is_null() {
+            return err_invalid_argument();
+        }
+
+        let path = if path_len == 0 {
+            &[][..]
+        } else {
+            slice::from_raw_parts(path_ptr, path_len)
+        };
+
+        match runtime::registry::element_at_path_wildcard(view, path) {
+            Ok((views, count)) => {
+                ptr::write(out_views, views);
+                ptr::write(out_count, count);
+                err_ok()
+            }
+            Err(rc) => rc,
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1023,8 +1279,8 @@ mod tests {
         let rc = unsafe { pure_simdjson_get_abi_version(&mut abi_version) };
 
         assert_eq!(rc, err_ok());
-        assert_eq!(PURE_SIMDJSON_ABI_VERSION, 0x0001_0002);
-        assert_eq!(abi_version, 0x0001_0002);
+        assert_eq!(PURE_SIMDJSON_ABI_VERSION, 0x0001_0003);
+        assert_eq!(abi_version, 0x0001_0003);
     }
 
     #[test]
@@ -1070,6 +1326,14 @@ mod tests {
             (
                 pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_KERNEL_LOCKED,
                 10,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INVALID_PATH,
+                11,
+            ),
+            (
+                pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INDEX_OUT_OF_RANGE,
+                12,
             ),
             (
                 pure_simdjson_error_code_t::PURE_SIMDJSON_ERR_INVALID_JSON,

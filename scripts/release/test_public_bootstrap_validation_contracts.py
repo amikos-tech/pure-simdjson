@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import pathlib
-import subprocess
 import unittest
+
+try:
+    from scripts.release.workflow_yaml import load_workflow_definition
+except ModuleNotFoundError:  # pragma: no cover - direct script invocation
+    from workflow_yaml import load_workflow_definition
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -17,56 +20,8 @@ RUN_PUBLIC_BOOTSTRAP_SMOKE = (
     REPO_ROOT / "scripts" / "release" / "run_public_bootstrap_smoke.sh"
 )
 
-try:
-    import yaml
-except ModuleNotFoundError:  # pragma: no cover - exercised via yq fallback when PyYAML is absent
-    yaml = None
-
-
-if yaml is not None:
-    class UniqueKeyLoader(yaml.BaseLoader):
-        pass
-
-
-    def _construct_unique_mapping(
-        loader: UniqueKeyLoader, node: yaml.nodes.MappingNode, deep: bool = False
-    ) -> dict[object, object]:
-        mapping: dict[object, object] = {}
-        for key_node, value_node in node.value:
-            key = loader.construct_object(key_node, deep=deep)
-            if key in mapping:
-                raise AssertionError(f"duplicate YAML key: {key!r}")
-            mapping[key] = loader.construct_object(value_node, deep=deep)
-        return mapping
-
-
-    UniqueKeyLoader.add_constructor(
-        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
-        _construct_unique_mapping,
-    )
-
-
-def load_workflow_definition() -> dict[object, object]:
-    workflow_text = WORKFLOW.read_text(encoding="utf-8")
-    if yaml is not None:
-        workflow = yaml.load(workflow_text, Loader=UniqueKeyLoader)
-        if not isinstance(workflow, dict):
-            raise AssertionError(f"expected workflow mapping, got {type(workflow)!r}")
-        return workflow
-
-    result = subprocess.run(
-        ["yq", "-o=json", str(WORKFLOW)],
-        cwd=REPO_ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise AssertionError(f"unable to parse workflow YAML: {result.stderr.strip()}")
-    workflow = json.loads(result.stdout)
-    if not isinstance(workflow, dict):
-        raise AssertionError(f"expected workflow mapping, got {type(workflow)!r}")
-    return workflow
+def workflow_definition() -> dict[object, object]:
+    return load_workflow_definition(WORKFLOW, REPO_ROOT)
 
 
 def job_step(job: dict[object, object], name: str) -> dict[object, object]:
@@ -90,7 +45,7 @@ def is_false(value: object) -> bool:
 
 class PublicBootstrapValidationContractTests(unittest.TestCase):
     def test_public_bands_execute_published_tag_abi_1_2_smoke(self) -> None:
-        workflow = load_workflow_definition()
+        workflow = workflow_definition()
         wrapper_text = RUN_PUBLIC_BOOTSTRAP_SMOKE.read_text(encoding="utf-8")
         smoke_text = GO_BOOTSTRAP_SMOKE.read_text(encoding="utf-8")
 
@@ -125,19 +80,19 @@ class PublicBootstrapValidationContractTests(unittest.TestCase):
         ):
             self.assertIn(snippet, smoke_text)
 
-    def test_bootstrap_docs_mark_0_1_7_as_source_prepared(self) -> None:
+    def test_bootstrap_docs_mark_0_1_7_as_historical(self) -> None:
         bootstrap_text = BOOTSTRAP_DOC.read_text(encoding="utf-8")
 
         for snippet in (
             "v0.1.7",
-            "source-prepared",
+            "historical ABI",
             "ErrABIVersionMismatch",
             "Phase `06.1`",
         ):
             self.assertIn(snippet, bootstrap_text)
 
     def test_workflow_exists_and_has_manual_plus_scheduled_triggers(self) -> None:
-        workflow = load_workflow_definition()
+        workflow = workflow_definition()
 
         self.assertTrue(WORKFLOW.exists())
         self.assertIn("workflow_dispatch", workflow["on"])
@@ -153,13 +108,13 @@ class PublicBootstrapValidationContractTests(unittest.TestCase):
         self.assertTrue(is_false(workflow["concurrency"]["cancel-in-progress"]))
 
     def test_workflow_keeps_top_level_permissions_read_only(self) -> None:
-        workflow = load_workflow_definition()
+        workflow = workflow_definition()
 
         self.assertEqual(workflow["permissions"]["contents"], "read")
         self.assertEqual(workflow["permissions"]["actions"], "read")
 
     def test_resolve_version_job_fetches_latest_json_and_validates_semver(self) -> None:
-        workflow = load_workflow_definition()
+        workflow = workflow_definition()
         resolve_job = workflow["jobs"]["resolve-version"]
         resolve_step = job_step(resolve_job, "Resolve target version")
         run_script = resolve_step["run"]
@@ -173,7 +128,7 @@ class PublicBootstrapValidationContractTests(unittest.TestCase):
         self.assertIn("validation version must match", run_script)
 
     def test_jobs_pin_actions_and_checkout_target_src(self) -> None:
-        workflow = load_workflow_definition()
+        workflow = workflow_definition()
 
         for job_name in ("validate-r2", "validate-gh-fallback"):
             job = workflow["jobs"][job_name]
@@ -200,7 +155,7 @@ class PublicBootstrapValidationContractTests(unittest.TestCase):
             self.assertEqual(target_checkout["with"]["path"], "target-src")
 
     def test_jobs_force_bash_timeout_and_safe_target_validation(self) -> None:
-        workflow = load_workflow_definition()
+        workflow = workflow_definition()
 
         for job_name in ("validate-r2", "validate-gh-fallback"):
             job = workflow["jobs"][job_name]
@@ -224,7 +179,7 @@ class PublicBootstrapValidationContractTests(unittest.TestCase):
             self.assertIn('--version "$VERSION"', smoke_step["run"])
 
     def test_validate_r2_job_covers_full_matrix_in_r2_mode(self) -> None:
-        workflow = load_workflow_definition()
+        workflow = workflow_definition()
         r2_job = workflow["jobs"]["validate-r2"]
         smoke_step = job_step(r2_job, "Run public bootstrap smoke (r2)")
 
@@ -242,7 +197,7 @@ class PublicBootstrapValidationContractTests(unittest.TestCase):
         self.assertIn("--mode r2", smoke_step["run"])
 
     def test_validate_gh_fallback_job_uses_representative_subset(self) -> None:
-        workflow = load_workflow_definition()
+        workflow = workflow_definition()
         fallback_job = workflow["jobs"]["validate-gh-fallback"]
         smoke_step = job_step(fallback_job, "Run public bootstrap smoke (github-fallback)")
 
@@ -254,7 +209,7 @@ class PublicBootstrapValidationContractTests(unittest.TestCase):
         self.assertIn("--mode github-fallback", smoke_step["run"])
 
     def test_scheduled_failure_notification_job_opens_or_updates_issue(self) -> None:
-        workflow = load_workflow_definition()
+        workflow = workflow_definition()
         notify_job = workflow["jobs"]["notify-scheduled-failure"]
         notify_step = job_step(notify_job, "Open or update scheduled validation issue")
 

@@ -37,7 +37,7 @@ const (
 	// TypeObject reports a JSON object value.
 	TypeObject ElementType = ElementType(ffi.ValueKindObject)
 	// TypeBigInt reports an integer outside the int64 and uint64 ranges.
-	TypeBigInt ElementType = 9
+	TypeBigInt ElementType = ElementType(ffi.ValueKindBigInt)
 )
 
 // Array wraps an Element verified to represent a JSON array. Construct via
@@ -77,6 +77,78 @@ func (e Element) usableDoc() (*Doc, error) {
 		return nil, ErrClosed
 	}
 	return e.doc, nil
+}
+
+// AtPointer resolves an RFC 6901 JSON Pointer from the current element.
+// Malformed syntax returns ErrInvalidPath, missing object keys or segments
+// return ErrElementNotFound, out-of-range array indices return
+// ErrIndexOutOfRange, and traversal type mismatches return ErrWrongType.
+//
+// A trailing separator names an empty-string key on the child; it is not a
+// no-op. For example, AtPointer("/a/") on {"a":1} returns
+// ErrElementNotFound, while the same pointer on {"a":{"":"x"}} resolves to
+// "x".
+func (e Element) AtPointer(pointer string) (Element, error) {
+	doc, err := e.usableDoc()
+	if err != nil {
+		return Element{}, err
+	}
+
+	view, rc := doc.parser.library.bindings.ElementAtPointer(&e.view, pointer)
+	runtime.KeepAlive(doc)
+	if err := wrapStatus(rc); err != nil {
+		return Element{}, err
+	}
+	return Element{doc: doc, view: view}, nil
+}
+
+// AtPath resolves simdjson's documented dot/index path subset from the current
+// element. After an optional leading '$', paths must start with '.' or '[':
+// use ".name" or "$.name", not "name". An empty path is invalid.
+//
+// Bracket-key syntax is not quote-aware. AtPath(".obj['foo']") looks up the
+// literal key "'foo'", including both quote characters, while
+// AtPath(".obj[foo]") looks up "foo". This is upstream simdjson behavior.
+func (e Element) AtPath(path string) (Element, error) {
+	doc, err := e.usableDoc()
+	if err != nil {
+		return Element{}, err
+	}
+
+	view, rc := doc.parser.library.bindings.ElementAtPath(&e.view, path)
+	runtime.KeepAlive(doc)
+	if err := wrapStatus(rc); err != nil {
+		return Element{}, err
+	}
+	return Element{doc: doc, view: view}, nil
+}
+
+// AtPathAll returns document-order matches for simdjson's dot/index path
+// subset with structural `.*` or `[*]` wildcard segments. Native validation
+// distinguishes malformed paths and literal-star keys from a valid traversal
+// with no surviving branches. The two wildcard forms are aliases and are not
+// container-type checks.
+//
+// Missing, out-of-range, and non-container branches are skipped. A valid path
+// with no surviving branches returns a non-nil empty slice and no error. The
+// returned elements remain tied to the owning document and become unusable
+// after it closes. AtPathAll does not implement full RFC 9535 JSONPath.
+func (e Element) AtPathAll(path string) ([]Element, error) {
+	doc, err := e.usableDoc()
+	if err != nil {
+		return nil, err
+	}
+	views, rc := doc.parser.library.bindings.ElementAtPathWildcard(&e.view, path)
+	runtime.KeepAlive(doc)
+	if err := wrapStatus(rc); err != nil {
+		return nil, err
+	}
+
+	out := make([]Element, len(views))
+	for i, view := range views {
+		out[i] = Element{doc: doc, view: view}
+	}
+	return out, nil
 }
 
 // GetInt64 reads the current element as an int64 and returns ErrClosed when the
@@ -140,7 +212,7 @@ func (e Element) TypeErr() (ElementType, error) {
 		return TypeArray, nil
 	case ffi.ValueKindObject:
 		return TypeObject, nil
-	case ffi.ValueKind(TypeBigInt):
+	case ffi.ValueKindBigInt:
 		return TypeBigInt, nil
 	default:
 		return TypeInvalid, nil
@@ -308,6 +380,99 @@ func (e Element) AsObject() (Object, error) {
 		return Object{}, ErrWrongType
 	}
 	return Object{element: e}, nil
+}
+
+// At returns the element at the zero-based index. Negative indices are not
+// supported, and any out-of-range index returns ErrIndexOutOfRange rather than
+// a zero-value Element.
+//
+// At performs an O(n) linear scan of the simdjson tape because arrays do not
+// have a random-access offset table. Repeated At calls over a full array are
+// therefore O(n^2); use Iter for a full traversal.
+func (a Array) At(index int) (Element, error) {
+	doc, err := a.element.usableDoc()
+	if err != nil {
+		return Element{}, err
+	}
+	if ffi.ValueKind(a.element.view.KindHint) != ffi.ValueKindArray {
+		return Element{}, ErrWrongType
+	}
+	if index < 0 {
+		return Element{}, ErrIndexOutOfRange
+	}
+
+	view, rc := doc.parser.library.bindings.ArrayAt(&a.element.view, uint64(index))
+	runtime.KeepAlive(doc)
+	if err := wrapStatus(rc); err != nil {
+		return Element{}, err
+	}
+	return Element{doc: doc, view: view}, nil
+}
+
+// Len returns the array's direct-child count in O(1), or zero when LenErr
+// reports an error. The count comes from a 24-bit tape field and silently
+// saturates at 16,777,215 (0xFFFFFF) direct children. Use Object.Size for the
+// corresponding object field count.
+func (a Array) Len() int {
+	length, err := a.LenErr()
+	if err != nil {
+		return 0
+	}
+	return length
+}
+
+// LenErr returns the array's direct-child count in O(1) while preserving
+// lifecycle and type errors. It distinguishes an empty array, which returns
+// (0, nil), from failure. The 24-bit tape count silently saturates at
+// 16,777,215 (0xFFFFFF) direct children. See Object.Size for object fields.
+func (a Array) LenErr() (int, error) {
+	doc, err := a.element.usableDoc()
+	if err != nil {
+		return 0, err
+	}
+	if ffi.ValueKind(a.element.view.KindHint) != ffi.ValueKindArray {
+		return 0, ErrWrongType
+	}
+
+	length, rc := doc.parser.library.bindings.ArrayLen(&a.element.view)
+	runtime.KeepAlive(doc)
+	if err := wrapStatus(rc); err != nil {
+		return 0, err
+	}
+	return int(length), nil
+}
+
+// Size returns the object's direct-field count in O(1), or zero when SizeErr
+// reports an error. The count comes from a 24-bit tape field and silently
+// saturates at 16,777,215 (0xFFFFFF) direct fields. Use Array.Len for the
+// corresponding array child count.
+func (o Object) Size() int {
+	size, err := o.SizeErr()
+	if err != nil {
+		return 0
+	}
+	return size
+}
+
+// SizeErr returns the object's direct-field count in O(1) while preserving
+// lifecycle and type errors. It distinguishes an empty object, which returns
+// (0, nil), from failure. The 24-bit tape count silently saturates at
+// 16,777,215 (0xFFFFFF) direct fields. See Array.Len for array children.
+func (o Object) SizeErr() (int, error) {
+	doc, err := o.element.usableDoc()
+	if err != nil {
+		return 0, err
+	}
+	if ffi.ValueKind(o.element.view.KindHint) != ffi.ValueKindObject {
+		return 0, ErrWrongType
+	}
+
+	size, rc := doc.parser.library.bindings.ObjectSize(&o.element.view)
+	runtime.KeepAlive(doc)
+	if err := wrapStatus(rc); err != nil {
+		return 0, err
+	}
+	return int(size), nil
 }
 
 // Iter returns a scanner-style iterator over the array contents in document

@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#define PURE_SIMDJSON_ABI_VERSION 0x00010002
+#define PURE_SIMDJSON_ABI_VERSION 0x00010003
 
 /**
  * Public error codes for the stable ABI v0.1 surface.
@@ -46,6 +46,8 @@ enum pure_simdjson_error_code_t
    * explicit locking or the first valid parser construction attempt.
    */
   PURE_SIMDJSON_ERR_KERNEL_LOCKED = 10,
+  PURE_SIMDJSON_ERR_INVALID_PATH = 11,
+  PURE_SIMDJSON_ERR_INDEX_OUT_OF_RANGE = 12,
   PURE_SIMDJSON_ERR_INVALID_JSON = 32,
   PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE = 33,
   PURE_SIMDJSON_ERR_PRECISION_LOSS = 34,
@@ -229,6 +231,40 @@ pure_simdjson_error_code_t pure_simdjson_get_implementation_name_len(size_t *out
 pure_simdjson_error_code_t pure_simdjson_copy_implementation_name(uint8_t *dst,
                                                                   size_t dst_cap,
                                                                   size_t *out_written);
+
+/**
+ * Minify JSON bytes into caller-owned storage.
+ *
+ * `dst_cap` must be at least `src_len`. Exact same-start aliasing (`dst_ptr == src_ptr`) is
+ * supported; otherwise the caller-declared source and destination ranges must be disjoint.
+ * Successful minification removes whitespace but does not prove that the input is valid JSON:
+ * the upstream scanner reports unclosed strings but does not perform full JSON validation.
+ * A successful call permanently locks process-global implementation selection.
+ * `out_written` receives the compact byte count on success and the required `src_len` capacity
+ * on `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL`.
+ *
+ * # Safety
+ * `out_written` must point to writable `usize` storage. For non-empty input, `src_ptr` must be
+ * readable for `src_len` bytes and `dst_ptr` must be writable for `dst_cap` bytes.
+ */
+pure_simdjson_error_code_t pure_simdjson_minify(const uint8_t *src_ptr,
+                                                size_t src_len,
+                                                uint8_t *dst_ptr,
+                                                size_t dst_cap,
+                                                size_t *out_written);
+
+/**
+ * Check whether caller-owned bytes are valid UTF-8 using the active simdjson implementation.
+ *
+ * A successful call permanently locks process-global implementation selection.
+ *
+ * # Safety
+ * `out_valid` must point to writable `u8` storage. For non-empty input, `data_ptr` must be
+ * readable for `data_len` bytes.
+ */
+pure_simdjson_error_code_t pure_simdjson_validate_utf8(const uint8_t *data_ptr,
+                                                       size_t data_len,
+                                                       uint8_t *out_valid);
 
 /**
  * Reset the diagnostic native allocator telemetry epoch.
@@ -458,13 +494,26 @@ pure_simdjson_error_code_t pure_simdjson_element_get_bigint(const struct pure_si
 /**
  * Release memory previously returned by `pure_simdjson_element_get_string` or
  * `pure_simdjson_element_get_bigint`.
- * The empty-string sentinel is `ptr == NULL && len == 0`.
+ * The only empty-string sentinel is `ptr == NULL && len == 0`; null/nonzero
+ * and nonnull/zero pairs are invalid.
  *
  * # Safety
- * `ptr` and `len` must describe an allocation previously returned by
+ * A nonempty pair must exactly describe an allocation previously returned by
  * `pure_simdjson_element_get_string` or `pure_simdjson_element_get_bigint`.
  */
 pure_simdjson_error_code_t pure_simdjson_bytes_free(uint8_t *ptr, size_t len);
+
+/**
+ * Release an array previously returned by `pure_simdjson_element_at_path_wildcard`.
+ * The only empty sentinel is `ptr == NULL && len == 0`; null/nonzero and
+ * nonnull/zero pairs are invalid.
+ *
+ * # Safety
+ * A nonempty pair must exactly describe an allocation previously returned by
+ * `pure_simdjson_element_at_path_wildcard`.
+ */
+pure_simdjson_error_code_t pure_simdjson_value_views_free(struct pure_simdjson_value_view_t *ptr,
+                                                          size_t len);
 
 /**
  * Decode the referenced value as a C `uint8_t` boolean.
@@ -541,6 +590,81 @@ pure_simdjson_error_code_t pure_simdjson_object_get_field(const struct pure_simd
                                                           const uint8_t *key_ptr,
                                                           size_t key_len,
                                                           struct pure_simdjson_value_view_t *out_value);
+
+/**
+ * Resolve an array element by zero-based index and return its document-tied value view.
+ *
+ * # Safety
+ * `array_view` must point to a readable array-valued `pure_simdjson_value_view_t` derived from a
+ * live document. `out_value` must point to writable storage.
+ */
+pure_simdjson_error_code_t pure_simdjson_array_at(const struct pure_simdjson_value_view_t *array_view,
+                                                  uint64_t index,
+                                                  struct pure_simdjson_value_view_t *out_value);
+
+/**
+ * Report the direct-child count of an array-valued view.
+ *
+ * # Safety
+ * `array_view` must point to a readable array-valued `pure_simdjson_value_view_t` derived from a
+ * live document. `out_len` must point to writable `u64` storage.
+ */
+pure_simdjson_error_code_t pure_simdjson_array_len(const struct pure_simdjson_value_view_t *array_view,
+                                                   uint64_t *out_len);
+
+/**
+ * Report the direct-field count of an object-valued view.
+ *
+ * # Safety
+ * `object_view` must point to a readable object-valued `pure_simdjson_value_view_t` derived from
+ * a live document. `out_size` must point to writable `u64` storage.
+ */
+pure_simdjson_error_code_t pure_simdjson_object_size(const struct pure_simdjson_value_view_t *object_view,
+                                                     uint64_t *out_size);
+
+/**
+ * Resolve an RFC 6901 JSON Pointer from `view` and return the descendant through `out_value`.
+ *
+ * # Safety
+ * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+ * When `pointer_len` is non-zero, `pointer_ptr` must be readable for `pointer_len` bytes.
+ * `out_value` must point to writable storage.
+ */
+pure_simdjson_error_code_t pure_simdjson_element_at_pointer(const struct pure_simdjson_value_view_t *view,
+                                                            const uint8_t *pointer_ptr,
+                                                            size_t pointer_len,
+                                                            struct pure_simdjson_value_view_t *out_value);
+
+/**
+ * Resolve a simdjson dot/index path from `view` and return the descendant through `out_value`.
+ *
+ * # Safety
+ * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+ * When `path_len` is non-zero, `path_ptr` must be readable for `path_len` bytes. `out_value` must
+ * point to writable storage.
+ */
+pure_simdjson_error_code_t pure_simdjson_element_at_path(const struct pure_simdjson_value_view_t *view,
+                                                         const uint8_t *path_ptr,
+                                                         size_t path_len,
+                                                         struct pure_simdjson_value_view_t *out_value);
+
+/**
+ * Resolve a simdjson wildcard path from `view` and return ordered document-tied views.
+ * A valid path with no matches succeeds with `*out_views == NULL` and `*out_count == 0`.
+ *
+ * # Safety
+ * `view` must point to a readable `pure_simdjson_value_view_t` derived from a live document.
+ * When `path_len` is non-zero, `path_ptr` must be readable for `path_len` bytes. `out_views` is
+ * writable storage for a value-view pointer and `out_count` is writable storage for its element
+ * count. Once both are writable, every error clears them to null/zero, including `PARSER_BUSY`.
+ * A non-empty returned carrier array must be released exactly once with
+ * `pure_simdjson_value_views_free`.
+ */
+pure_simdjson_error_code_t pure_simdjson_element_at_path_wildcard(const struct pure_simdjson_value_view_t *view,
+                                                                  const uint8_t *path_ptr,
+                                                                  size_t path_len,
+                                                                  struct pure_simdjson_value_view_t **out_views,
+                                                                  size_t *out_count);
 
 #ifdef __cplusplus
 }  // extern "C"

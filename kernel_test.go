@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/amikos-tech/pure-simdjson/internal/ffi"
 )
@@ -149,6 +150,252 @@ func TestKernelInvalidOptionsDoNotLock(t *testing.T) {
 		}
 		if err := SetKernel(""); err != nil {
 			t.Fatalf("SetKernel() after invalid options error = %v", err)
+		}
+	})
+}
+
+func TestKernelUtilityStatusGateExcludesOnlyPreGateStatuses(t *testing.T) {
+	runKernelScenario(t, "utility-status-gate", func(t *testing.T) {
+		for _, tc := range []struct {
+			name string
+			rc   int32
+			want bool
+		}{
+			{name: "cpu unsupported", rc: int32(ffi.ErrCPUUnsupported), want: false},
+			{name: "buffer too small", rc: int32(ffi.ErrBufferTooSmall), want: false},
+			{name: "invalid argument", rc: int32(ffi.ErrInvalidArg), want: false},
+			{name: "invalid JSON after gate", rc: int32(ffi.ErrInvalidJSON), want: true},
+			{name: "success", rc: int32(ffi.OK), want: true},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				kernelMu.Lock()
+				kernelSelectionLocked = false
+				markKernelSelectionAfterUtility(tc.rc)
+				got := kernelSelectionLocked
+				kernelMu.Unlock()
+				if got != tc.want {
+					t.Fatalf("markKernelSelectionAfterUtility(%d) locked = %t, want %t", tc.rc, got, tc.want)
+				}
+			})
+		}
+	})
+}
+
+func TestKernelUtilityReservationBlocksSetKernelUntilFinalStatus(t *testing.T) {
+	runKernelScenario(t, "utility-reservation", func(t *testing.T) {
+		if err := SetKernel(""); err != nil {
+			t.Fatalf("SetKernel(automatic) error = %v", err)
+		}
+
+		reserved := make(chan struct{})
+		releaseUtility := make(chan struct{})
+		setBindingEntered := make(chan struct{}, 1)
+		utilityReservationHook = func() {
+			close(reserved)
+			<-releaseUtility
+		}
+		setImplementationHook = func() { setBindingEntered <- struct{}{} }
+		defer func() {
+			utilityReservationHook = nil
+			setImplementationHook = nil
+		}()
+
+		utilityResult := make(chan error, 1)
+		go func() {
+			_, err := Minify([]byte(` { "x" : 1 } `))
+			utilityResult <- err
+		}()
+		<-reserved
+
+		setResult := make(chan error, 1)
+		go func() { setResult <- SetKernel("") }()
+		select {
+		case <-setBindingEntered:
+			t.Fatal("SetKernel entered native binding while utility reservation was active")
+		case <-time.After(50 * time.Millisecond):
+		}
+
+		close(releaseUtility)
+		if err := <-utilityResult; err != nil {
+			t.Fatalf("Minify() error = %v", err)
+		}
+		if err := <-setResult; !errors.Is(err, ErrKernelLocked) {
+			t.Fatalf("SetKernel() after successful reserved utility error = %v, want ErrKernelLocked", err)
+		}
+		select {
+		case <-setBindingEntered:
+			t.Fatal("SetKernel entered native binding after the utility locked selection")
+		default:
+		}
+	})
+}
+
+func TestKernelUtilityReservationReleasesAfterPanic(t *testing.T) {
+	runKernelScenario(t, "utility-reservation-panic", func(t *testing.T) {
+		utilityReservationHook = func() { panic("test utility reservation panic") }
+		defer func() { utilityReservationHook = nil }()
+
+		func() {
+			defer func() {
+				if recovered := recover(); recovered == nil {
+					t.Fatal("beginUtilityKernel() did not propagate hook panic")
+				}
+			}()
+			_ = beginUtilityKernel()
+		}()
+
+		kernelMu.Lock()
+		reservations := utilityKernelReservations
+		kernelMu.Unlock()
+		if reservations != 0 {
+			t.Fatalf("utility reservations after panic = %d, want 0", reservations)
+		}
+
+		setResult := make(chan error, 1)
+		go func() { setResult <- SetKernel("") }()
+		select {
+		case err := <-setResult:
+			if err != nil {
+				t.Fatalf("SetKernel() after utility panic error = %v", err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("SetKernel() remained blocked after utility panic")
+		}
+	})
+}
+
+func TestKernelUtilityFailureReleasesReservation(t *testing.T) {
+	runKernelScenario(t, "utility-reservation-library-failure", func(t *testing.T) {
+		t.Setenv(libraryEnvPath, filepath.Join(t.TempDir(), "missing-native-library"))
+		t.Setenv("PURE_SIMDJSON_CACHE_DIR", t.TempDir())
+
+		for _, utility := range []struct {
+			name string
+			call func() error
+		}{
+			{
+				name: "minify",
+				call: func() error {
+					_, err := Minify([]byte(`{"value":1}`))
+					return err
+				},
+			},
+			{
+				name: "validate utf8",
+				call: func() error {
+					_, err := ValidateUTF8([]byte("valid"))
+					return err
+				},
+			},
+		} {
+			t.Run(utility.name, func(t *testing.T) {
+				if err := utility.call(); err == nil {
+					t.Fatal("utility unexpectedly loaded a missing native library")
+				}
+
+				kernelMu.Lock()
+				reservations := utilityKernelReservations
+				kernelMu.Unlock()
+				if reservations != 0 {
+					t.Fatalf("utility reservations after failed load = %d, want 0", reservations)
+				}
+
+				setResult := make(chan error, 1)
+				go func() { setResult <- SetKernel("") }()
+				select {
+				case <-setResult:
+					// The missing library can make SetKernel fail, but it must not wait
+					// forever on a reservation the failed utility left behind.
+				case <-time.After(time.Second):
+					t.Fatal("SetKernel() remained blocked after utility load failure")
+				}
+			})
+		}
+	})
+}
+
+func TestKernelLockedSelectionDoesNotWaitForUtilities(t *testing.T) {
+	runKernelScenario(t, "locked-selection-fast-fail", func(t *testing.T) {
+		kernelMu.Lock()
+		kernelSelectionLocked = true
+		utilityKernelReservations = 1
+		kernelMu.Unlock()
+		defer func() {
+			kernelMu.Lock()
+			kernelSelectionLocked = false
+			utilityKernelReservations = 0
+			kernelCond.Broadcast()
+			kernelMu.Unlock()
+		}()
+
+		setResult := make(chan error, 1)
+		go func() { setResult <- SetKernel("") }()
+		select {
+		case err := <-setResult:
+			if !errors.Is(err, ErrKernelLocked) {
+				t.Fatalf("SetKernel() error = %v, want ErrKernelLocked", err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("SetKernel() waited despite an already locked selection")
+		}
+	})
+}
+
+func TestKernelUtilityReservationUnderflowPanics(t *testing.T) {
+	runKernelScenario(t, "utility-reservation-underflow", func(t *testing.T) {
+		kernelMu.Lock()
+		utilityKernelReservations = 0
+		kernelMu.Unlock()
+
+		reservation := &utilityKernelReservation{}
+		defer func() {
+			if recovered := recover(); recovered == nil {
+				t.Fatal("cancel() did not panic on reservation underflow")
+			}
+		}()
+		reservation.cancel()
+	})
+}
+
+func TestKernelUtilityReservationsPermitConcurrentUtilities(t *testing.T) {
+	runKernelScenario(t, "utility-reservations-concurrent", func(t *testing.T) {
+		first := beginUtilityKernel()
+		defer first.cancel()
+		second := beginUtilityKernel()
+		defer second.cancel()
+
+		kernelMu.Lock()
+		reservations := utilityKernelReservations
+		kernelMu.Unlock()
+		if reservations != 2 {
+			t.Fatalf("concurrent utility reservations = %d, want 2", reservations)
+		}
+
+		setBindingEntered := make(chan struct{}, 1)
+		setImplementationHook = func() { setBindingEntered <- struct{}{} }
+		defer func() { setImplementationHook = nil }()
+		setResult := make(chan error, 1)
+		go func() { setResult <- SetKernel("") }()
+		select {
+		case <-setBindingEntered:
+			t.Fatal("SetKernel entered native binding before concurrent utilities finished")
+		case <-time.After(50 * time.Millisecond):
+		}
+
+		first.finish(int32(ffi.ErrCPUUnsupported))
+		select {
+		case <-setBindingEntered:
+			t.Fatal("SetKernel entered native binding while one utility remained reserved")
+		case <-time.After(50 * time.Millisecond):
+		}
+		second.finish(int32(ffi.ErrCPUUnsupported))
+		select {
+		case err := <-setResult:
+			if err != nil {
+				t.Fatalf("SetKernel() after concurrent pre-gate utilities error = %v", err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("SetKernel() remained blocked after all utilities finished")
 		}
 	})
 }

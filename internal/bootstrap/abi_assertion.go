@@ -2,10 +2,10 @@ package bootstrap
 
 import "github.com/amikos-tech/pure-simdjson/internal/ffi"
 
-// Version == "0.1.7" is expected to publish ABI 0x00010002.
-// Future ABI bumps must update the bootstrap release pin and this canary together.
-// Must stay in sync with scripts/release/check_bootstrap_abi_state.py:ABI_MINIMUM_VERSION.
-const abiVersionForBootstrapVersion_0_1_7 uint32 = 0x00010002
+// Version == "0.2.0-dev" is the unreleased source-tree identity for ABI 0x00010003.
+// Release-readiness policy must adopt this pair before publication; until then,
+// this canary prevents the wrapper from claiming the historical ABI 1.2 artifact.
+const abiVersionForBootstrapVersion_0_2_0_dev uint32 = 0x00010003
 
-var _ [int64(ffi.ABIVersion) - int64(abiVersionForBootstrapVersion_0_1_7)]struct{}
-var _ [int64(abiVersionForBootstrapVersion_0_1_7) - int64(ffi.ABIVersion)]struct{}
+var _ [int64(ffi.ABIVersion) - int64(abiVersionForBootstrapVersion_0_2_0_dev)]struct{}
+var _ [int64(abiVersionForBootstrapVersion_0_2_0_dev) - int64(ffi.ABIVersion)]struct{}

@@ -73,6 +73,18 @@ pure_simdjson_error_code_t psimdjson_copy_implementation_name(
     size_t dst_cap,
     size_t *out_written
 ) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_minify(
+    const uint8_t *src_ptr,
+    size_t src_len,
+    uint8_t *dst_ptr,
+    size_t dst_cap,
+    size_t *out_written
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_validate_utf8(
+    const uint8_t *data_ptr,
+    size_t data_len,
+    uint8_t *out_valid
+) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_native_alloc_stats_reset(void) PSIMDJSON_NOEXCEPT;
 pure_simdjson_error_code_t psimdjson_native_alloc_stats_snapshot(
     pure_simdjson_native_alloc_stats_t *out_stats
@@ -192,6 +204,44 @@ pure_simdjson_error_code_t psimdjson_object_get_field_index(
     const uint8_t *key_ptr,
     size_t key_len,
     uint64_t *out_value_json_index
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_array_at_index(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t index,
+    uint64_t *out_value_json_index
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_array_size(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t *out_size
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_object_size(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t *out_size
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_element_at_pointer_index(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t *pointer_ptr,
+    size_t pointer_len,
+    uint64_t *out_value_json_index
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_element_at_path_index(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t *path_ptr,
+    size_t path_len,
+    uint64_t *out_value_json_index
+) PSIMDJSON_NOEXCEPT;
+pure_simdjson_error_code_t psimdjson_element_at_path_wildcard_indices(
+    psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t *path_ptr,
+    size_t path_len,
+    const uint64_t **out_indices,
+    size_t *out_count
 ) PSIMDJSON_NOEXCEPT;
 /*
  * Returns a doc-owned frame span for json_index. The span is borrowed and is

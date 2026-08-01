@@ -10,7 +10,10 @@ import (
 	"github.com/ebitengine/purego"
 )
 
-var bytesFreeFailureWarningCount atomic.Uint64
+var (
+	bytesFreeFailureWarningCount      atomic.Uint64
+	valueViewsFreeFailureWarningCount atomic.Uint64
+)
 
 type Bindings struct {
 	handle uintptr
@@ -48,6 +51,15 @@ type Bindings struct {
 	objectIterNew            func(*ValueView, *ObjectIter) int32
 	objectIterNext           func(*ObjectIter, *ValueView, *ValueView, *byte) int32
 	objectGetField           func(*ValueView, *byte, uintptr, *ValueView) int32
+	elementAtPointer         func(*ValueView, *byte, uintptr, *ValueView) int32
+	elementAtPath            func(*ValueView, *byte, uintptr, *ValueView) int32
+	elementAtPathWildcard    func(*ValueView, *byte, uintptr, **ValueView, *uintptr) int32
+	valueViewsFree           func(*ValueView, uintptr) int32
+	arrayAt                  func(*ValueView, uint64, *ValueView) int32
+	arrayLen                 func(*ValueView, *uint64) int32
+	objectSize               func(*ValueView, *uint64) int32
+	minify                   func(*byte, uintptr, *byte, uintptr, *uintptr) int32
+	validateUTF8             func(*byte, uintptr, *byte) int32
 	internalMaterializeBuild func(*ValueView, **InternalFrame, *uintptr) int32
 	hasNativeAllocStats      bool
 	hasInternalMaterializer  bool
@@ -93,6 +105,8 @@ func bindWithRegistrar(handle uintptr, lookup SymbolLookup, registrar symbolRegi
 		{name: "pure_simdjson_lock_implementation_selection", target: &b.lockImplementationSelection},
 		{name: "pure_simdjson_get_implementation_name_len", target: &b.getImplementationNameLen},
 		{name: "pure_simdjson_copy_implementation_name", target: &b.copyImplementationName},
+		{name: "pure_simdjson_native_alloc_stats_reset", target: &b.nativeAllocStatsReset},
+		{name: "pure_simdjson_native_alloc_stats_snapshot", target: &b.nativeAllocStatsSnapshot},
 		{name: "pure_simdjson_parser_new", target: &b.parserNew},
 		{name: "pure_simdjson_parser_new_configured", target: &b.parserNewConfigured},
 		{name: "pure_simdjson_parser_free", target: &b.parserFree},
@@ -117,6 +131,15 @@ func bindWithRegistrar(handle uintptr, lookup SymbolLookup, registrar symbolRegi
 		{name: "pure_simdjson_object_iter_new", target: &b.objectIterNew},
 		{name: "pure_simdjson_object_iter_next", target: &b.objectIterNext},
 		{name: "pure_simdjson_object_get_field", target: &b.objectGetField},
+		{name: "pure_simdjson_element_at_pointer", target: &b.elementAtPointer},
+		{name: "pure_simdjson_element_at_path", target: &b.elementAtPath},
+		{name: "pure_simdjson_element_at_path_wildcard", target: &b.elementAtPathWildcard},
+		{name: "pure_simdjson_value_views_free", target: &b.valueViewsFree},
+		{name: "pure_simdjson_array_at", target: &b.arrayAt},
+		{name: "pure_simdjson_array_len", target: &b.arrayLen},
+		{name: "pure_simdjson_object_size", target: &b.objectSize},
+		{name: "pure_simdjson_minify", target: &b.minify},
+		{name: "pure_simdjson_validate_utf8", target: &b.validateUTF8},
 	}
 
 	for _, symbol := range symbols {
@@ -124,19 +147,8 @@ func bindWithRegistrar(handle uintptr, lookup SymbolLookup, registrar symbolRegi
 			return nil, err
 		}
 	}
-	resetRegistered, err := registerOptionalFuncWithRegistrar(handle, lookup, registrar, "pure_simdjson_native_alloc_stats_reset", &b.nativeAllocStatsReset)
-	if err != nil {
-		return nil, err
-	}
-	snapshotRegistered, err := registerOptionalFuncWithRegistrar(handle, lookup, registrar, "pure_simdjson_native_alloc_stats_snapshot", &b.nativeAllocStatsSnapshot)
-	if err != nil {
-		return nil, err
-	}
-	b.hasNativeAllocStats = resetRegistered && snapshotRegistered
-	if !b.hasNativeAllocStats {
-		b.nativeAllocStatsReset = nil
-		b.nativeAllocStatsSnapshot = nil
-	}
+	b.hasNativeAllocStats = true
+
 	registered, err := registerOptionalFuncWithRegistrar(handle, lookup, registrar, "psdj_internal_materialize_build", &b.internalMaterializeBuild)
 	if err != nil {
 		return nil, err
@@ -446,6 +458,16 @@ func emitBytesFreeFailureWarning(rc int32, length uintptr) {
 	fmt.Fprintf(os.Stderr, "purejson leak: bytes_free rc=%d len=%d count=%d\n", rc, length, count)
 }
 
+func emitValueViewsFreeFailureWarning(rc int32, length uintptr) {
+	count := valueViewsFreeFailureWarningCount.Add(1)
+	// Emit on first failure, every failure when leak warnings are enabled, or power-of-two
+	// milestones otherwise (count&(count-1)==0 iff count is a power of two).
+	if count != 1 && !leakWarningsEnabled() && count&(count-1) != 0 {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "purejson leak: value_views_free rc=%d len=%d count=%d\n", rc, length, count)
+}
+
 func (b *Bindings) ElementGetBool(view *ValueView) (bool, int32) {
 	var value byte
 	rc := b.elementGetBool(view, &value)
@@ -513,6 +535,136 @@ func (b *Bindings) ObjectGetField(view *ValueView, key string) (ValueView, int32
 	runtime.KeepAlive(view)
 	runtime.KeepAlive(b)
 	return value, rc
+}
+
+func (b *Bindings) ElementAtPointer(view *ValueView, pointer string) (ValueView, int32) {
+	return b.elementAtString(view, pointer, b.elementAtPointer)
+}
+
+func (b *Bindings) ElementAtPath(view *ValueView, path string) (ValueView, int32) {
+	return b.elementAtString(view, path, b.elementAtPath)
+}
+
+func (b *Bindings) elementAtString(
+	view *ValueView,
+	path string,
+	lookup func(*ValueView, *byte, uintptr, *ValueView) int32,
+) (ValueView, int32) {
+	var pathBytes []byte
+	if path != "" {
+		pathBytes = []byte(path)
+	}
+	var pathPtr *byte
+	if len(pathBytes) != 0 {
+		pathPtr = unsafe.SliceData(pathBytes)
+	}
+
+	var value ValueView
+	rc := lookup(view, pathPtr, uintptr(len(pathBytes)), &value)
+	runtime.KeepAlive(pathBytes)
+	runtime.KeepAlive(view)
+	runtime.KeepAlive(b)
+	return value, rc
+}
+
+func (b *Bindings) ElementAtPathWildcard(view *ValueView, path string) ([]ValueView, int32) {
+	var pathBytes []byte
+	if path != "" {
+		pathBytes = []byte(path)
+	}
+	var pathPtr *byte
+	if len(pathBytes) != 0 {
+		pathPtr = unsafe.SliceData(pathBytes)
+	}
+
+	var ptr *ValueView
+	var count uintptr
+	rc := b.elementAtPathWildcard(view, pathPtr, uintptr(len(pathBytes)), &ptr, &count)
+	runtime.KeepAlive(pathBytes)
+	runtime.KeepAlive(view)
+	runtime.KeepAlive(b)
+	if rc != int32(OK) {
+		return nil, rc
+	}
+	if ptr == nil {
+		if count == 0 {
+			return make([]ValueView, 0), int32(OK)
+		}
+		return nil, int32(ErrInternal)
+	}
+	if count == 0 {
+		if freeRC := b.ValueViewsFree(ptr, count); freeRC != int32(OK) {
+			emitValueViewsFreeFailureWarning(freeRC, count)
+		}
+		return nil, int32(ErrInternal)
+	}
+
+	views := append([]ValueView(nil), unsafe.Slice(ptr, count)...)
+	if freeRC := b.ValueViewsFree(ptr, count); freeRC != int32(OK) {
+		emitValueViewsFreeFailureWarning(freeRC, count)
+	}
+	return views, int32(OK)
+}
+
+func (b *Bindings) ValueViewsFree(ptr *ValueView, count uintptr) int32 {
+	rc := b.valueViewsFree(ptr, count)
+	runtime.KeepAlive(b)
+	return rc
+}
+
+func (b *Bindings) ArrayAt(view *ValueView, index uint64) (ValueView, int32) {
+	var value ValueView
+	rc := b.arrayAt(view, index, &value)
+	runtime.KeepAlive(view)
+	runtime.KeepAlive(b)
+	return value, rc
+}
+
+func (b *Bindings) ArrayLen(view *ValueView) (uint64, int32) {
+	var length uint64
+	rc := b.arrayLen(view, &length)
+	runtime.KeepAlive(view)
+	runtime.KeepAlive(b)
+	return length, rc
+}
+
+func (b *Bindings) ObjectSize(view *ValueView) (uint64, int32) {
+	var size uint64
+	rc := b.objectSize(view, &size)
+	runtime.KeepAlive(view)
+	runtime.KeepAlive(b)
+	return size, rc
+}
+
+func (b *Bindings) Minify(dst, src []byte) (int, int32) {
+	var srcPtr *byte
+	if len(src) != 0 {
+		srcPtr = unsafe.SliceData(src)
+	}
+	var dstPtr *byte
+	if len(dst) != 0 {
+		dstPtr = unsafe.SliceData(dst)
+	}
+
+	var written uintptr
+	rc := b.minify(srcPtr, uintptr(len(src)), dstPtr, uintptr(len(dst)), &written)
+	runtime.KeepAlive(src)
+	runtime.KeepAlive(dst)
+	runtime.KeepAlive(b)
+	return int(written), rc
+}
+
+func (b *Bindings) ValidateUTF8(data []byte) (bool, int32) {
+	var dataPtr *byte
+	if len(data) != 0 {
+		dataPtr = unsafe.SliceData(data)
+	}
+
+	var valid byte
+	rc := b.validateUTF8(dataPtr, uintptr(len(data)), &valid)
+	runtime.KeepAlive(data)
+	runtime.KeepAlive(b)
+	return valid != 0, rc
 }
 
 // InternalMaterializeBuild returns a borrowed frame span whose backing

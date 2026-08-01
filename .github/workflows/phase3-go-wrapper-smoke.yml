@@ -2,9 +2,11 @@ name: phase3-go-wrapper-smoke
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
-      - gsd/phase-03-go-public-api-purego-happy-path
       - main
 
 permissions:

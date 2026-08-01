@@ -27,7 +27,7 @@ The v0.2 extension keeps the safe, re-readable DOM API as the default while addi
 - [ ] **Phase 09.1: Bootstrap artifact and ABI alignment for default installs (INSERTED)** — Align the bootstrap-pinned public artifact/version/checksum state with the current ABI and validate the default-install path after Phase 9 locks the benchmark/release story
 - [x] **Phase 10: Lightweight PR benchmark regression signal** — Add a cheap pull-request benchmark workflow covering Tier 1/2/3 so every PR gets a useful regression signal without waiting for the heavier release-grade benchmark capture path (completed 2026-07-30)
 - [x] **Phase 11: Upstream simdjson refresh, exact big integers, and production diagnostics** — Upgrade the audited upstream base, preserve oversized integers exactly, expose kernel/limit controls, and make parser diagnostics truthful (completed 2026-07-29)
-- [ ] **Phase 12: High-value DOM navigation and SIMD utility APIs** — Add JSON Pointer/path navigation, indexed/container helpers, wildcard path lookup, minification, and standalone UTF-8 validation without growing into a query or encoding engine
+- [x] **Phase 12: High-value DOM navigation and SIMD utility APIs** — Add JSON Pointer/path navigation, indexed/container helpers, wildcard path lookup, minification, and standalone UTF-8 validation without growing into a query or encoding engine (completed 2026-07-31)
 - [ ] **Phase 13: Batched On-Demand path extraction** — Extract a typed, predeclared path set in one native traversal while guarding simdjson's single-consumption semantics
 - [ ] **Phase 14: Zero-copy pinned input and borrowed value views** — Add opt-in pinned input plus lifetime-bound string/raw JSON views while retaining copied values as the safe default
 - [ ] **Phase 15: NDJSON and JSONL streaming cursor with parallel parse-many** — Expose upstream multi-document parsing through a callback-free Go cursor with cancellation, backpressure, and per-document errors
@@ -572,10 +572,20 @@ Plans:
 
 **Scope boundary:** No JSON encoder/builder, reflection-based `Unmarshal`, full JSONPath engine, file-loading wrapper, or mutable DOM API is added.
 
-**Plans:** 0 plans
+**Plans:** 13/13 plans complete
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 12 to break down)
+- [ ] `12-09-PLAN.md` — ABI 0x00010003 and additive status-code foundation (Wave 1)
+- [ ] `12-01-PLAN.md` — Native AtPointer/AtPath over the ABI 1.3 foundation (Wave 2)
+- [ ] `12-02-PLAN.md` — Native Array.At/Len and Object.Size (Wave 3)
+- [ ] `12-03-PLAN.md` — Native wildcard AtPathAll bulk-transport + tracked-allocation free (Wave 4)
+- [ ] `12-04-PLAN.md` — Native Minify/ValidateUTF8 and exact alias/disjoint safety (Wave 5)
+- [ ] `12-05-PLAN.md` — Go ABI 1.3 pins, unreleased bootstrap source identity, and current bootstrap docs (Wave 6)
+- [ ] `12-10-PLAN.md` — Durable D-14 gate, full ABI smoke, five-platform branch trigger, and ABI 1.3 docs (Wave 6)
+- [ ] `12-11-PLAN.md` — All 9 required Go bindings plus release-policy and loader compatibility enforcement (Wave 7)
+- [ ] `12-06-PLAN.md` — Go AtPointer/AtPath/AtPathAll API and typed public error mappings (Wave 8)
+- [ ] `12-07-PLAN.md` — Go Minify/MinifyInto/ValidateUTF8 API and kernel-state synchronization (Wave 9)
+- [ ] `12-08-PLAN.md` — Go Array.At/Len and Object.Size public API (Wave 9)
 
 ### Phase 13: Batched On-Demand path extraction
 

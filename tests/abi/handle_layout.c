@@ -27,6 +27,10 @@ static_assert(PURE_SIMDJSON_ERR_CAPACITY_LIMIT == 9,
               "PURE_SIMDJSON_ERR_CAPACITY_LIMIT must stay pinned");
 static_assert(PURE_SIMDJSON_ERR_KERNEL_LOCKED == 10,
               "PURE_SIMDJSON_ERR_KERNEL_LOCKED must stay pinned");
+static_assert(PURE_SIMDJSON_ERR_INVALID_PATH == 11,
+              "PURE_SIMDJSON_ERR_INVALID_PATH must stay pinned");
+static_assert(PURE_SIMDJSON_ERR_INDEX_OUT_OF_RANGE == 12,
+              "PURE_SIMDJSON_ERR_INDEX_OUT_OF_RANGE must stay pinned");
 static_assert(PURE_SIMDJSON_ERR_INVALID_JSON == 32,
               "PURE_SIMDJSON_ERR_INVALID_JSON must stay pinned");
 static_assert(PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE == 33,
@@ -43,7 +47,7 @@ static_assert(PURE_SIMDJSON_ERR_CPP_EXCEPTION == 97,
               "PURE_SIMDJSON_ERR_CPP_EXCEPTION must stay pinned");
 static_assert(PURE_SIMDJSON_ERR_INTERNAL == 127,
               "PURE_SIMDJSON_ERR_INTERNAL must stay pinned");
-static_assert(PURE_SIMDJSON_ABI_VERSION == 0x00010002u,
+static_assert(PURE_SIMDJSON_ABI_VERSION == 0x00010003u,
               "PURE_SIMDJSON_ABI_VERSION must stay pinned");
 
 static_assert(PURE_SIMDJSON_VALUE_KIND_INVALID == 0,
@@ -73,6 +77,16 @@ static_assert(sizeof(pure_simdjson_doc_t) == 8, "pure_simdjson_doc_t must stay 8
 static_assert(sizeof(pure_simdjson_handle_parts_t) == 8, "pure_simdjson_handle_parts_t must stay 8 bytes");
 static_assert(offsetof(pure_simdjson_handle_parts_t, generation) == 4, "generation offset must stay stable");
 static_assert(sizeof(pure_simdjson_value_view_t) == 32, "pure_simdjson_value_view_t must stay 32 bytes");
+static_assert(offsetof(pure_simdjson_value_view_t, doc) == 0,
+              "pure_simdjson_value_view_t.doc offset must stay stable");
+static_assert(offsetof(pure_simdjson_value_view_t, state0) == 8,
+              "pure_simdjson_value_view_t.state0 offset must stay stable");
+static_assert(offsetof(pure_simdjson_value_view_t, state1) == 16,
+              "pure_simdjson_value_view_t.state1 offset must stay stable");
+static_assert(offsetof(pure_simdjson_value_view_t, kind_hint) == 24,
+              "pure_simdjson_value_view_t.kind_hint offset must stay stable");
+static_assert(offsetof(pure_simdjson_value_view_t, reserved) == 28,
+              "pure_simdjson_value_view_t.reserved offset must stay stable");
 static_assert(sizeof(pure_simdjson_array_iter_t) == 32, "pure_simdjson_array_iter_t must stay 32 bytes");
 static_assert(offsetof(pure_simdjson_array_iter_t, index) == 24,
               "pure_simdjson_array_iter_t.index offset must stay stable");

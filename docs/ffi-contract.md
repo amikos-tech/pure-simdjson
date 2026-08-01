@@ -1,12 +1,12 @@
 # Scope
 
-This document is the normative FFI contract for `pure-simdjson` ABI 1.2 (`0x00010002`). It defines the public C ABI exported in [include/pure_simdjson.h](../include/pure_simdjson.h).
+This document is the normative FFI contract for `pure-simdjson` ABI 1.3 (`0x00010003`). It defines the public C ABI exported in [include/pure_simdjson.h](../include/pure_simdjson.h).
 
 The `v0.1.x` product line remains DOM-only. On-Demand APIs, pinned-input parsing, and borrowed string-view APIs remain deferred work and are not part of this contract.
 
 The generated header is authoritative for exact symbol names, field names, and C types. This document is authoritative for lifecycle, ownership, limits, kernel selection, diagnostics, panic/exception policy, and compatibility rules. `^0.1.x` describes the Go module's semantic-version family; native compatibility is the stricter ABI handshake defined below.
 
-ABI 1.2 extends the original typed DOM surface with configured parser construction, exact BigInt copy-out, explicit known-offset state, and process-global implementation control. It is append-only: every ABI 1.1 symbol, signature, numeric value, and public layout remains intact.
+Historical ABI 1.2 (`0x00010002`) extended the original typed DOM surface with configured parser construction, exact BigInt copy-out, explicit known-offset state, and process-global implementation control. Current ABI 1.3 retains that complete append-only surface and adds navigation, container helpers, wildcard-result ownership, minification, and standalone UTF-8 validation.
 
 # ABI invariants
 
@@ -35,7 +35,7 @@ ABI 1.2 extends the original typed DOM surface with configured parser constructi
 | `PURE_SIMDJSON_OK` | 0 | Success |
 | `PURE_SIMDJSON_ERR_INVALID_ARGUMENT` | 1 | Null pointer, inconsistent out-param set, or other caller contract violation |
 | `PURE_SIMDJSON_ERR_INVALID_HANDLE` | 2 | Handle generation mismatch, stale handle, or already-freed slot |
-| `PURE_SIMDJSON_ERR_PARSER_BUSY` | 3 | Parser already owns a live `Doc` |
+| `PURE_SIMDJSON_ERR_PARSER_BUSY` | 3 | A parser has a live `Doc`, or a document rejects reentrant guarded work |
 | `PURE_SIMDJSON_ERR_WRONG_TYPE` | 4 | Value kind does not match the requested accessor |
 | `PURE_SIMDJSON_ERR_ELEMENT_NOT_FOUND` | 5 | Requested object field is absent |
 | `PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL` | 6 | Caller-provided destination buffer is too small |
@@ -43,6 +43,8 @@ ABI 1.2 extends the original typed DOM surface with configured parser constructi
 | `PURE_SIMDJSON_ERR_DEPTH_LIMIT` | 8 | Input exceeds the parser's immutable maximum depth |
 | `PURE_SIMDJSON_ERR_CAPACITY_LIMIT` | 9 | Input exceeds the parser's immutable maximum capacity |
 | `PURE_SIMDJSON_ERR_KERNEL_LOCKED` | 10 | Process-global implementation selection is permanently locked |
+| `PURE_SIMDJSON_ERR_INVALID_PATH` | 11 | Malformed RFC 6901 pointer or simdjson dot/index path syntax |
+| `PURE_SIMDJSON_ERR_INDEX_OUT_OF_RANGE` | 12 | Syntactically valid array index or path segment exceeds container bounds |
 | `PURE_SIMDJSON_ERR_INVALID_JSON` | 32 | Parse failure, including malformed JSON and invalid UTF-8 in DOM mode |
 | `PURE_SIMDJSON_ERR_NUMBER_OUT_OF_RANGE` | 33 | Numeric value cannot fit the requested integer domain |
 | `PURE_SIMDJSON_ERR_PRECISION_LOSS` | 34 | Requested numeric conversion would lose precision |
@@ -54,7 +56,7 @@ ABI 1.2 extends the original typed DOM surface with configured parser constructi
 
 These values are part of the public ABI. Downstream wrappers may map them to richer errors, but they must preserve the numeric meaning.
 
-The numeric gaps between assigned values (11–31, 35–63, 66–95, 98–126) are reserved for future additive ABI values. Consumers that range-check, bucket, or exhaustively map these codes must tolerate new values appearing in reserved bands.
+The numeric gaps between assigned values (13–31, 35–63, 66–95, 98–126) are reserved for future additive ABI values. Consumers that range-check, bucket, or exhaustively map these codes must tolerate new values appearing in reserved bands.
 
 # Handle format
 
@@ -109,7 +111,7 @@ Rules:
 - `reserved` must be zero. Non-zero reserved bits are rejected as `PURE_SIMDJSON_ERR_INVALID_HANDLE`.
 - `pure_simdjson_array_iter_t` and `pure_simdjson_object_iter_t` are stateful, document-tied iterators driven from Go/C by repeated `*_next` calls.
 - Iterator `state0`, `state1`, `index`, and `tag` are implementation-owned state reserved for runtime validation. Iterator `reserved` is pinned for future growth and callers must leave it untouched.
-- `pure_simdjson_doc_root`, `pure_simdjson_object_get_field`, `pure_simdjson_array_iter_next`, and `pure_simdjson_object_iter_next` return new view state through out-params rather than allocating child handles.
+- `pure_simdjson_doc_root`, `pure_simdjson_object_get_field`, `pure_simdjson_array_iter_next`, `pure_simdjson_object_iter_next`, `pure_simdjson_element_at_pointer`, `pure_simdjson_element_at_path`, and `pure_simdjson_array_at` return new view state through out-params rather than allocating child handles.
 - `pure_simdjson_object_get_field` returns the first matching field when duplicate keys are present, matching simdjson DOM `object::at_key` semantics.
 
 The value-kind numbers are pinned:
@@ -160,7 +162,7 @@ Busy-state rule:
 - `pure_simdjson_parser_parse` returns `PURE_SIMDJSON_ERR_PARSER_BUSY` while a live `Doc` exists for that parser.
 - `pure_simdjson_parser_free` also returns `PURE_SIMDJSON_ERR_PARSER_BUSY` while a live `Doc` exists for that parser.
 - Re-parse never discards, replaces, or mutates the old `Doc` as a side effect.
-- Only `pure_simdjson_doc_free` clears the busy state.
+- Only `pure_simdjson_doc_free` clears parser-lifecycle busy state; a per-document operation guard clears when the conflicting operation returns.
 - Generation checks remain the mechanism that turns stale parser/doc/view use into `PURE_SIMDJSON_ERR_INVALID_HANDLE`.
 
 The lifecycle is explicit by design so later phases do not introduce hidden reuse semantics.
@@ -192,7 +194,7 @@ Rules:
 - `Doc` lifetime owns the backing parsed storage and any document-tied views/iterators derived from it.
 - `Doc` release invalidates all derived `pure_simdjson_value_view_t`, `pure_simdjson_array_iter_t`, and `pure_simdjson_object_iter_t` state.
 
-This choice is part of the ABI 1.2 contract and is not an optimization detail.
+This copy-and-pad rule is retained by ABI 1.3 and is not an optimization detail.
 
 # Copied scalars and diagnostics
 
@@ -226,6 +228,37 @@ Diagnostics are advisory only:
 - A location is known only when upstream provides a non-end pointer proven inside the copied input. No secondary JSON parser, guessed index, or message parsing may manufacture an offset.
 - A successful DOM parse performs zero diagnostic replay. An eligible failure performs at most two additional `O(input length)` upstream scans, each using a fresh parser and bounded by the configured capacity and depth. Resource or limit errors stop replay rather than starting an unbounded retry path.
 
+# ABI 1.3 navigation and utility surface
+
+ABI 1.3 requires the complete earlier public surface plus all nine additive exports:
+
+- `pure_simdjson_element_at_pointer`
+- `pure_simdjson_element_at_path`
+- `pure_simdjson_element_at_path_wildcard`
+- `pure_simdjson_value_views_free`
+- `pure_simdjson_array_at`
+- `pure_simdjson_array_len`
+- `pure_simdjson_object_size`
+- `pure_simdjson_minify`
+- `pure_simdjson_validate_utf8`
+
+Navigation and container rules:
+
+- `pure_simdjson_element_at_pointer` delegates RFC 6901 parsing and traversal to simdjson. Malformed pointers return status 11, missing object segments return status 5, type mismatches return status 4, and out-of-range array segments return status 12.
+- `pure_simdjson_element_at_path` delegates simdjson's dot/index subset. It does not claim full RFC 9535 JSONPath support and uses the same typed status mapping as pointer navigation.
+- `pure_simdjson_element_at_path_wildcard` returns matches in document order. Only a structurally valid path containing `.*` or `[*]` can succeed with no matches; that result uses `*out_views == NULL` and `*out_count == 0`. Once both output locations are writable, every error (including malformed input and `PARSER_BUSY`) clears them to that sentinel. A wildcard call can return `PARSER_BUSY` when the same document is already building wildcard results.
+- A non-empty wildcard result is one Rust-owned allocation of `pure_simdjson_value_view_t` structs. The caller may copy those structs, then must release the carrier array exactly once with `pure_simdjson_value_views_free(ptr, count)`. `bytes_free` and `value_views_free` accept only the null/zero empty sentinel or an exact issued nonempty pointer/count pair; null/nonzero and nonnull/zero are invalid arguments and mismatched/double frees retain or reject registry ownership safely. Releasing the carrier does not invalidate copied views; their owning `Doc` still controls their lifetime.
+- Each successful non-empty `AtPathAll` call adds one native descendant-index entry per returned view until `Doc.Close`, so repeated large wildcard traversals grow document bookkeeping proportionally.
+- `pure_simdjson_array_at` is bounds checked and returns status 12 for an index beyond the array. It follows upstream's linear scan, so repeated indexed traversal is not constant time.
+- `pure_simdjson_array_len` and `pure_simdjson_object_size` report direct children in constant time. The upstream tape stores a 24-bit direct-child count, so values saturate at `0xFFFFFF` (16,777,215).
+
+Standalone utility rules:
+
+- `pure_simdjson_minify` requires `dst_cap >= src_len`, even when the expected compact result is shorter. Exact same-start aliasing (`dst_ptr == src_ptr`) is supported. Otherwise the caller-declared byte ranges `[src_ptr, src_ptr + src_len)` and `[dst_ptr, dst_ptr + dst_cap)` must be fully disjoint; either partial-overlap direction returns status 1 before any write.
+- On status 6, minify writes the required conservative capacity (`src_len`) to `out_written`. On success it writes the compact byte count. Success only proves that the SIMD whitespace/string-boundary scan completed: minify is not JSON validation, and malformed input other than an unclosed string may still return success.
+- `pure_simdjson_validate_utf8` writes exactly `1` for valid UTF-8 and `0` for invalid UTF-8 while returning status 0 in both cases. DOM parsing continues to validate JSON strings independently; this utility does not weaken parse-time validation.
+- Both utilities reject an automatically selected `fallback` implementation with status 64. Null pointers, minify capacity failures, and invalid/overlapping ranges are rejected before selection locks. A call that passes those gates locks process-global selection before the empty-input return or SIMD scan, then releases the selection mutex before scanning.
+
 # Process-global implementation selection
 
 Implementation selection is diagnostic and process-global:
@@ -234,7 +267,7 @@ Implementation selection is diagnostic and process-global:
 - `(name=NULL, name_len=0)` restores upstream automatic selection.
 - `pure_simdjson_get_implementation_name_len` and `pure_simdjson_copy_implementation_name` read the selected implementation.
 - `pure_simdjson_lock_implementation_selection` irreversibly locks selection and is idempotent.
-- The first valid legacy or configured parser construction attempt also locks selection before native allocation.
+- The first valid legacy or configured parser construction attempt locks selection before native allocation. The first minify or UTF-8 call that passes its argument, buffer, and CPU gates also locks selection before scanning.
 - Every setter call after the lock returns status 10. There is no per-parser implementation override or unlock operation.
 
 # Native allocator telemetry
@@ -270,11 +303,11 @@ Rules:
 
 The ABI version export is `pure_simdjson_get_abi_version`.
 
-- The current packed ABI version is `0x00010002`.
-- ABI 1.2 is the strict minimum for the Phase 11 wrapper. ABI 1.1 is rejected with an ABI-version mismatch before any ABI 1.2-only lookup.
-- ABI 1.2 makes `pure_simdjson_set_implementation`, `pure_simdjson_lock_implementation_selection`, `pure_simdjson_parser_new_configured`, `pure_simdjson_parser_get_last_error_has_offset`, and `pure_simdjson_element_get_bigint` mandatory.
-- After the one-symbol version probe succeeds, the loader must bind its complete required surface before cache installation. An artifact claiming compatible ABI 1.2 (or a later additive ABI 1.x) but missing any required symbol is corrupt/incomplete and must fail closed with that symbol named; optional downgrade is forbidden.
-- Other ABI majors are incompatible. Later ABI 1.x values may be accepted only when every wrapper-required symbol binds successfully.
+- The current packed ABI version is `0x00010003`.
+- ABI 1.3 is the strict minimum for the current wrapper. Historical ABI 1.2 (`0x00010002`) is rejected with an ABI-version mismatch before any ABI-1.3-only symbol lookup.
+- ABI 1.3 makes the complete earlier public surface and all nine navigation/utility symbols listed above mandatory.
+- After the one-symbol version probe succeeds, the loader must bind its complete required surface before cache installation. An artifact claiming ABI 1.3, or a later additive ABI 1.x, but missing any wrapper-required symbol is corrupt/incomplete and must fail closed with that symbol named; optional downgrade is forbidden.
+- Other ABI majors are incompatible. Later additive ABI 1.x values may be accepted only after every wrapper-required symbol binds successfully.
 
 The version probe is the only pre-classification symbol. Implementation-name reads occur only after the complete compatible surface binds and must succeed before the loaded library is cached.
 
@@ -286,7 +319,7 @@ Rules:
 
 - `ffi_wrap` is mandatory for every public export.
 - `catch_unwind` is required when unwinding is enabled so Rust panics do not cross the C ABI boundary.
-- The ABI 1.2 build policy pins `panic = "abort"` in the dev and release Cargo profiles. Cargo ignores that setting for the `test` profile, so unwind-enabled test builds still require the `ffi_wrap`/`catch_unwind` boundary above to convert internal panics into `PURE_SIMDJSON_ERR_PANIC`.
+- The ABI 1.3 build policy pins `panic = "abort"` in the dev and release Cargo profiles. Cargo ignores that setting for the `test` profile, so unwind-enabled test builds still require the `ffi_wrap`/`catch_unwind` boundary above to convert internal panics into `PURE_SIMDJSON_ERR_PANIC`.
 - The Rust/C++ seam must use non-throwing simdjson access patterns such as `.get(err)`.
 - C++ exceptions must be trapped before re-entering Rust and converted into `PURE_SIMDJSON_ERR_CPP_EXCEPTION`.
 - No foreign exception or Rust unwind may cross into Go or C callers.
@@ -328,6 +361,22 @@ pure_simdjson_doc_free(doc_a);                                         /* clears
 pure_simdjson_parser_parse(parser, json_b_ptr, json_b_len, &doc_b);   /* may now proceed */
 pure_simdjson_doc_free(doc_b);
 pure_simdjson_parser_free(parser);
+```
+
+## Wildcard copy and free
+
+```c
+pure_simdjson_value_view_t *matches = NULL;
+size_t count = 0;
+pure_simdjson_value_view_t first = {0};
+
+pure_simdjson_element_at_path_wildcard(
+    &root, (const uint8_t *)".items[*]", 9, &matches, &count);
+if (count != 0) {
+  first = matches[0]; /* copy document-tied view state before freeing the array */
+}
+pure_simdjson_value_views_free(matches, count); /* exactly once, including the NULL/0 sentinel */
+/* first remains usable here while its owning Doc is live */
 ```
 
 # Deferred items

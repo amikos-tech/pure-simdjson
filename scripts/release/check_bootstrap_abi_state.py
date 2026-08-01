@@ -13,6 +13,7 @@ ABI_MINIMUM_VERSION = {
     "0x00010000": "0.1.0",
     "0x00010001": "0.1.2",
     "0x00010002": "0.1.5",
+    "0x00010003": "0.2.0",
 }
 
 VERSION_RE = re.compile(r'const\s+Version\s*=\s*"([^"]+)"')
@@ -20,11 +21,11 @@ GO_ABI_RE = re.compile(r"ABIVersion\s+(?:uint32\s+)?=\s*(0x[0-9A-Fa-f_]+|[0-9]+)
 RUST_ABI_RE = re.compile(
     r"PURE_SIMDJSON_ABI_VERSION\s*:\s*u32\s*=\s*(0x[0-9A-Fa-f_]+|[0-9]+)"
 )
-# Pre-release suffixes (e.g. "0.1.2-dev", "0.1.2-rc.1") are accepted and
-# parsed as their base release for ABI minimum-version comparison. The
-# upstream check_state requires bootstrap.Version == requested_version
-# exactly, so a dev snapshot is rejected there, not here.
-SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:[-.][0-9A-Za-z.-]+)?$")
+SEMVER_RE = re.compile(
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+)
 
 
 class BootstrapABIStateError(ValueError):
@@ -63,11 +64,24 @@ def normalize_abi_literal(raw: str) -> str:
     return f"0x{value:08x}"
 
 
-def semver_tuple(version: str) -> tuple[int, int, int]:
+def parse_semver(version: str) -> tuple[int, int, int, tuple[str, ...]]:
     match = SEMVER_RE.match(version)
     if match is None:
         raise BootstrapABIStateError(f"invalid semantic version: {version!r}")
-    return int(match.group(1)), int(match.group(2)), int(match.group(3))
+    prerelease = tuple(match.group(4).split(".")) if match.group(4) else ()
+    if any(part.isdecimal() and len(part) > 1 and part.startswith("0") for part in prerelease):
+        raise BootstrapABIStateError(f"invalid semantic version: {version!r}")
+    return int(match.group(1)), int(match.group(2)), int(match.group(3)), prerelease
+
+
+def compare_semver(left: str, right: str) -> int:
+    left_major, left_minor, left_patch, _ = parse_semver(left)
+    right_major, right_minor, right_patch, _ = parse_semver(right)
+    left_core = (left_major, left_minor, left_patch)
+    right_core = (right_major, right_minor, right_patch)
+    if left_core == right_core:
+        return 0
+    return -1 if left_core < right_core else 1
 
 
 def check_state(repo_root: pathlib.Path, requested_version: str) -> tuple[str, str]:
@@ -90,7 +104,12 @@ def check_state(repo_root: pathlib.Path, requested_version: str) -> tuple[str, s
     if minimum_version is None:
         raise BootstrapABIStateError(f"unknown ABI policy: {go_abi}")
 
-    if semver_tuple(bootstrap_version) < semver_tuple(minimum_version):
+    if parse_semver(bootstrap_version)[3]:
+        raise BootstrapABIStateError(
+            f"unpublished prerelease bootstrap.Version: {bootstrap_version}"
+        )
+
+    if compare_semver(bootstrap_version, minimum_version) < 0:
         raise BootstrapABIStateError(
             f"stale bootstrap.Version: {bootstrap_version} is below minimum "
             f"{minimum_version} for ABI {go_abi}"
@@ -100,7 +119,7 @@ def check_state(repo_root: pathlib.Path, requested_version: str) -> tuple[str, s
         (
             policy_abi
             for policy_abi, policy_version in ABI_MINIMUM_VERSION.items()
-            if semver_tuple(bootstrap_version) >= semver_tuple(policy_version)
+            if compare_semver(bootstrap_version, policy_version) >= 0
         ),
         key=lambda policy_abi: int(policy_abi, 16),
     )
@@ -109,6 +128,9 @@ def check_state(repo_root: pathlib.Path, requested_version: str) -> tuple[str, s
             f"stale ABI policy: {go_abi} is below required {required_abi} "
             f"for bootstrap.Version {bootstrap_version}"
         )
+
+    if parse_semver(requested_version)[3]:
+        raise BootstrapABIStateError(f"release version must not be a prerelease: {requested_version}")
 
     if bootstrap_version != requested_version:
         raise BootstrapABIStateError(

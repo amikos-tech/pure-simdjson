@@ -9,7 +9,7 @@ import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 CHECK_HEADER_PATH = REPO_ROOT / "tests" / "abi" / "check_header.py"
-ABI_VERSION_DEFINE = "#define PURE_SIMDJSON_ABI_VERSION 0x00010002"
+ABI_VERSION_DEFINE = "#define PURE_SIMDJSON_ABI_VERSION 0x00010003"
 SURFACE_SIGNATURES = {
     "pure_simdjson_get_abi_version": ["uint32_t *out_version"],
     "pure_simdjson_set_implementation": [
@@ -22,6 +22,18 @@ SURFACE_SIGNATURES = {
         "uint8_t *dst",
         "size_t dst_cap",
         "size_t *out_written",
+    ],
+    "pure_simdjson_minify": [
+        "const uint8_t *src_ptr",
+        "size_t src_len",
+        "uint8_t *dst_ptr",
+        "size_t dst_cap",
+        "size_t *out_written",
+    ],
+    "pure_simdjson_validate_utf8": [
+        "const uint8_t *data_ptr",
+        "size_t data_len",
+        "uint8_t *out_valid",
     ],
     "pure_simdjson_native_alloc_stats_reset": [],
     "pure_simdjson_native_alloc_stats_snapshot": [
@@ -90,6 +102,10 @@ SURFACE_SIGNATURES = {
         "size_t *out_len",
     ],
     "pure_simdjson_bytes_free": ["uint8_t *ptr", "size_t len"],
+    "pure_simdjson_value_views_free": [
+        "struct pure_simdjson_value_view_t *ptr",
+        "size_t len",
+    ],
     "pure_simdjson_element_get_bool": [
         "const struct pure_simdjson_value_view_t *view",
         "uint8_t *out_value",
@@ -123,6 +139,38 @@ SURFACE_SIGNATURES = {
         "size_t key_len",
         "struct pure_simdjson_value_view_t *out_value",
     ],
+    "pure_simdjson_element_at_pointer": [
+        "const struct pure_simdjson_value_view_t *view",
+        "const uint8_t *pointer_ptr",
+        "size_t pointer_len",
+        "struct pure_simdjson_value_view_t *out_value",
+    ],
+    "pure_simdjson_element_at_path": [
+        "const struct pure_simdjson_value_view_t *view",
+        "const uint8_t *path_ptr",
+        "size_t path_len",
+        "struct pure_simdjson_value_view_t *out_value",
+    ],
+    "pure_simdjson_element_at_path_wildcard": [
+        "const struct pure_simdjson_value_view_t *view",
+        "const uint8_t *path_ptr",
+        "size_t path_len",
+        "struct pure_simdjson_value_view_t **out_views",
+        "size_t *out_count",
+    ],
+    "pure_simdjson_array_at": [
+        "const struct pure_simdjson_value_view_t *array_view",
+        "uint64_t index",
+        "struct pure_simdjson_value_view_t *out_value",
+    ],
+    "pure_simdjson_array_len": [
+        "const struct pure_simdjson_value_view_t *array_view",
+        "uint64_t *out_len",
+    ],
+    "pure_simdjson_object_size": [
+        "const struct pure_simdjson_value_view_t *object_view",
+        "uint64_t *out_size",
+    ],
 }
 PHASE_11_SYMBOLS = (
     "pure_simdjson_parser_new_configured",
@@ -130,6 +178,10 @@ PHASE_11_SYMBOLS = (
     "pure_simdjson_element_get_bigint",
     "pure_simdjson_set_implementation",
     "pure_simdjson_lock_implementation_selection",
+)
+PHASE_12_UTILITY_SYMBOLS = (
+    "pure_simdjson_minify",
+    "pure_simdjson_validate_utf8",
 )
 SURFACE_COMMENTS = {
     "pure_simdjson_doc_root": (
@@ -486,6 +538,19 @@ class DiagSurfaceRuleTests(unittest.TestCase):
 
     def test_rejects_each_wrong_phase_11_signature(self) -> None:
         for symbol in PHASE_11_SYMBOLS:
+            with self.subTest(symbol=symbol):
+                header_text = make_surface_header(
+                    overrides={symbol: ["uint32_t wrong_parameter"]}
+                )
+                prototypes = check_header.parse_prototypes(header_text)
+
+                with self.assertRaises(SystemExit) as excinfo:
+                    check_header.rule_diag_surface(prototypes, header_text)
+
+                self.assertIn(symbol, str(excinfo.exception))
+
+    def test_rejects_each_wrong_phase_12_utility_signature(self) -> None:
+        for symbol in PHASE_12_UTILITY_SYMBOLS:
             with self.subTest(symbol=symbol):
                 header_text = make_surface_header(
                     overrides={symbol: ["uint32_t wrong_parameter"]}

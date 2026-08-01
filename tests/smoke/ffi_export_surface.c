@@ -25,6 +25,8 @@ enum export_index {
   EXPORT_LOCK_IMPLEMENTATION_SELECTION,
   EXPORT_GET_IMPLEMENTATION_NAME_LEN,
   EXPORT_COPY_IMPLEMENTATION_NAME,
+  EXPORT_MINIFY,
+  EXPORT_VALIDATE_UTF8,
   EXPORT_NATIVE_ALLOC_STATS_RESET,
   EXPORT_NATIVE_ALLOC_STATS_SNAPSHOT,
   EXPORT_PARSER_NEW,
@@ -51,6 +53,13 @@ enum export_index {
   EXPORT_OBJECT_ITER_NEW,
   EXPORT_OBJECT_ITER_NEXT,
   EXPORT_OBJECT_GET_FIELD,
+  EXPORT_ARRAY_AT,
+  EXPORT_ARRAY_LEN,
+  EXPORT_OBJECT_SIZE,
+  EXPORT_ELEMENT_AT_POINTER,
+  EXPORT_ELEMENT_AT_PATH,
+  EXPORT_ELEMENT_AT_PATH_WILDCARD,
+  EXPORT_VALUE_VIEWS_FREE,
   EXPORT_COUNT,
 };
 
@@ -60,6 +69,8 @@ static const char *EXPORT_NAMES[EXPORT_COUNT] = {
     "pure_simdjson_lock_implementation_selection",
     "pure_simdjson_get_implementation_name_len",
     "pure_simdjson_copy_implementation_name",
+    "pure_simdjson_minify",
+    "pure_simdjson_validate_utf8",
     "pure_simdjson_native_alloc_stats_reset",
     "pure_simdjson_native_alloc_stats_snapshot",
     "pure_simdjson_parser_new",
@@ -86,6 +97,13 @@ static const char *EXPORT_NAMES[EXPORT_COUNT] = {
     "pure_simdjson_object_iter_new",
     "pure_simdjson_object_iter_next",
     "pure_simdjson_object_get_field",
+    "pure_simdjson_array_at",
+    "pure_simdjson_array_len",
+    "pure_simdjson_object_size",
+    "pure_simdjson_element_at_pointer",
+    "pure_simdjson_element_at_path",
+    "pure_simdjson_element_at_path_wildcard",
+    "pure_simdjson_value_views_free",
 };
 
 typedef pure_simdjson_error_code_t (*fn_get_abi_version)(uint32_t *);
@@ -93,6 +111,12 @@ typedef pure_simdjson_error_code_t (*fn_set_implementation)(const uint8_t *, siz
 typedef pure_simdjson_error_code_t (*fn_lock_implementation_selection)(void);
 typedef pure_simdjson_error_code_t (*fn_get_implementation_name_len)(size_t *);
 typedef pure_simdjson_error_code_t (*fn_copy_implementation_name)(uint8_t *, size_t, size_t *);
+typedef pure_simdjson_error_code_t (*fn_minify)(const uint8_t *,
+                                                size_t,
+                                                uint8_t *,
+                                                size_t,
+                                                size_t *);
+typedef pure_simdjson_error_code_t (*fn_validate_utf8)(const uint8_t *, size_t, uint8_t *);
 typedef pure_simdjson_error_code_t (*fn_native_alloc_stats_reset)(void);
 typedef pure_simdjson_error_code_t (*fn_native_alloc_stats_snapshot)(pure_simdjson_native_alloc_stats_t *);
 typedef pure_simdjson_error_code_t (*fn_parser_new)(pure_simdjson_parser_t *);
@@ -144,6 +168,26 @@ typedef pure_simdjson_error_code_t (*fn_object_get_field)(const pure_simdjson_va
                                                           const uint8_t *,
                                                           size_t,
                                                           pure_simdjson_value_view_t *);
+typedef pure_simdjson_error_code_t (*fn_array_at)(const pure_simdjson_value_view_t *,
+                                                  uint64_t,
+                                                  pure_simdjson_value_view_t *);
+typedef pure_simdjson_error_code_t (*fn_array_len)(const pure_simdjson_value_view_t *, uint64_t *);
+typedef pure_simdjson_error_code_t (*fn_object_size)(const pure_simdjson_value_view_t *, uint64_t *);
+typedef pure_simdjson_error_code_t (*fn_element_at_pointer)(const pure_simdjson_value_view_t *,
+                                                            const uint8_t *,
+                                                            size_t,
+                                                            pure_simdjson_value_view_t *);
+typedef pure_simdjson_error_code_t (*fn_element_at_path)(const pure_simdjson_value_view_t *,
+                                                         const uint8_t *,
+                                                         size_t,
+                                                         pure_simdjson_value_view_t *);
+typedef pure_simdjson_error_code_t (*fn_element_at_path_wildcard)(
+    const pure_simdjson_value_view_t *,
+    const uint8_t *,
+    size_t,
+    pure_simdjson_value_view_t **,
+    size_t *);
+typedef pure_simdjson_error_code_t (*fn_value_views_free)(pure_simdjson_value_view_t *, size_t);
 
 struct export_table {
 #ifdef _WIN32
@@ -158,6 +202,8 @@ struct export_table {
   fn_lock_implementation_selection lock_implementation_selection;
   fn_get_implementation_name_len get_implementation_name_len;
   fn_copy_implementation_name copy_implementation_name;
+  fn_minify minify;
+  fn_validate_utf8 validate_utf8;
   fn_native_alloc_stats_reset native_alloc_stats_reset;
   fn_native_alloc_stats_snapshot native_alloc_stats_snapshot;
   fn_parser_new parser_new;
@@ -184,6 +230,13 @@ struct export_table {
   fn_object_iter_new object_iter_new;
   fn_object_iter_next object_iter_next;
   fn_object_get_field object_get_field;
+  fn_array_at array_at;
+  fn_array_len array_len;
+  fn_object_size object_size;
+  fn_element_at_pointer element_at_pointer;
+  fn_element_at_path element_at_path;
+  fn_element_at_path_wildcard element_at_path_wildcard;
+  fn_value_views_free value_views_free;
 };
 
 static void *lookup_symbol(struct export_table *exports, const char *name)
@@ -285,6 +338,8 @@ static int resolve_exports(const char *library_path, struct export_table *export
           EXPORT_GET_IMPLEMENTATION_NAME_LEN,
           fn_get_implementation_name_len);
   RESOLVE(copy_implementation_name, EXPORT_COPY_IMPLEMENTATION_NAME, fn_copy_implementation_name);
+  RESOLVE(minify, EXPORT_MINIFY, fn_minify);
+  RESOLVE(validate_utf8, EXPORT_VALIDATE_UTF8, fn_validate_utf8);
   RESOLVE(native_alloc_stats_reset,
           EXPORT_NATIVE_ALLOC_STATS_RESET,
           fn_native_alloc_stats_reset);
@@ -323,6 +378,15 @@ static int resolve_exports(const char *library_path, struct export_table *export
   RESOLVE(object_iter_new, EXPORT_OBJECT_ITER_NEW, fn_object_iter_new);
   RESOLVE(object_iter_next, EXPORT_OBJECT_ITER_NEXT, fn_object_iter_next);
   RESOLVE(object_get_field, EXPORT_OBJECT_GET_FIELD, fn_object_get_field);
+  RESOLVE(array_at, EXPORT_ARRAY_AT, fn_array_at);
+  RESOLVE(array_len, EXPORT_ARRAY_LEN, fn_array_len);
+  RESOLVE(object_size, EXPORT_OBJECT_SIZE, fn_object_size);
+  RESOLVE(element_at_pointer, EXPORT_ELEMENT_AT_POINTER, fn_element_at_pointer);
+  RESOLVE(element_at_path, EXPORT_ELEMENT_AT_PATH, fn_element_at_path);
+  RESOLVE(element_at_path_wildcard,
+          EXPORT_ELEMENT_AT_PATH_WILDCARD,
+          fn_element_at_path_wildcard);
+  RESOLVE(value_views_free, EXPORT_VALUE_VIEWS_FREE, fn_value_views_free);
 
 #undef RESOLVE
   return 0;
@@ -584,6 +648,12 @@ int main(int argc, char **argv)
       "{\"int\":42,\"uint\":18446744073709551615,\"float\":3.5,\"str\":\"hello\","
       "\"bool\":true,\"null\":null,\"arr\":[1,2],\"obj\":{\"x\":7}}";
   static const uint8_t invalid_json[] = "";
+  static const uint8_t pointer_int[] = "/int";
+  static const uint8_t path_obj_x[] = ".obj.x";
+  static const uint8_t wildcard_arr[] = ".arr[*]";
+  static const uint8_t minify_source[] = " { \"a\" : [ 1, 2 ] } \n";
+  static const uint8_t valid_utf8[] = {'o', 'k', 0xe2, 0x82, 0xac};
+  static const uint8_t invalid_utf8[] = {0x80};
 
   struct export_table exports;
   pure_simdjson_parser_t parser = 0;
@@ -593,6 +663,8 @@ int main(int argc, char **argv)
   pure_simdjson_value_view_t iter_key = {0};
   pure_simdjson_value_view_t iter_value = {0};
   pure_simdjson_value_view_t array_value = {0};
+  pure_simdjson_value_view_t navigation_value = {0};
+  pure_simdjson_value_view_t *wildcard_views = NULL;
   pure_simdjson_array_iter_t array_iter = {0};
   pure_simdjson_object_iter_t object_iter = {0};
   uint32_t abi_version = 0;
@@ -606,6 +678,12 @@ int main(int argc, char **argv)
   double float_value = 0.0;
   uint8_t *string_ptr = NULL;
   size_t string_len = 0;
+  size_t wildcard_count = 0;
+  uint64_t array_len = 0;
+  uint64_t object_size = 0;
+  uint8_t minify_buffer[sizeof(minify_source) - 1];
+  size_t minified_len = 0;
+  uint8_t utf8_valid = 0;
   uint8_t bool_value = 0;
   uint8_t is_null = 0;
   uint8_t done = 0;
@@ -785,6 +863,212 @@ int main(int argc, char **argv)
                "expected root object kind %u, got %u",
                (unsigned)PURE_SIMDJSON_VALUE_KIND_OBJECT,
                (unsigned)root_kind);
+    goto cleanup;
+  }
+
+  mark_called(&exports, EXPORT_ELEMENT_AT_POINTER);
+  if (expect_status("pure_simdjson_element_at_pointer(/int)",
+                    exports.element_at_pointer(&root,
+                                               pointer_int,
+                                               sizeof(pointer_int) - 1,
+                                               &navigation_value),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  int_value = 0;
+  if (expect_status("pure_simdjson_element_get_int64(/int)",
+                    exports.element_get_int64(&navigation_value, &int_value),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (int_value != 42) {
+    rc = failf("pure_simdjson_element_at_pointer(/int)",
+               "expected 42, got %lld",
+               (long long)int_value);
+    goto cleanup;
+  }
+
+  mark_called(&exports, EXPORT_ELEMENT_AT_PATH);
+  memset(&navigation_value, 0, sizeof(navigation_value));
+  if (expect_status("pure_simdjson_element_at_path(.obj.x)",
+                    exports.element_at_path(&root,
+                                            path_obj_x,
+                                            sizeof(path_obj_x) - 1,
+                                            &navigation_value),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  int_value = 0;
+  if (expect_status("pure_simdjson_element_get_int64(.obj.x)",
+                    exports.element_get_int64(&navigation_value, &int_value),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (int_value != 7) {
+    rc = failf("pure_simdjson_element_at_path(.obj.x)",
+               "expected 7, got %lld",
+               (long long)int_value);
+    goto cleanup;
+  }
+
+  mark_called(&exports, EXPORT_ELEMENT_AT_PATH_WILDCARD);
+  if (expect_status("pure_simdjson_element_at_path_wildcard(.arr[*])",
+                    exports.element_at_path_wildcard(&root,
+                                                     wildcard_arr,
+                                                     sizeof(wildcard_arr) - 1,
+                                                     &wildcard_views,
+                                                     &wildcard_count),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (wildcard_views == NULL || wildcard_count != 2) {
+    rc = failf("pure_simdjson_element_at_path_wildcard(.arr[*])",
+               "expected two allocated views, got ptr=%p count=%zu",
+               (void *)wildcard_views,
+               wildcard_count);
+    goto cleanup;
+  }
+  for (size_t index = 0; index < wildcard_count; ++index) {
+    int_value = 0;
+    if (expect_status("pure_simdjson_element_get_int64(wildcard)",
+                      exports.element_get_int64(&wildcard_views[index], &int_value),
+                      PURE_SIMDJSON_OK) != 0) {
+      goto cleanup;
+    }
+    if (int_value != (int64_t)(index + 1)) {
+      rc = failf("pure_simdjson_element_at_path_wildcard(.arr[*])",
+                 "expected ordered value %zu, got %lld",
+                 index + 1,
+                 (long long)int_value);
+      goto cleanup;
+    }
+  }
+  mark_called(&exports, EXPORT_VALUE_VIEWS_FREE);
+  {
+    pure_simdjson_error_code_t free_status =
+        exports.value_views_free(wildcard_views, wildcard_count);
+    wildcard_views = NULL;
+    wildcard_count = 0;
+    if (expect_status("pure_simdjson_value_views_free",
+                      free_status,
+                      PURE_SIMDJSON_OK) != 0) {
+      goto cleanup;
+    }
+  }
+
+  if (expect_status("pure_simdjson_object_get_field(arr-for-indexing)",
+                    exports.object_get_field(&root,
+                                             (const uint8_t *)"arr",
+                                             3,
+                                             &view),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  mark_called(&exports, EXPORT_ARRAY_LEN);
+  if (expect_status("pure_simdjson_array_len",
+                    exports.array_len(&view, &array_len),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (array_len != 2) {
+    rc = failf("pure_simdjson_array_len", "expected 2, got %" PRIu64, array_len);
+    goto cleanup;
+  }
+
+  mark_called(&exports, EXPORT_ARRAY_AT);
+  memset(&array_value, 0, sizeof(array_value));
+  if (expect_status("pure_simdjson_array_at(index=1)",
+                    exports.array_at(&view, 1, &array_value),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  int_value = 0;
+  if (expect_status("pure_simdjson_element_get_int64(array-at)",
+                    exports.element_get_int64(&array_value, &int_value),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (int_value != 2) {
+    rc = failf("pure_simdjson_array_at(index=1)",
+               "expected 2, got %lld",
+               (long long)int_value);
+    goto cleanup;
+  }
+
+  mark_called(&exports, EXPORT_OBJECT_SIZE);
+  if (expect_status("pure_simdjson_object_size(root)",
+                    exports.object_size(&root, &object_size),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (object_size != 8) {
+    rc = failf("pure_simdjson_object_size(root)",
+               "expected 8, got %" PRIu64,
+               object_size);
+    goto cleanup;
+  }
+
+  memcpy(minify_buffer, minify_source, sizeof(minify_source) - 1);
+  mark_called(&exports, EXPORT_MINIFY);
+  if (expect_status("pure_simdjson_minify(exact-alias)",
+                    exports.minify(minify_buffer,
+                                   sizeof(minify_buffer),
+                                   minify_buffer,
+                                   sizeof(minify_buffer),
+                                   &minified_len),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (expect_string("pure_simdjson_minify(exact-alias)",
+                    minify_buffer,
+                    minified_len,
+                    "{\"a\":[1,2]}") != 0) {
+    goto cleanup;
+  }
+
+  {
+    uint8_t undersized_dst[sizeof(minify_source) - 2];
+    size_t undersized_written = SIZE_MAX;
+    if (expect_status("pure_simdjson_minify(undersized-dst)",
+                      exports.minify(minify_source,
+                                     sizeof(minify_source) - 1,
+                                     undersized_dst,
+                                     sizeof(undersized_dst),
+                                     &undersized_written),
+                      PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL) != 0) {
+      goto cleanup;
+    }
+    if (undersized_written != sizeof(minify_source) - 1) {
+      rc = failf("pure_simdjson_minify(undersized-dst)",
+                 "expected out_written=%zu, got %zu",
+                 sizeof(minify_source) - 1,
+                 undersized_written);
+      goto cleanup;
+    }
+  }
+
+  mark_called(&exports, EXPORT_VALIDATE_UTF8);
+  if (expect_status("pure_simdjson_validate_utf8(valid)",
+                    exports.validate_utf8(valid_utf8, sizeof(valid_utf8), &utf8_valid),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (utf8_valid != 1) {
+    rc = failf("pure_simdjson_validate_utf8(valid)",
+               "expected 1, got %u",
+               (unsigned)utf8_valid);
+    goto cleanup;
+  }
+  utf8_valid = 1;
+  if (expect_status("pure_simdjson_validate_utf8(lone-continuation)",
+                    exports.validate_utf8(invalid_utf8, sizeof(invalid_utf8), &utf8_valid),
+                    PURE_SIMDJSON_OK) != 0) {
+    goto cleanup;
+  }
+  if (utf8_valid != 0) {
+    rc = failf("pure_simdjson_validate_utf8(lone-continuation)",
+               "expected 0, got %u",
+               (unsigned)utf8_valid);
     goto cleanup;
   }
 
@@ -1061,6 +1345,9 @@ int main(int argc, char **argv)
 cleanup:
   free(impl_name);
   free(last_error);
+  if (wildcard_views != NULL) {
+    exports.value_views_free(wildcard_views, wildcard_count);
+  }
   if (doc != 0) {
     exports.doc_free(doc);
   }

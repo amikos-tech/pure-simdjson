@@ -1,0 +1,92 @@
+---
+phase: 260731-q1j-address-the-release-workflow-contract-sa
+plan: quick-full
+subsystem: release-ci-and-ffi-contracts
+tags: [github-actions, semver, simdjson, ffi, concurrency, go, rust]
+requires:
+  - phase: 12
+    provides: ABI 1.3 navigation, utility, and materialization surfaces
+provides:
+  - PR-to-main smoke workflow contracts and prerelease-aware release validation
+  - Native wildcard syntax classification with safe carrier ownership
+  - Reserved utility kernel-state transitions and value/frame ABI guards
+affects: [release workflow, bootstrap ABI checks, wildcard navigation, kernel selection, materialization]
+tech-stack:
+  added: [shared workflow YAML loader]
+  patterns: [structured workflow YAML assertions, native wildcard classification, utility reservation protocol]
+key-files:
+  modified:
+    - .github/workflows/phase2-rust-shim-smoke.yml
+    - scripts/release/check_bootstrap_abi_state.py
+    - src/native/simdjson_bridge.cpp
+    - kernel.go
+    - materializer_fastpath.go
+key-decisions:
+  - "Validate wildcard structure in the C++ bridge before traversal can suppress syntax errors."
+  - "Reserve kernel selection while utility library/native work runs without kernelMu."
+requirements-completed: [C1, C2, C3, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10]
+duration: 32min
+completed: 2026-07-31
+---
+
+# Quick Task 260731-q1j: Release Workflow and ABI Contract Safety Summary
+
+**PR smoke coverage, semver release floors, wildcard carrier safety, and utility kernel reservations are enforced with behavioral regression tests.**
+
+## Accomplishments
+
+- Added pull-request-to-main workflow coverage without temporary branch allowlists, removed the unmeasured sanitizer flag, and order SemVer prereleases below the corresponding final release.
+- Classified wildcard expressions in the C++ bridge before traversal, matching vendored simdjson literal behavior and preserving quoted-bracket key semantics.
+- Normalized native carrier/free sentinels, zeroed wildcard error outputs, and added a deterministic SetKernel-versus-utility reservation test.
+- Replaced delayed uintptr frame conversions with pointer-typed FFI fields, pinned all value-view field offsets, and tested bounded copied string spans.
+- Corrected the native wildcard evaluator so indexed and quoted dotted literal spans are resolved through vendored `AtPath` before each structural wildcard expansion.
+- Follow-up hardening makes utility reservations panic-safe and concurrent, rejects malformed wildcard segments before data traversal, and rejects prerelease release identities in both source checks and tag workflow validation.
+
+## Task Commits
+
+1. **Plan 01: Release workflow contracts** — `e07a9c9`
+2. **Plan 02: Wildcard FFI contracts** — `3dd3697`
+3. **Plan 03: Utility kernel reservation and ABI guards** — `fb61fb7`
+4. **Verifier corrective slice: literal wildcard prefixes** — `0c74a54`
+5. **Follow-up contract hardening** — `123dbef`
+
+## Verification Evidence
+
+- `python3 -m unittest scripts/release/test_release_workflow_contracts.py scripts/release/test_check_bootstrap_abi_state.py` — 37 tests passed.
+- `bash scripts/ci/verify_minify_buffer_safety.sh` — three ASan/UBSan probe runs passed (`kernels=arm64,fallback`, `total=24`).
+- `cargo test --test rust_shim_navigation --test rust_shim_accessors -- --test-threads=1` — 29 tests passed.
+- `cargo test -- --test-threads=1` and `make verify-contract` — passed, including generated-header and C ABI checks.
+- `go test ./internal/ffi ./... -race`, `go test ./... -race`, and `go vet ./...` — passed.
+- `cc -Iinclude tests/abi/handle_layout.c -c` — passed.
+- Corrective slice: `cargo test -- --test-threads=1`, `go test ./... -race`, `go vet ./...`, and `make verify-contract` — passed.
+- Follow-up slice: release Python discovery, full Rust tests, `go test ./... -race`, `go vet ./...`, and `make verify-contract` — passed.
+
+## Decisions Made
+
+- Release workflow contracts use the shared structured YAML loader, with `yq` fallback when PyYAML is unavailable.
+- A valid wildcard with no matches is the native null/zero sentinel; malformed or literal-star expressions return `ErrInvalidPath` on every receiver type.
+- Utility calls reserve selection before unlocked library/native work and publish their final status before `SetKernel` can bind a new implementation.
+
+## Deviations from Plan
+
+### Auto-fixed Issues
+
+**1. [Rule 1 - Bug] Wildcard traversal lost indexed and quoted dotted literal prefixes**
+- **Found during:** Final verification after Plan 02.
+- **Issue:** Delegating a complete expression to upstream wildcard traversal made `.arr[0][*]` empty and stripped quotes from `.obj['foo.bar'][*]`.
+- **Fix:** Classify structural wildcard segments once, resolve every literal span with vendored `AtPath`, then expand only bare `.*` or `[*]` segments.
+- **Verification:** Added Rust ABI and public Go regressions for both paths plus indexed literals between wildcards.
+- **Committed in:** `0c74a54`.
+
+## Known Stubs
+
+None.
+
+## Next Readiness
+
+All C1-C3 and I1-I10 contracts covered by this quick task are implemented and verified. No external setup, release action, push, or merge was performed.
+
+## Self-Check: PASSED
+
+- Summary exists at the planned quick-task path.
+- Commits `e07a9c9`, `3dd3697`, `fb61fb7`, `0c74a54`, and `123dbef` are present in git history.

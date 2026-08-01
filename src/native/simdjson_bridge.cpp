@@ -1,6 +1,7 @@
 #include "simdjson_bridge.h"
 #include "native_alloc_telemetry.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -75,6 +76,8 @@ struct psimdjson_doc {
   // Guard is per-doc because Go serializes all live document access with
   // Doc.mu; if that invariant changes, this scratch vector needs a wider guard.
   bool materialize_in_progress{false};
+  std::vector<uint64_t> wildcard_indices{};
+  bool wildcard_in_progress{false};
 };
 
 struct psimdjson_parser {
@@ -176,15 +179,17 @@ pure_simdjson_error_code_t map_error(simdjson::error_code error) noexcept {
       return PURE_SIMDJSON_ERR_INVALID_JSON;
     case simdjson::DEPTH_ERROR:
       return PURE_SIMDJSON_ERR_DEPTH_LIMIT;
+    case simdjson::INVALID_JSON_POINTER:
+      return PURE_SIMDJSON_ERR_INVALID_PATH;
+    case simdjson::INDEX_OUT_OF_BOUNDS:
+      return PURE_SIMDJSON_ERR_INDEX_OUT_OF_RANGE;
     case simdjson::CAPACITY:
     case simdjson::MEMALLOC:
     case simdjson::IO_ERROR:
-    case simdjson::INVALID_JSON_POINTER:
     case simdjson::INVALID_URI_FRAGMENT:
     case simdjson::UNEXPECTED_ERROR:
     case simdjson::PARSER_IN_USE:
     case simdjson::UNINITIALIZED:
-    case simdjson::INDEX_OUT_OF_BOUNDS:
     case simdjson::OUT_OF_ORDER_ITERATION:
     case simdjson::INSUFFICIENT_PADDING:
     case simdjson::SCALAR_DOCUMENT_AS_VALUE:
@@ -196,6 +201,182 @@ pure_simdjson_error_code_t map_error(simdjson::error_code error) noexcept {
     default:
       return PURE_SIMDJSON_ERR_INTERNAL;
   }
+}
+
+struct WildcardPathSegment {
+  bool wildcard{false};
+  std::string path{};
+};
+
+// Classify the complete expression before traversal can suppress child
+// failures. Literal spans are resolved by vendored AtPath; this scan only
+// recognizes the two ABI wildcard tokens and rejects malformed separators.
+bool classify_wildcard_path(
+    std::string_view path,
+    std::vector<WildcardPathSegment> *segments
+) {
+  if (segments == nullptr || path.empty() || !simdjson::validate_utf8(path)) {
+    return false;
+  }
+
+  segments->clear();
+  size_t index = 0;
+  if (path.front() == '$') {
+    index = 1;
+  }
+  if (index == path.size() || (path[index] != '.' && path[index] != '[')) {
+    return false;
+  }
+
+  bool saw_wildcard = false;
+  while (index < path.size()) {
+    if (path[index] == '.') {
+      const size_t segment_start = ++index;
+      while (index < path.size() && path[index] != '.' && path[index] != '[') {
+        ++index;
+      }
+      const auto segment = path.substr(segment_start, index - segment_start);
+      if (segment.empty()) {
+        return false;
+      }
+      if (segment == "*") {
+        saw_wildcard = true;
+        segments->push_back({true, ".*"});
+      } else {
+        if (segment.find('*') != std::string_view::npos) {
+          return false;
+        }
+        const bool decimal_index = std::all_of(
+            segment.begin(), segment.end(),
+            [](unsigned char character) { return character >= '0' && character <= '9'; }
+        );
+        if (decimal_index && segment.size() > 1 && segment.front() == '0') {
+          return false;
+        }
+        segments->push_back({false, "." + std::string(segment)});
+      }
+      continue;
+    }
+
+    if (path[index] != '[') {
+      return false;
+    }
+    const size_t segment_start = index;
+    const size_t close = path.find(']', index + 1);
+    if (close == std::string_view::npos) {
+      return false;
+    }
+    const auto segment = path.substr(index + 1, close - index - 1);
+    if (segment.empty()) {
+      return false;
+    }
+    index = close + 1;
+    if (segment == "*") {
+      saw_wildcard = true;
+      segments->push_back({true, "[*]"});
+      continue;
+    }
+    if (segment.find('*') != std::string_view::npos) {
+      return false;
+    }
+    const bool quoted_key =
+        segment.size() >= 2 &&
+        (segment.front() == '\'' || segment.front() == '"') &&
+        segment.back() == segment.front();
+    const bool decimal_index = std::all_of(
+        segment.begin(), segment.end(),
+        [](unsigned char character) { return character >= '0' && character <= '9'; }
+    );
+    if ((!quoted_key && !decimal_index) ||
+        (decimal_index && segment.size() > 1 && segment.front() == '0')) {
+      return false;
+    }
+
+    segments->push_back({
+        false,
+        std::string(path.substr(segment_start, close - segment_start + 1))
+    });
+  }
+
+  return saw_wildcard;
+}
+
+// Apply literal spans through vendored AtPath, then expand one bare wildcard
+// at a time. This avoids at_path_with_wildcard's divergent quote stripping and
+// its inability to consume indexed prefixes such as .arr[0][*].
+pure_simdjson_error_code_t traverse_wildcard_path(
+    simdjson::dom::element root,
+    const std::vector<WildcardPathSegment> &segments,
+    std::vector<simdjson::dom::element> *matches
+) {
+  if (matches == nullptr) {
+    return invalid_argument();
+  }
+  std::vector<simdjson::dom::element> current{root};
+  std::string literal_path;
+
+  const auto apply_literal = [&]() -> pure_simdjson_error_code_t {
+    if (literal_path.empty()) {
+      return PURE_SIMDJSON_OK;
+    }
+    std::vector<simdjson::dom::element> next;
+    for (const auto &element : current) {
+      simdjson::dom::element resolved;
+      const auto error = element.at_path(literal_path).get(resolved);
+      if (error == simdjson::SUCCESS) {
+        next.push_back(resolved);
+      } else {
+        switch (error) {
+          case simdjson::INVALID_JSON_POINTER:
+          case simdjson::NO_SUCH_FIELD:
+          case simdjson::INCORRECT_TYPE:
+          case simdjson::INDEX_OUT_OF_BOUNDS:
+            break;
+          default:
+            return map_error(error);
+        }
+      }
+    }
+    current = std::move(next);
+    literal_path.clear();
+    return PURE_SIMDJSON_OK;
+  };
+
+  for (const auto &segment : segments) {
+    if (!segment.wildcard) {
+      literal_path.append(segment.path);
+      continue;
+    }
+    const auto literal_error = apply_literal();
+    if (literal_error != PURE_SIMDJSON_OK) {
+      return literal_error;
+    }
+    std::vector<simdjson::dom::element> next;
+    for (const auto &element : current) {
+      std::vector<simdjson::dom::element> children;
+      const auto error = element.at_path_with_wildcard(segment.path).get(children);
+      if (error == simdjson::SUCCESS) {
+        next.insert(next.end(), children.begin(), children.end());
+      } else {
+        switch (error) {
+          case simdjson::INVALID_JSON_POINTER:
+          case simdjson::NO_SUCH_FIELD:
+          case simdjson::INCORRECT_TYPE:
+          case simdjson::INDEX_OUT_OF_BOUNDS:
+            break;
+          default:
+            return map_error(error);
+        }
+      }
+    }
+    current = std::move(next);
+  }
+  const auto literal_error = apply_literal();
+  if (literal_error != PURE_SIMDJSON_OK) {
+    return literal_error;
+  }
+  *matches = std::move(current);
+  return PURE_SIMDJSON_OK;
 }
 
 pure_simdjson_value_kind_t map_element_type(simdjson::dom::element_type type) noexcept {
@@ -823,6 +1004,33 @@ class materialize_build_guard {
   bool acquired_{false};
 };
 
+class wildcard_build_guard {
+ public:
+  explicit wildcard_build_guard(psimdjson_doc *doc) noexcept : doc_(doc) {
+    if (doc_ != nullptr && !doc_->wildcard_in_progress) {
+      doc_->wildcard_in_progress = true;
+      acquired_ = true;
+    }
+  }
+
+  wildcard_build_guard(const wildcard_build_guard &) = delete;
+  wildcard_build_guard &operator=(const wildcard_build_guard &) = delete;
+
+  ~wildcard_build_guard() noexcept {
+    if (acquired_) {
+      doc_->wildcard_in_progress = false;
+    }
+  }
+
+  bool acquired() const noexcept {
+    return acquired_;
+  }
+
+ private:
+  psimdjson_doc *doc_{nullptr};
+  bool acquired_{false};
+};
+
 void clear_materialize_outputs(
     const psdj_internal_frame_t **out_frames,
     size_t *out_frame_count
@@ -1081,6 +1289,111 @@ pure_simdjson_error_code_t psimdjson_copy_implementation_name(
 ) noexcept {
   try {
     return copy_bytes(implementation_name(), dst, dst_cap, out_written);
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_minify(
+    const uint8_t *src_ptr,
+    size_t src_len,
+    uint8_t *dst_ptr,
+    size_t dst_cap,
+    size_t *out_written
+) noexcept {
+  try {
+    if (out_written == nullptr) {
+      return invalid_argument();
+    }
+
+    *out_written = src_len;
+    // Upstream minify receives no destination capacity. Enforce its full-input
+    // upper bound before kernel selection or any native write can occur.
+    if (dst_cap < src_len) {
+      return PURE_SIMDJSON_ERR_BUFFER_TOO_SMALL;
+    }
+    if (src_len != 0 && (src_ptr == nullptr || dst_ptr == nullptr)) {
+      return invalid_argument();
+    }
+
+    // Exact same-start aliasing is supported. Every other non-empty layout
+    // must be disjoint across the caller-declared source and destination spans.
+    if (src_len != 0 && src_ptr != dst_ptr) {
+      const uintptr_t src_address = reinterpret_cast<uintptr_t>(src_ptr);
+      const uintptr_t dst_address = reinterpret_cast<uintptr_t>(dst_ptr);
+      const uintptr_t address_max = std::numeric_limits<uintptr_t>::max();
+      if (src_len > address_max - src_address ||
+          dst_cap > address_max - dst_address) {
+        return invalid_argument();
+      }
+
+      const uintptr_t src_end = src_address + src_len;
+      const uintptr_t dst_end = dst_address + dst_cap;
+      if (src_address < dst_end && dst_address < src_end) {
+        return invalid_argument();
+      }
+    }
+
+    auto &selection = implementation_selection_state();
+    {
+      const std::lock_guard<std::mutex> lock(selection.mutex);
+      const simdjson::implementation *implementation =
+          simdjson::get_active_implementation();
+      if (!selection.explicit_selection && implementation->name() == "fallback") {
+        return PURE_SIMDJSON_ERR_CPU_UNSUPPORTED;
+      }
+      selection.locked = true;
+    }
+
+    if (src_len == 0) {
+      *out_written = 0;
+      return PURE_SIMDJSON_OK;
+    }
+
+    size_t written = 0;
+    // Minify is a whitespace-removing scan, not JSON validation. Upstream can
+    // report an unclosed string, but other malformed JSON may still succeed.
+    const auto error = simdjson::minify(
+        reinterpret_cast<const char *>(src_ptr),
+        src_len,
+        reinterpret_cast<char *>(dst_ptr),
+        written
+    );
+    if (error != simdjson::SUCCESS) {
+      return map_error(error);
+    }
+
+    *out_written = written;
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_validate_utf8(
+    const uint8_t *data_ptr,
+    size_t data_len,
+    uint8_t *out_valid
+) noexcept {
+  try {
+    if (out_valid == nullptr) {
+      return invalid_argument();
+    }
+    if (data_len != 0 && data_ptr == nullptr) {
+      return invalid_argument();
+    }
+
+    auto &selection = implementation_selection_state();
+    {
+      const std::lock_guard<std::mutex> lock(selection.mutex);
+      const simdjson::implementation *implementation =
+          simdjson::get_active_implementation();
+      if (!selection.explicit_selection && implementation->name() == "fallback") {
+        return PURE_SIMDJSON_ERR_CPU_UNSUPPORTED;
+      }
+      selection.locked = true;
+    }
+
+    *out_valid = simdjson::validate_utf8(
+        reinterpret_cast<const char *>(data_ptr), data_len
+    ) ? 1 : 0;
+    return PURE_SIMDJSON_OK;
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
 
@@ -1536,6 +1849,194 @@ pure_simdjson_error_code_t psimdjson_object_get_field_index(
     }
 
     *out_value_json_index = element_json_index(value);
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+// The five supported targets (linux/amd64, linux/arm64, darwin/amd64,
+// darwin/arm64, and windows/amd64) all use 64-bit size_t. Fail closed if a
+// future target would narrow the uint64_t Array.At index at this boundary.
+static_assert(sizeof(size_t) == sizeof(uint64_t),
+              "Array.At requires a 64-bit size_t on supported targets");
+
+pure_simdjson_error_code_t psimdjson_array_at_index(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t index,
+    uint64_t *out_value_json_index
+) noexcept {
+  try {
+    if (doc == nullptr || out_value_json_index == nullptr) {
+      return invalid_argument();
+    }
+
+    simdjson::dom::array array;
+    const auto array_error = element_at(doc, json_index).get_array().get(array);
+    if (array_error != simdjson::SUCCESS) {
+      return map_error(array_error);
+    }
+
+    simdjson::dom::element value;
+    const auto at_error = array.at(size_t(index)).get(value);
+    if (at_error != simdjson::SUCCESS) {
+      return map_error(at_error);
+    }
+
+    *out_value_json_index = element_json_index(value);
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_array_size(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t *out_size
+) noexcept {
+  try {
+    if (doc == nullptr || out_size == nullptr) {
+      return invalid_argument();
+    }
+
+    simdjson::dom::array array;
+    const auto array_error = element_at(doc, json_index).get_array().get(array);
+    if (array_error != simdjson::SUCCESS) {
+      return map_error(array_error);
+    }
+
+    *out_size = uint64_t(array.size());
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_object_size(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    uint64_t *out_size
+) noexcept {
+  try {
+    if (doc == nullptr || out_size == nullptr) {
+      return invalid_argument();
+    }
+
+    simdjson::dom::object object;
+    const auto object_error = element_at(doc, json_index).get_object().get(object);
+    if (object_error != simdjson::SUCCESS) {
+      return map_error(object_error);
+    }
+
+    *out_size = uint64_t(object.size());
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_element_at_pointer_index(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t *pointer_ptr,
+    size_t pointer_len,
+    uint64_t *out_value_json_index
+) noexcept {
+  try {
+    if (doc == nullptr || out_value_json_index == nullptr) {
+      return invalid_argument();
+    }
+    if (pointer_len != 0 && pointer_ptr == nullptr) {
+      return invalid_argument();
+    }
+
+    const auto pointer = pointer_len == 0
+        ? std::string_view{}
+        : std::string_view(reinterpret_cast<const char *>(pointer_ptr), pointer_len);
+    simdjson::dom::element value;
+    const auto pointer_error = element_at(doc, json_index).at_pointer(pointer).get(value);
+    if (pointer_error != simdjson::SUCCESS) {
+      return map_error(pointer_error);
+    }
+
+    *out_value_json_index = element_json_index(value);
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_element_at_path_index(
+    const psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t *path_ptr,
+    size_t path_len,
+    uint64_t *out_value_json_index
+) noexcept {
+  try {
+    if (doc == nullptr || out_value_json_index == nullptr) {
+      return invalid_argument();
+    }
+    if (path_len != 0 && path_ptr == nullptr) {
+      return invalid_argument();
+    }
+
+    const auto path = path_len == 0
+        ? std::string_view{}
+        : std::string_view(reinterpret_cast<const char *>(path_ptr), path_len);
+    simdjson::dom::element value;
+    const auto path_error = element_at(doc, json_index).at_path(path).get(value);
+    if (path_error != simdjson::SUCCESS) {
+      return map_error(path_error);
+    }
+
+    *out_value_json_index = element_json_index(value);
+    return PURE_SIMDJSON_OK;
+  } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
+}
+
+pure_simdjson_error_code_t psimdjson_element_at_path_wildcard_indices(
+    psimdjson_doc *doc,
+    uint64_t json_index,
+    const uint8_t *path_ptr,
+    size_t path_len,
+    const uint64_t **out_indices,
+    size_t *out_count
+) noexcept {
+  try {
+    if (out_indices == nullptr || out_count == nullptr) {
+      return invalid_argument();
+    }
+    *out_indices = nullptr;
+    *out_count = 0;
+    if (doc == nullptr) {
+      return invalid_argument();
+    }
+    if (path_len != 0 && path_ptr == nullptr) {
+      return invalid_argument();
+    }
+
+    const auto path = path_len == 0
+        ? std::string_view{}
+        : std::string_view(reinterpret_cast<const char *>(path_ptr), path_len);
+    std::vector<WildcardPathSegment> segments;
+    if (!classify_wildcard_path(path, &segments)) {
+      return PURE_SIMDJSON_ERR_INVALID_PATH;
+    }
+
+    wildcard_build_guard guard(doc);
+    if (!guard.acquired()) {
+      return PURE_SIMDJSON_ERR_PARSER_BUSY;
+    }
+
+    std::vector<simdjson::dom::element> matches;
+    const auto traversal_error =
+        traverse_wildcard_path(element_at(doc, json_index), segments, &matches);
+    if (traversal_error != PURE_SIMDJSON_OK) {
+      return traversal_error;
+    }
+
+    doc->wildcard_indices.clear();
+    doc->wildcard_indices.reserve(matches.size());
+    for (const auto &element : matches) {
+      doc->wildcard_indices.push_back(element_json_index(element));
+    }
+    if (!doc->wildcard_indices.empty()) {
+      *out_indices = doc->wildcard_indices.data();
+      *out_count = doc->wildcard_indices.size();
+    }
     return PURE_SIMDJSON_OK;
   } PSIMDJSON_CATCH_CPP_EXCEPTIONS(__func__)
 }
