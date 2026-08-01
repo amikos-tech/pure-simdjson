@@ -111,7 +111,8 @@ fn patched_simdjson_source(source: &str) -> PathBuf {
         "failed to apply the approved simdjson patch",
     );
     let patched_text = fs::read_to_string(&patched_source)
-        .unwrap_or_else(|error| panic!("failed to verify patched simdjson source: {error}"));
+        .unwrap_or_else(|error| panic!("failed to verify patched simdjson source: {error}"))
+        .replace("\r\n", "\n");
     require_bigint_branch_parity(
         &patched_text,
         "too-many-digits",
